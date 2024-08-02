@@ -5,6 +5,8 @@ from asyncpg.pool import Pool
 from typing import Optional
 from contextlib import asynccontextmanager
 import time
+import json
+import uuid
 
 class Database:
     pool: Optional[Pool] = None
@@ -79,3 +81,24 @@ class Database:
             return True
         except Exception:
             return False
+        
+    @classmethod
+    async def create_riyadh_villa_allrooms_json_table(cls):
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS riyadh_villa_allrooms_json (
+            id UUID PRIMARY KEY,
+            data JSONB
+        );
+        """
+        await cls.execute(create_table_query)
+
+    @classmethod
+    async def insert_json_data(cls, json_data: dict):
+        insert_query = """
+        INSERT INTO riyadh_villa_allrooms_json (id, data) 
+        VALUES ($1, $2)
+        """
+        new_id = str(uuid.uuid4())
+        json_str = json.dumps(json_data)  # Convert dict to JSON string
+        await cls.execute(insert_query, new_id, json_str)
+        return new_id

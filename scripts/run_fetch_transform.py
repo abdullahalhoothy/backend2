@@ -1,7 +1,11 @@
 # run_fetch_transform.py
 import asyncio
 from database import Database
+from storage import (   
+    convert_to_serializable,
+)
 
+from all_types.myapi_dtypes import MapData
 
 async def main():
     try:
@@ -19,20 +23,43 @@ async def main():
 
         # Fetch data from database
         rows = await Database.fetch(query)
+        keys=  list(dict(rows[0]).keys())
+      
+        # do your transofmration       
+        features=[]
+        for row in rows:
+            lng = row["additional__weblisting_uri___location_lat"]
+            lat = row["additional__weblisting_uri___location_lng"]
+            # keys without lat and lng
+            customKeys = [x for x in keys if x != "additional__weblisting_uri___location_lat" and x != "additional__weblisting_uri___location_lng"]
 
-        # do your transofmration
-        transformed_data = [
-            {
-                "id": row['id'],
-                "name": row['name'],
-                # Add more fields as needed
+
+            feature = {
+                'type': 'Feature',
+                'properties': 
+                    {key: row[key] for key in customKeys}
+                ,
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [lng, lat]
+                }
             }
-            for row in rows
-        ]
-        # save it back to postgres in a new table as a json object in 1 column
+            features.append(feature)
 
+        data = MapData(
+            type='FeatureCollection',
+            features=features
+        )
+        # save it back to postgres in a new table as a json object in 1 column
+    
         # usea method in storage.py to save to JSON file
 
+        serializable_data=convert_to_serializable( data)
+        new_id = await Database.insert_json_data(serializable_data)
+        print(f"Inserted data with ID: {new_id}")
+
+        
+      
 
 
     except Exception as e:
