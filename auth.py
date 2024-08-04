@@ -67,6 +67,7 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
             "returnSecureToken": True,
         }
         response = await make_firebase_api_request(CONF.firebase_signInWithPassword, payload)
+        response["created_at"] = datetime.now()
         return response
     except auth.UserNotFoundError as e:
         raise HTTPException(
@@ -81,9 +82,16 @@ async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
     except auth.InvalidIdTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid access token",
+            detail=f"invalid access token={token}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+
 
 
 
@@ -94,11 +102,7 @@ async def get_user_account(req: ReqUserProfile) -> Dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    return {
-        "user_id": user_data["user_id"],
-        "username": user_data["username"],
-        "email": user_data["email"],
-    }
+    return user_data
 
 
 
@@ -149,7 +153,6 @@ async def make_firebase_api_request(url, payload):
     try:
         url = url + CONF.firebase_api_key
         response = requests.post(url, json=payload, timeout=120)
-        response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as e:
         raise HTTPException(

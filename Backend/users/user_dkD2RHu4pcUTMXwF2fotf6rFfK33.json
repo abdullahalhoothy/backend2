@@ -1,0 +1,40 @@
+{
+  "user_id": "dkD2RHu4pcUTMXwF2fotf6rFfK33",
+  "username": "string",
+  "email": "testemail@gmail.com",
+  "prdcer": {
+    "prdcer_dataset": {},
+    "prdcer_lyrs": {
+      "string": {
+        "prdcer_layer_name": "string",
+        "prdcer_lyr_id": "string",
+        "bknd_dataset_id": "string",
+        "points_color": "string",
+        "layer_legend": "string",
+        "layer_description": "string"
+      },
+      "l18503d95-2a23-404d-b63d-e0c0036d2e4d": {
+        "prdcer_layer_name": "test1",
+        "prdcer_lyr_id": "l18503d95-2a23-404d-b63d-e0c0036d2e4d",
+        "bknd_dataset_id": "39.1728_21.5433_8000_exclude=['rest_stop']_include=['car_dealer']_token=",
+        "points_color": "#FF5733",
+        "layer_legend": "test1",
+        "layer_description": "test1"
+      }
+    },
+    "prdcer_ctlgs": {
+      "c80": {
+        "prdcer_ctlg_name": "string",
+        "prdcer_ctlg_id": "c80",
+        "subscription_price": "string",
+        "ctlg_description": "string",
+        "total_records": 0,
+        "lyrs": [
+          "p3"
+        ],
+        "thumbnail_url": "string",
+        "ctlg_owner_user_id": "ec6cd2a6-0c7b-4d8b-829e-12b77a6ecac2"
+      }
+    }
+  }
+}

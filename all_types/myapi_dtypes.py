@@ -157,6 +157,7 @@ class ReqCreateLyr(BaseModel):
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
+    user_id: str
 
 
 class ReqApplyZoneLayers(BaseModel):
@@ -233,7 +234,7 @@ ResConfirmReset = ResponseModel[Dict[str, Any]]
 ResChangePassword = ResponseModel[Dict[str, Any]]
 
 
-class RequestModel(BaseModel, Generic[U]):
+class ReqModel(BaseModel, Generic[U]):
     message: str
     request_info: Dict
     request_body: U
