@@ -20,13 +20,7 @@ CONF = get_conf()
 
 
 async def fetch_from_google_maps_api(req: ReqLocation):
-    lat, lng, radius, place_type, page_token = (
-        req.lat,
-        req.lng,
-        req.radius,
-        req.type,
-        req.page_token,
-    )
+
 
     headers = {
         "Content-Type": "application/json",
@@ -34,14 +28,15 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         "X-Goog-FieldMask": CONF.google_fields,
     }
     data = {
-        "includedTypes": [place_type],
+        "includedTypes": [req.includedTypes],
+        "excludedTypes": [req.excludedTypes],
         "locationRestriction": {
             "circle": {
                 "center": {
-                    "latitude": lat,
-                    "longitude": lng
+                    "latitude": req.lat,
+                    "longitude": req.lng
                 },
-                "radius": radius
+                "radius": req.radius
             }
         },
     }

@@ -23,7 +23,7 @@ async def main():
             raise Exception("Database health check failed")
 
         # Run the fetch and transform process
-        query = "SELECT price, additional__WebListing_uri___location_lat, additional__WebListing_uri___location_lng, * FROM public.riyadh_villa_allrooms limit 1"
+        query = "SELECT price, additional__WebListing_uri___location_lat, additional__WebListing_uri___location_lng, * FROM public.riyadh_villa_allrooms limit 10"
 
 
         # Fetch data from database

@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Optional
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from all_types.myapi_dtypes import ReqLocation
+from all_types.myapi_dtypes import ReqLocation,ReqCreateLyr
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -81,26 +81,23 @@ def convert_to_serializable(obj: Any) -> Any:
         raise ValueError(f"Object is not JSON serializable: {str(e)}")
 
 
-def make_ggl_resp_filename(req: ReqLocation) -> str:
-    """
-    Generates a filename based on the location request parameters.
+def make_ggl_layer_filename(req: ReqCreateLyr) -> str:   
+    # Modified filename construction
+    excluded_str = ','.join(req.excludedTypes)
+    included_str = ','.join(req.includedTypes)
+    
+    ccc_filename = f"exclude={excluded_str}_include={included_str}\
+        _{req.dataset_country}_{req.dataset_city}.json"
 
-    Args:
-    location_req (ReqLocation): The location request object.
+    return ccc_filename
 
-    Returns:
-    str: The generated filename.
-    """
+
+
+def make_ggl_dataset_filename(req: ReqLocation) -> str:
     try:
-        lat, lng, radius, place_type = (
-            req.lat,
-            req.lng,
-            req.radius,
-            req.type,
-        )
-        name = f"{lng}_{lat}_{radius}_{place_type}_{req.page_token}"
+        name = f"{req.lng}_{req.lat}_{req.radius}_exclude={req.excludedTypes}_include={req.includedTypes}_token={req.page_token}"
         if req.text_search != '' and req.text_search is not None:
-            name = f"{lat}_{lng}_{radius}_{place_type}_text_search:{req.text_search}_"
+            name = name + f"_text_search:{req.text_search}_"
         return name
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
@@ -419,7 +416,7 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
     Stores data in a file based on the location request.
     """
     # TODO add time stamp to the dataset , when it was retrived
-    filename = make_ggl_resp_filename(req)
+    filename = make_ggl_dataset_filename(req)
     file_path = f"{STORAGE_DIR}/{filename}.json"
     try:
         with open(file_path, "w") as file:
@@ -434,7 +431,7 @@ async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
     """
     Retrieves data from storage based on the location request.
     """
-    filename = make_ggl_resp_filename(req)
+    filename = make_ggl_dataset_filename(req)
     file_path = f"{STORAGE_DIR}/{filename}.json"
     try:
         if os.path.exists(file_path):

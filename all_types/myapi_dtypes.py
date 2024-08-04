@@ -129,7 +129,8 @@ class ReqLocation(BaseModel):
     lat: float
     lng: float
     radius: int
-    type: str
+    excludedTypes:list[str]
+    includedTypes:list[str]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
 
@@ -148,9 +149,10 @@ class ReqPrdcerLyrMapData(BaseModel):
 
 
 class ReqCreateLyr(BaseModel):
-    dataset_category: str
     dataset_country: str
     dataset_city: str
+    excludedTypes:list[str]
+    includedTypes:list[str]
     action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"

@@ -325,6 +325,7 @@ async def fetch_country_city_data(
     return data
 
 
+
 async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLyr:
     """
     This function attempts to fetch an existing layer based on the provided
@@ -333,73 +334,49 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     fetching data from Google Maps API.
     """
     next_page_token = None
-    dataset_category = req.dataset_category
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
     page_token = req.page_token
     text_search = req.text_search
-    ccc_filename = f"{dataset_category}_{dataset_country}_{dataset_city}.json"
-    existing_layer = None
-    if req.action != "full data":
-        # TODO this is a temporary fix
-        existing_layer = await search_metastore_for_string(ccc_filename)
+    
+    existing_dataset = []
+    # Fetch country and city data
+    country_city_data = await fetch_country_city_data("")
 
-    # first check if there is a dataset already
-    # if yes load it
-    # check if page_token
-    # if page_token is None:
-    # return      trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
-    #     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
-    #     trans_dataset["records_count"] = len(trans_dataset["features"])
-    #     trans_dataset["prdcer_lyr_id"] = generate_layer_id()
-    # if page token is not None:
-
-    if existing_layer:
-        bknd_dataset_id = existing_layer["bknd_dataset_id"]
-        dataset = load_dataset(bknd_dataset_id)
-
-    if not existing_layer or page_token is not None:
-        existing_dataset = []
-        # Fetch country and city data
-        country_city_data = await fetch_country_city_data("")
-
-        # Find the city data
-        city_data = None
-        for country, cities in country_city_data.items():
-            if country == dataset_country:
-                for city in cities:
-                    if city["name"] == dataset_city:
-                        city_data = city
-                        break
-                if city_data:
+    # Find the city data
+    city_data = None
+    for country, cities in country_city_data.items():
+        if country == dataset_country:
+            for city in cities:
+                if city["name"] == dataset_city:
+                    city_data = city
                     break
+            if city_data:
+                break
 
-        if not city_data:
-            raise HTTPException(
-                status_code=404, detail="City not found in the specified country"
-            )
-
-        # Create new dataset request
-        new_dataset_req = ReqLocation(
-            lat=city_data["lat"],
-            lng=city_data["lng"],
-            radius=8000,
-            type=dataset_category,
-            page_token=page_token,
-            text_search=text_search,
+    if not city_data:
+        raise HTTPException(
+            status_code=404, detail="City not found in the specified country"
         )
 
-        # Fetch data from Google Maps API
-        dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
-            new_dataset_req, req_create_lyr=req
-        )
-        # Update metastore
-        if req.action != "full data":
-            # TODO this is a temporary fix
-            update_metastore(ccc_filename, bknd_dataset_id)
+    # Create new dataset request
+    new_dataset_req = ReqLocation(
+        lat=city_data["lat"],
+        lng=city_data["lng"],
+        radius=8000,
+        excludedTypes=req.excludedTypes,
+        includedTypes=req.includedTypes,
+        page_token=page_token,
+        text_search=text_search,
+    )
 
-        # Append new data to existing dataset
-        existing_dataset.extend(dataset)
+    # Fetch data from Google Maps API
+    dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
+        new_dataset_req, req_create_lyr=req
+    )
+
+    # Append new data to existing dataset
+    existing_dataset.extend(dataset)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
