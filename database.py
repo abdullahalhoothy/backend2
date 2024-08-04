@@ -92,13 +92,19 @@ class Database:
         """
         await cls.execute(create_table_query)
 
-    @classmethod
-    async def insert_json_data(cls, json_data: dict):
-        insert_query = """
-        INSERT INTO riyadh_villa_allrooms_json (id, data) 
-        VALUES ($1, $2)
-        """
-        new_id = str(uuid.uuid4())
-        json_str = json.dumps(json_data)  # Convert dict to JSON string
-        await cls.execute(insert_query, new_id, json_str)
-        return new_id
+async def insert_json_data(cls, table_name: str, json_data: dict, id_column: str = 'id', data_column: str = 'data'):
+    insert_query = f"""
+    INSERT INTO {table_name} ({id_column}, {data_column}) 
+    VALUES ($1, $2)
+    """
+    
+    # Extract coordinates from the first feature
+    custom_id = ''
+    if json_data['type'] == 'FeatureCollection' and json_data['features']:
+        coordinates = json_data['features'][0]['geometry']['coordinates']
+        if len(coordinates) == 2:
+            custom_id = f"{coordinates[0]}_{coordinates[1]}"
+    
+    json_str = json.dumps(json_data)  # Convert dict to JSON string
+    await cls.execute(insert_query, custom_id, json_str)
+    return custom_id
