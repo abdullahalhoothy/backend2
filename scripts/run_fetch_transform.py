@@ -2,10 +2,14 @@
 import asyncio
 from database import Database
 from storage import (   
-    convert_to_serializable,
+    save_to_json_file
 )
 
-from all_types.myapi_dtypes import MapData
+from scripts.database_transformation import (   
+   insert_json_data,
+   create_riyadh_villa_allrooms_json_table,
+   create_feature_collection
+)
 
 async def main():
     try:
@@ -21,47 +25,19 @@ async def main():
         # Run the fetch and transform process
         query = "SELECT price, additional__WebListing_uri___location_lat, additional__WebListing_uri___location_lng, * FROM public.riyadh_villa_allrooms limit 1"
 
+
         # Fetch data from database
-        rows = await Database.fetch(query)
-        keys=  list(dict(rows[0]).keys())
-      
-        # do your transofmration       
-        features=[]
-        for row in rows:
-            lng = row["additional__weblisting_uri___location_lat"]
-            lat = row["additional__weblisting_uri___location_lng"]
-            # keys without lat and lng
-            customKeys = [x for x in keys if x != "additional__weblisting_uri___location_lat" and x != "additional__weblisting_uri___location_lng"]
-
-
-            feature = {
-                'type': 'Feature',
-                'properties': 
-                    {key: row[key] for key in customKeys}
-                ,
-                'geometry': {
-                    'type': 'Point',
-                    'coordinates': [lng, lat]
-                }
-            }
-            features.append(feature)
-
-        data = MapData(
-            type='FeatureCollection',
-            features=features
-        )
-        # save it back to postgres in a new table as a json object in 1 column
-    
-        # usea method in storage.py to save to JSON file
-
-        serializable_data=convert_to_serializable( data)
-        new_id = await Database.insert_json_data(serializable_data)
+        rows = await Database.fetch(query)  
+        
+        serializable_data = create_feature_collection(rows)
+        
+        # await create_riyadh_villa_allrooms_json_table()
+        new_id = await insert_json_data("riyadh_villa_allrooms_json",serializable_data)
         print(f"Inserted data with ID: {new_id}")
+        await save_to_json_file("riyadh_villa_allrooms",new_id, serializable_data)
+       
 
         
-      
-
-
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:
