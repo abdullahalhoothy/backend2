@@ -20,7 +20,8 @@ class MapBoxConnector:
                     'phone': business.get('formatted_phone_number', ''),
                     'website': business.get('website', ''),
                     'business_status': business.get('business_status', ''),
-                    'user_ratings_total': business.get('user_ratings_total', 0)
+                    'user_ratings_total': business.get('user_ratings_total', 0),
+                    "heatmap_weight":1
                 },
                 'geometry': {
                     'type': 'Point',

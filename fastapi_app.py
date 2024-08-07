@@ -34,7 +34,7 @@ from all_types.myapi_dtypes import (
     ResPrdcerLyrMapData,
     ReqCreateUserProfile,
     ResCreateUserProfile,
-    RequestModel,
+    ReqModel,
     ReqUserLogin,
     ReqUserProfile,
     ResUserProfile,
@@ -81,8 +81,6 @@ U = TypeVar("U", bound=BaseModel)
 CONF = get_conf()
 
 
-
-
 app = FastAPI()
 
 # Enable CORS
@@ -97,7 +95,6 @@ app.add_middleware(
 )
 
 
-
 @app.on_event("startup")
 async def startup_event():
     await Database.create_pool()
@@ -110,19 +107,19 @@ async def shutdown_event():
 
 @log_and_validate(logger)
 async def http_handling(
-        req: Optional[T],
-        input_type: Optional[Type[T]],
-        output_type: Type[U],
-        custom_function: Optional[Callable[..., Awaitable[Any]]],
-        request: Request = None,
+    req: Optional[T],
+    input_type: Optional[Type[T]],
+    output_type: Type[U],
+    custom_function: Optional[Callable[..., Awaitable[Any]]],
+    full_request: Request = None,
 ):
     try:
         output = ""
         if req is not None:
             # Get all headers
             authorization = None
-            if request:
-                headers = request.headers
+            if full_request:
+                headers = full_request.headers
                 # Check for access token in the Authorization header
                 authorization = headers.get("Authorization", None)
                 if authorization:
@@ -140,25 +137,13 @@ async def http_handling(
                         token_user_id = decoded_token["uid"]
                         # Check if the token user_id matches the requested user_id
                         if (
-                                hasattr(req.request_body, "user_id")
-                                and token_user_id != req.request_body.user_id
+                            hasattr(req.request_body, "user_id")
+                            and token_user_id != req.request_body.user_id
                         ):
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
                                 detail="You can only access your own profile",
                             )
-                    except ValueError as e:
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid token format",
-                            headers={"WWW-Authenticate": "Bearer"},
-                        ) from e
-                    except InvalidIdTokenError as e:
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Invalid access token",
-                            headers={"WWW-Authenticate": "Bearer"},
-                        ) from e
                     except Exception as e:
                         logger.error(f"Token validation error: {str(e)}")
                         raise HTTPException(
@@ -231,21 +216,10 @@ async def http_handling(
 
 # deprecated=True
 @app.post(CONF.http_catlog_data, response_model=ResTypeMapData, deprecated=True)
-async def catlog_data(catlog_req: RequestModel[ReqFetchCtlgLyrs]):
+async def catlog_data(catlog_req: ReqModel[ReqFetchCtlgLyrs]):
     # Step 3: Redirect traffic to the new endpoint
     new_url = app.url_path_for(CONF.fetch_ctlg_lyrs)
     return RedirectResponse(url=new_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-
-
-# @app.post(CONF.http_single_nearby, response_model=ResTypeMapData)
-# async def single_nearby(req: RequestModel[ReqLocation]):
-#     response = await http_handling(
-#         req,
-#         ReqLocation,
-#         ResTypeMapData,
-#         nearby_boxmap,
-#     )
-#     return response
 
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResAcknowlg)
@@ -303,47 +277,40 @@ async def nearby_categories():
     return response
 
 
-# @app.get(CONF.old_nearby_categories, response_model=ResOldNearbyCategories)
-# async def old_nearby_categories():
-#     response = await http_handling(
-#         None,
-#         None,
-#         ResOldNearbyCategories,
-#         old_fetch_nearby_categories,
-#     )
-#     return response
-
-
 @app.post(CONF.create_layer, response_model=ResCreateLyr)
-async def create_layer(req: RequestModel[ReqCreateLyr]):
+async def create_layer(req: ReqModel[ReqCreateLyr], request:Request):
+    if req.request_body.action =='Get Sample':
+        request=None
     response = await http_handling(
         req,
         ReqCreateLyr,
         ResCreateLyr,
         fetch_country_city_category_map_data,
+        request
     )
     return response
 
 
 @app.post(CONF.save_producer_layer, response_model=ResAcknowlg)
-async def save_producer_layer(req: RequestModel[ReqSavePrdcerLyer]):
+async def save_producer_layer(req: ReqModel[ReqSavePrdcerLyer], request:Request):
     response = await http_handling(
         req,
         ReqSavePrdcerLyer,
         ResAcknowlg,
         save_lyr,
+        request
     )
     return response
 
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
-async def user_layers(req: RequestModel[ReqUserId]):
+async def user_layers(req: ReqModel[ReqUserId]):
     response = await http_handling(req, ReqUserId, ResUserLayers, fetch_user_lyrs)
     return response
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
-async def prdcer_lyr_map_data(req: RequestModel[ReqPrdcerLyrMapData]):
+async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     response = await http_handling(
         req, ReqPrdcerLyrMapData, ResPrdcerLyrMapData, fetch_lyr_map_data
     )
@@ -351,30 +318,31 @@ async def prdcer_lyr_map_data(req: RequestModel[ReqPrdcerLyrMapData]):
 
 
 @app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg)
-async def save_producer_catalog(req: RequestModel[ReqSavePrdcerCtlg]):
+async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
     response = await http_handling(
         req,
         ReqSavePrdcerCtlg,
         ResSavePrdcerCtlg,
         create_save_prdcer_ctlg,
+        request
     )
     return response
 
 
 @app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
-async def user_catalogs(req: RequestModel[ReqUserId]):
+async def user_catalogs(req: ReqModel[ReqUserId]):
     response = await http_handling(req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs)
     return response
 
 
 @app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
-async def fetch_catalog_layers(req: RequestModel[ReqFetchCtlgLyrs]):
+async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
     response = await http_handling(req, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs)
     return response
 
 
 @app.post(CONF.apply_zone_layers, response_model=ResApplyZoneLayers)
-async def apply_zone_layers_endpoint(req: RequestModel[ReqApplyZoneLayers]):
+async def apply_zone_layers_endpoint(req: ReqModel[ReqApplyZoneLayers]):
     response = await http_handling(
         req, ReqApplyZoneLayers, ResApplyZoneLayers, apply_zone_layers
     )
@@ -382,7 +350,7 @@ async def apply_zone_layers_endpoint(req: RequestModel[ReqApplyZoneLayers]):
 
 
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
-async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
     response = await http_handling(
         req, ReqCreateUserProfile, ResCreateUserProfile, create_user_profile
     )
@@ -390,19 +358,13 @@ async def create_user_profile_endpoint(req: RequestModel[ReqCreateUserProfile]):
 
 
 @app.post(CONF.login, response_model=ResUserLogin)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    req = ReqUserLogin(email=form_data.username, password=form_data.password)
-    wrapped_req = RequestModel(
-        message="Login request", request_info={}, request_body=req
-    )  # test that we are not losing info
-    response = await http_handling(wrapped_req, ReqUserLogin, ResUserLogin, login_user)
+async def login(req: ReqModel[ReqUserLogin]):
+    response = await http_handling(req, ReqUserLogin, ResUserLogin, login_user)
     return response
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
-async def get_user_profile_endpoint(
-        req: RequestModel[ReqUserProfile], request: Request
-):
+async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
     response = await http_handling(
         req, ReqUserProfile, ResUserProfile, get_user_account, request
     )
@@ -410,7 +372,7 @@ async def get_user_profile_endpoint(
 
 
 @app.post(CONF.reset_password, response_model=ResResetPassword)
-async def reset_password_endpoint(req: RequestModel[ReqResetPassword]):
+async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
     response = await http_handling(
         req, ReqResetPassword, ResResetPassword, reset_password
     )
@@ -418,22 +380,18 @@ async def reset_password_endpoint(req: RequestModel[ReqResetPassword]):
 
 
 @app.post(CONF.confirm_reset, response_model=ResConfirmReset)
-async def confirm_reset_endpoint(req: RequestModel[ReqConfirmReset]):
+async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
     response = await http_handling(req, ReqConfirmReset, ResConfirmReset, confirm_reset)
     return response
 
 
 @app.post(CONF.change_password, response_model=ResChangePassword)
-async def change_password_endpoint(
-        req: RequestModel[ReqChangePassword], request: Request
-):
+async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
     response = await http_handling(
-        req,
-        ReqChangePassword,
-        ResChangePassword,
-        change_password
+        req, ReqChangePassword, ResChangePassword, change_password
     )
     return response
+
 
 # @app.post("/refresh-token")
 # async def refresh_token(token: dict = Depends(verify_token)):

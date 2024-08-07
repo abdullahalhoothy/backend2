@@ -27,6 +27,22 @@
         "points_color": "Green",
         "layer_legend": "schools in jeddah",
         "layer_description": "asdasdasd"
+      },
+      "lc8d885c0-4365-4df9-af69-50569c5b4cb4": {
+        "prdcer_layer_name": "sdfsfddsf",
+        "prdcer_lyr_id": "lc8d885c0-4365-4df9-af69-50569c5b4cb4",
+        "bknd_dataset_id": "39.1728_21.5433_8000_exclude=['car_wash']_include=['car_dealer']_token=",
+        "points_color": "#28A745",
+        "layer_legend": "sdfsdf",
+        "layer_description": "sfdsfdsdf"
+      },
+      "l0ae1b1c0-d249-441d-bda3-bfe78dd5330a": {
+        "prdcer_layer_name": "m,m,",
+        "prdcer_lyr_id": "l0ae1b1c0-d249-441d-bda3-bfe78dd5330a",
+        "bknd_dataset_id": "39.1728_21.5433_8000_exclude=['primary_school', 'secondary_school']_include=['preschool']_token=",
+        "points_color": "#FF5733",
+        "layer_legend": "m,m",
+        "layer_description": "m,m,nm"
       }
     },
     "prdcer_ctlgs": {
@@ -43,6 +59,25 @@
           }
         ],
         "thumbnail_url": "string",
+        "ctlg_owner_user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f"
+      },
+      "c377c188-ea39-4076-a9bd-cbc9d5bd8296": {
+        "prdcer_ctlg_name": "fghfghhfghfghfghfhghfgh",
+        "prdcer_ctlg_id": "c377c188-ea39-4076-a9bd-cbc9d5bd8296",
+        "subscription_price": "777",
+        "ctlg_description": "fghfgh",
+        "total_records": 0,
+        "lyrs": [
+          {
+            "layer_id": "lc8d885c0-4365-4df9-af69-50569c5b4cb4",
+            "points_color": "#28A745"
+          },
+          {
+            "layer_id": "l0ae1b1c0-d249-441d-bda3-bfe78dd5330a",
+            "points_color": "#FF5733"
+          }
+        ],
+        "thumbnail_url": "",
         "ctlg_owner_user_id": "1845e047-9632-4243-aadf-041bfb7a7f1f"
       }
     }

@@ -1,5 +1,7 @@
 # database.py
-import asyncio
+import datetime
+import uuid
+import os
 import asyncpg
 from asyncpg.pool import Pool
 from typing import Optional
@@ -60,9 +62,36 @@ class Database:
             return await conn.fetchrow(query, *args)
 
     @classmethod
-    async def execute(cls, query: str, *args):
+    async def execute(cls, query: str, *args, save_sql_script: bool = False):
         async with cls.connection() as conn:
+            if save_sql_script:
+                unique_id = str(uuid.uuid4())[:8]
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                sql_script = cls.generate_sql_script(query, *args)
+                filename = f"sql_script_{timestamp}_{unique_id}.sql"
+                cls.save_sql_script(filename, sql_script)
+
             return await conn.execute(query, *args)
+
+    @staticmethod
+    def generate_sql_script(query: str, *args) -> str:
+        # Replace placeholders with actual values
+        for i, arg in enumerate(args, start=1):
+            placeholder = f'${i}'
+            if isinstance(arg, str):
+                # Escape single quotes in the string and wrap in single quotes
+                escaped_arg = arg.replace("'", "''")
+                query = query.replace(placeholder, f"'{escaped_arg}'", 1)
+            else:
+                query = query.replace(placeholder, str(arg), 1)
+        return query
+
+    @staticmethod
+    def save_sql_script(filename: str, content: str):
+        os.makedirs('sql_scripts', exist_ok=True)
+        with open(os.path.join('sql_scripts', filename), 'w') as f:
+            f.write(content)
+        print(f"SQL script saved as {filename}")
 
     @classmethod
     @asynccontextmanager

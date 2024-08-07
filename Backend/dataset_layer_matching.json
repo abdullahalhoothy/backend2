@@ -48,5 +48,23 @@
     "prdcer_lyrs": [
       "ld8759651-f21b-4d2b-9bd5-cd7fd87e9cf0"
     ]
+  },
+  "39.1728_21.5433_8000_exclude=['car_wash']_include=['car_dealer']_token=": {
+    "records_count": 9191919,
+    "prdcer_lyrs": [
+      "lc8d885c0-4365-4df9-af69-50569c5b4cb4"
+    ]
+  },
+  "39.1728_21.5433_8000_exclude=['primary_school', 'secondary_school']_include=['preschool']_token=": {
+    "records_count": 9191919,
+    "prdcer_lyrs": [
+      "l0ae1b1c0-d249-441d-bda3-bfe78dd5330a"
+    ]
+  },
+  "39.1728_21.5433_8000_exclude=['rest_stop']_include=['car_dealer']_token=": {
+    "records_count": 9191919,
+    "prdcer_lyrs": [
+      "l18503d95-2a23-404d-b63d-e0c0036d2e4d"
+    ]
   }
 }
