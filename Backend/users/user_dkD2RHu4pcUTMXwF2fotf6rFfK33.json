@@ -3,7 +3,10 @@
   "username": "string",
   "email": "testemail@gmail.com",
   "prdcer": {
-    "prdcer_dataset": {},
+    "prdcer_dataset": {
+      "plan_exclude=mosque_include=_Saudi Arabia_Jeddah": "plan_exclude=mosque_include=_Saudi Arabia_Jeddah",
+      "exclude=_include=mosque_Saudi Arabia_Mecca": "plan_exclude=_include=mosque_Saudi Arabia_Mecca"
+    },
     "prdcer_lyrs": {
       "string": {
         "prdcer_layer_name": "string",

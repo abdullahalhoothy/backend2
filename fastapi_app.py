@@ -279,7 +279,7 @@ async def nearby_categories():
 
 @app.post(CONF.create_layer, response_model=ResCreateLyr)
 async def create_layer(req: ReqModel[ReqCreateLyr], request:Request):
-    if req.request_body.action =='Get Sample':
+    if req.request_body.action =='sample':
         request=None
     response = await http_handling(
         req,

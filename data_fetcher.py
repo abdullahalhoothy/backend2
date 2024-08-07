@@ -29,7 +29,12 @@ from google_api_connector import (
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
-from storage import load_categories, load_country_city
+from storage import (
+    load_categories,
+    load_country_city,
+    make_include_exclude_name,
+    make_ggl_layer_filename,
+)
 from storage import (
     get_dataset_from_storage,
     store_ggl_data_resp,
@@ -138,7 +143,7 @@ def count_circles(circle):
     return 1 + sum(count_circles(sub_circle) for sub_circle in circle["sub_circles"])
 
 
-def create_string_list(circle_hierarchy, place_type, text_search):
+def create_string_list(circle_hierarchy, type_string, text_search):
     result = []
     circles_to_process = [circle_hierarchy]
 
@@ -147,9 +152,9 @@ def create_string_list(circle_hierarchy, place_type, text_search):
         lat, lng = circle["center"]
         radius = circle["radius"]
 
-        circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}"
+        circle_string = f"{lat}_{lng}_{radius*1000}_{type_string}"
         if text_search != "" and text_search is not None:
-            circle_string = f"{lat}_{lng}_{radius*1000}_{place_type}_{text_search}"
+            circle_string = circle_string + f"_{text_search}"
         result.append(circle_string)
 
         circles_to_process.extend(circle.get("sub_circles", []))
@@ -157,43 +162,76 @@ def create_string_list(circle_hierarchy, place_type, text_search):
     return result
 
 
-async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
-
-    next_page_token = req.page_token
-    action = req_create_lyr.action
+async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqCreateLyr):
     search_type = req_create_lyr.search_type
+    next_page_token = req_dataset.page_token
+
+    req_dataset, plan_name, next_page_token = await prepare_req_plan(
+        req_dataset, req_create_lyr
+    )
+
+    dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
+
+    if not dataset:
+
+        if "default" in search_type or "new nearby search" in search_type:
+            dataset, _ = await fetch_from_google_maps_api(req_dataset)
+        elif "default" in search_type or "old nearby search" in search_type:
+            dataset, next_page_token = await old_fetch_from_google_maps_api(req_dataset)
+        # elif 'nearby but actually text search' in search_type:
+        #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
+        # else:  # text search
+        #     dataset, next_page_token = await text_fetch_from_google_maps_api(req)
+
+        if dataset is not None:
+            # Store the fetched data in storage
+            bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
+
+    return dataset, bknd_dataset_id, next_page_token, plan_name
+
+
+async def prepare_req_plan(req_dataset, req_create_lyr):
+    action = req_create_lyr.action
     plan: List[str] = []
 
-    if req.radius > 1500 and req.page_token == "" and action == "full data":
+    if (
+        req_dataset.radius > 1500
+        and req_dataset.page_token == ""
+        and action == "full data"
+    ):
         circle_hierarchy = cover_circle_with_seven_circles(
-            (req.lng, req.lat), req.radius / 1000
+            (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
+        )
+        type_string = make_include_exclude_name(
+            req_dataset.includedTypes, req_dataset.excludedTypes
         )
         string_list_plan = create_string_list(
-            circle_hierarchy, req.type, req.text_search
+            circle_hierarchy, type_string, req_dataset.text_search
         )
         string_list_plan.append("end of search plan")
 
         # TODO creating the name of the file should be moved to storage
-        plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}"
-        if req.text_search != "" and req.text_search is not None:
-            plan_name = f"plan_{req_create_lyr.dataset_category}_{req_create_lyr.dataset_country}_{req_create_lyr.dataset_city}_text_search:"
+        tcc_string = make_ggl_layer_filename(req_create_lyr)
+        plan_name = f"plan_{tcc_string}"
+        if req_dataset.text_search != "" and req_dataset.text_search is not None:
+            plan_name = plan_name + f"_text_search:"
         await save_plan(plan_name, string_list_plan)
 
         first_search = string_list_plan[0].split("_")
-        req.lng, req.lat, req.radius = (
+        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
             float(first_search[0]),
             float(first_search[1]),
             float(first_search[2]),
         )
         next_page_token = f"page_token:{plan_name}@#${1}"  # Start with the first search
 
-    elif req.page_token != "":
-        plan_name, search_index = req.page_token.split("@#$")
+    elif req_dataset.page_token != "":
+        plan_name, search_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token:")
         search_index = int(search_index)
         plan = await get_plan(plan_name)
         search_info = plan[search_index].split("_")
-        req.lng, req.lat, req.radius = (
+        req_dataset.lng, req_dataset.lat, req_dataset.radius = (
             float(search_info[0]),
             float(search_info[1]),
             float(search_info[2]),
@@ -203,28 +241,7 @@ async def fetch_ggl_nearby(req: ReqLocation, req_create_lyr: ReqCreateLyr):
         else:
             next_page_token = f"page_token:{plan_name}@#${search_index + 1}"
 
-    dataset, bknd_dataset_id = await get_dataset_from_storage(req)
-
-    if not dataset:
-
-        if "default" in search_type or "new nearby search" in search_type:
-            dataset, _ = await fetch_from_google_maps_api(req)
-        elif "default" in search_type or "old nearby search" in search_type:
-            dataset, next_page_token = await old_fetch_from_google_maps_api(req)
-        # elif 'nearby but actually text search' in search_type:
-        #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
-        # else:  # text search
-        #     dataset, next_page_token = await text_fetch_from_google_maps_api(req)
-
-        if dataset is not None:
-            # Store the fetched data in storage
-            bknd_dataset_id = await store_ggl_data_resp(req, dataset)
-            # # Generate a new backend dataset ID
-            # bknd_dataset_id = str(uuid.uuid4())
-            # # Save the new dataset
-            # save_dataset(bknd_dataset_id, dataset)
-
-    return dataset, bknd_dataset_id, next_page_token
+    return req_dataset, plan_name, next_page_token
 
 
 async def fetch_catlog_collection(**_):
@@ -325,7 +342,6 @@ async def fetch_country_city_data(
     return data
 
 
-
 async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLyr:
     """
     This function attempts to fetch an existing layer based on the provided
@@ -338,7 +354,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     dataset_city = req.dataset_city
     page_token = req.page_token
     text_search = req.text_search
-    
+
     existing_dataset = []
     # Fetch country and city data
     country_city_data = await fetch_country_city_data("")
@@ -360,7 +376,7 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
         )
 
     # Create new dataset request
-    new_dataset_req = ReqLocation(
+    req_dataset = ReqLocation(
         lat=city_data["lat"],
         lng=city_data["lng"],
         radius=8000,
@@ -371,12 +387,20 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     )
 
     # Fetch data from Google Maps API
-    dataset, bknd_dataset_id, next_page_token = await fetch_ggl_nearby(
-        new_dataset_req, req_create_lyr=req
+
+    dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
+        req_dataset, req_create_lyr=req
     )
 
     # Append new data to existing dataset
     existing_dataset.extend(dataset)
+
+    # if request action was "full data" then store dataset id in the user profile
+    # the name of the dataset will be the action + cct_layer name
+    # make_ggl_layer_filename
+    user_data = load_user_profile(req.user_id)
+    user_data["prdcer"]["prdcer_dataset"][plan_name.replace("plan_", "")] = plan_name
+    update_user_profile(req.user_id, user_data)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
@@ -839,9 +863,6 @@ async def fetch_nearby_categories(req: None) -> Dict:
     such as automotive, culture, education, entertainment, and more.
     """
     return load_categories()
-
-
-
 
 
 # Apply the decorator to all functions in this module

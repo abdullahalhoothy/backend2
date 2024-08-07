@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Optional
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from all_types.myapi_dtypes import ReqLocation,ReqCreateLyr
+from all_types.myapi_dtypes import ReqLocation, ReqCreateLyr
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -81,22 +81,30 @@ def convert_to_serializable(obj: Any) -> Any:
         raise ValueError(f"Object is not JSON serializable: {str(e)}")
 
 
-def make_ggl_layer_filename(req: ReqCreateLyr) -> str:   
-    # Modified filename construction
-    excluded_str = ','.join(req.excludedTypes)
-    included_str = ','.join(req.includedTypes)
-    
-    ccc_filename = f"exclude={excluded_str}_include={included_str}\
-        _{req.dataset_country}_{req.dataset_city}.json"
+def make_include_exclude_name(include_list, exclude_list):
+    excluded_str = ",".join(exclude_list)
+    included_str = ",".join(include_list)
 
-    return ccc_filename
+    type_string = f"include={included_str}_exclude={excluded_str}"
+    return type_string
 
 
+def make_ggl_dataset_cord_filename(lng: str, lat: str, radius: str):
+    return f"{lng}_{lat}_{radius}"
 
-def make_ggl_dataset_filename(req: ReqLocation) -> str:
+
+def make_ggl_layer_filename(req: ReqCreateLyr) -> str:
+    type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
+    tcc_string = f"{type_string}_{req.dataset_country}_{req.dataset_city}"
+    return tcc_string
+
+
+def make_ggl_dataset_filename(req) -> str:
+    cord_string = make_ggl_dataset_cord_filename(req.lng, req.lat, req.radius)
+    type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
     try:
-        name = f"{req.lng}_{req.lat}_{req.radius}_exclude={req.excludedTypes}_include={req.includedTypes}_token={req.page_token}"
-        if req.text_search != '' and req.text_search is not None:
+        name = f"{cord_string}_{type_string}_token={req.page_token}"
+        if req.text_search != "" and req.text_search is not None:
             name = name + f"_text_search:{req.text_search}_"
         return name
     except AttributeError as e:
@@ -114,9 +122,15 @@ async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
                 return json.load(f)
         return None
     except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing metastore file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error parsing metastore file",
+        )
     except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading metastore file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error reading metastore file",
+        )
 
 
 def load_dataset_layer_matching() -> Dict:
@@ -138,7 +152,7 @@ def load_dataset_layer_matching() -> Dict:
 
 
 def fetch_dataset_id(
-        lyr_id: str, dataset_layer_matching: Dict = None
+    lyr_id: str, dataset_layer_matching: Dict = None
 ) -> Tuple[str, Dict]:
     """
     Searches for the dataset ID associated with a given layer ID. This function
@@ -202,7 +216,7 @@ def load_user_profile(user_id: str) -> Dict:
 
 
 def update_dataset_layer_matching(
-        prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
 ):
     try:
         if os.path.exists(DATASET_LAYER_MATCHING_PATH):
@@ -282,30 +296,30 @@ def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
         )
 
 
-def create_new_user(user_id: str, username: str, email: str) -> None:
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+# def create_new_user(user_id: str, username: str, email: str) -> None:
+#     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
 
-    if os.path.exists(user_file_path):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User profile already exists",
-        )
+#     if os.path.exists(user_file_path):
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="User profile already exists",
+#         )
 
-    user_data = {
-        "user_id": user_id,
-        "username": username,
-        "email": email,
-        "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}},
-    }
+#     user_data = {
+#         "user_id": user_id,
+#         "username": username,
+#         "email": email,
+#         "prdcer": {"prdcer_lyrs": {}, "prdcer_ctlgs": {}},
+#     }
 
-    try:
-        with open(user_file_path, "w") as f:
-            json.dump(user_data, f, indent=2)
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error creating new user profile",
-        )
+#     try:
+#         with open(user_file_path, "w") as f:
+#             json.dump(user_data, f, indent=2)
+#     except IOError:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Error creating new user profile",
+#         )
 
 
 def load_store_catalogs() -> Dict[str, Any]:
@@ -390,26 +404,39 @@ def generate_layer_id() -> str:
 
 
 async def save_plan(plan_name, plan):
-    file_path = f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    file_path = (
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    )
     try:
         with open(file_path, "w") as file:
             json.dump(plan, file)
     except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing google data file")
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error writing google data file",
+        )
 
 
 async def get_plan(plan_name):
-    file_path = f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    file_path = (
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    )
     try:
         if os.path.exists(file_path):
             with open(file_path, "r") as file:
                 return json.load(file)
         return None
     except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing data file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error parsing data file",
+        )
     except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading data file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error reading data file",
+        )
+
 
 async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
     """
@@ -422,8 +449,12 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
         with open(file_path, "w") as file:
             json.dump(dataset, file)
     except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing google data file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error writing google data file",
+        )
     return filename
+
 
 async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
     """
@@ -437,10 +468,15 @@ async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
                 return json.load(file), filename
         return None, None
     except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error parsing data file")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error parsing data file",
+        )
     except IOError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading data file")
-
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error reading data file",
+        )
 
 
 def load_dataset(dataset_id: str) -> Dict:
@@ -460,7 +496,6 @@ def load_dataset(dataset_id: str) -> Dict:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error parsing dataset file",
         )
-
 
 
 # Apply the decorator to all functions in this module

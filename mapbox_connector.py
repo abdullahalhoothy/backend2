@@ -61,7 +61,9 @@ class MapBoxConnector:
                     'types': place.get('types', ''),
                     'priceLevel': place.get('priceLevel', ''),
                     'primaryType': place.get('primaryType', ''),
-                    'user_ratings_total': place.get('userRatingCount', '')
+                    'user_ratings_total': place.get('userRatingCount', ''),
+                    "heatmap_weight":1
+                    
                 },
                 'geometry': {
                     'type': 'Point',
