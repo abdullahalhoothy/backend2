@@ -223,11 +223,11 @@ async def prepare_req_plan(req_dataset, req_create_lyr):
             float(first_search[1]),
             float(first_search[2]),
         )
-        next_page_token = f"page_token:{plan_name}@#${1}"  # Start with the first search
+        next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
     elif req_dataset.page_token != "":
         plan_name, search_index = req_dataset.page_token.split("@#$")
-        _, plan_name = plan_name.split("page_token:")
+        _, plan_name = plan_name.split("page_token=")
         search_index = int(search_index)
         plan = await get_plan(plan_name)
         search_info = plan[search_index].split("_")
@@ -239,7 +239,7 @@ async def prepare_req_plan(req_dataset, req_create_lyr):
         if plan[search_index + 1] == "end of search plan":
             next_page_token = ""  # End of search plan
         else:
-            next_page_token = f"page_token:{plan_name}@#${search_index + 1}"
+            next_page_token = f"page_token={plan_name}@#${search_index + 1}"
 
     return req_dataset, plan_name, next_page_token
 
@@ -522,7 +522,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         if "plan" in dataset_id:
             # Extract plan name and page number
             plan_name, page_number = dataset_id.split("@#$")
-            dataset, plan_name = plan_name.split("page_token:")
+            dataset, plan_name = plan_name.split("page_token=")
             page_number = int(page_number)
             # Load the plan
             plan = await get_plan(plan_name)
@@ -534,7 +534,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
             for i in range(page_number):
                 if i == 0:
                     continue
-                dataset = load_dataset(f"{plan[i]}_page_token:{plan_name}@#${i}")
+                dataset = load_dataset(f"{plan[i]}_page_token={plan_name}@#${i}")
                 all_datasets.extend(dataset)
 
         else:
