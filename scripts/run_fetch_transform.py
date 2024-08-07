@@ -1,7 +1,15 @@
 # run_fetch_transform.py
 import asyncio
 from database import Database
+from storage import (   
+    save_to_json_file
+)
 
+from scripts.database_transformation import (   
+   insert_json_data,
+   create_riyadh_villa_allrooms_json_table,
+   create_feature_collection
+)
 
 async def main():
     try:
@@ -17,24 +25,19 @@ async def main():
         # Run the fetch and transform process
         query = "SELECT price, additional__WebListing_uri___location_lat, additional__WebListing_uri___location_lng, * FROM public.riyadh_villa_allrooms limit 10"
 
+
         # Fetch data from database
-        rows = await Database.fetch(query)
+        rows = await Database.fetch(query)  
+        
+        serializable_data = create_feature_collection(rows)
+        
+        # await create_riyadh_villa_allrooms_json_table()
+        new_id = await insert_json_data("riyadh_villa_allrooms_json",serializable_data)
+        print(f"Inserted data with ID: {new_id}")
+        await save_to_json_file("riyadh_villa_allrooms",new_id, serializable_data)
+       
 
-        # do your transofmration
-        transformed_data = [
-            {
-                "id": row['id'],
-                "name": row['name'],
-                # Add more fields as needed
-            }
-            for row in rows
-        ]
-        # save it back to postgres in a new table as a json object in 1 column
-
-        # usea method in storage.py to save to JSON file
-
-
-
+        
     except Exception as e:
         print(f"An error occurred: {str(e)}")
     finally:

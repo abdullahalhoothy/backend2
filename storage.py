@@ -425,6 +425,8 @@ async def store_ggl_data_resp(req: ReqLocation, dataset: Dict) -> str:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing google data file")
     return filename
 
+
+
 async def get_dataset_from_storage(req: ReqLocation) -> Optional[Dict]:
     """
     Retrieves data from storage based on the location request.
@@ -460,6 +462,19 @@ def load_dataset(dataset_id: str) -> Dict:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error parsing dataset file",
         )
+    
+async def save_to_json_file(folder_name:str,file_name:str, data:dict)->None:
+    if not os.path.exists(f"Backend/{folder_name}"):
+        os.makedirs(f"Backend/{folder_name}")
+
+    file_path = f"Backend/{folder_name}/{file_name}.json"
+    try:
+        with open(file_path, "w") as file:
+            json.dump(data, file)
+    except IOError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error writing json file")
+
+
 
 
 
