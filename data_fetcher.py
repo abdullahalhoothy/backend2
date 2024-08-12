@@ -160,10 +160,12 @@ def create_string_list(circle_hierarchy, type_string, text_search):
 async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqCreateLyr):
     search_type = req_create_lyr.search_type
     next_page_token = req_dataset.page_token
+    plan_name = ""
 
-    req_dataset, plan_name, next_page_token = await prepare_req_plan(
-        req_dataset, req_create_lyr
-    )
+    if req_create_lyr.action == "full data":
+        req_dataset, plan_name, next_page_token = await prepare_req_plan(
+            req_dataset, req_create_lyr
+        )
 
     dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
 
@@ -393,9 +395,10 @@ async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLy
     # if request action was "full data" then store dataset id in the user profile
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
-    user_data = load_user_profile(req.user_id)
-    user_data["prdcer"]["prdcer_dataset"][plan_name.replace("plan_", "")] = plan_name
-    update_user_profile(req.user_id, user_data)
+    if req.action == "full data":
+        user_data = load_user_profile(req.user_id)
+        user_data["prdcer"]["prdcer_dataset"][plan_name.replace("plan_", "")] = plan_name
+        update_user_profile(req.user_id, user_data)
 
     trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
     trans_dataset["bknd_dataset_id"] = bknd_dataset_id
