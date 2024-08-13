@@ -1,0 +1,611 @@
+[
+  {
+    "id": "ChIJZ5HPt9tCXz4RP4A7EK-ZPq8",
+    "types": [
+      "cell_phone_store",
+      "furniture_store",
+      "home_improvement_store",
+      "supermarket",
+      "grocery_store",
+      "home_goods_store",
+      "food",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "KaramaSheikh - 67QX+CRV Park Al Karama - Sheikh Rashid Rd - opposite Zaabeel - Al Karama - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2386199,
+      "longitude": 55.299550399999994
+    },
+    "rating": 4.2,
+    "userRatingCount": 10172,
+    "displayName": {
+      "text": "LuLu Hypermarket - Karama",
+      "languageCode": "en"
+    },
+    "takeout": true,
+    "delivery": true,
+    "primaryType": "supermarket",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJUyVO5dRCXz4RWV9zRTR-km4",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Umm Hurair Rd - Oud Metha - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2448961,
+      "longitude": 55.312065999999994
+    },
+    "rating": 4,
+    "userRatingCount": 928,
+    "displayName": {
+      "text": "Homes r Us - Zabeel Furniture Mall",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "furniture_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJb1Xeg45pXz4RZimdoYxZI44",
+    "types": [
+      "hardware_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "127 Sheikh Zayed Rd - Al Quoz - Al Quoz 3 - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.1619751,
+      "longitude": 55.233929599999996
+    },
+    "rating": 4.3,
+    "userRatingCount": 597,
+    "displayName": {
+      "text": "Speedex Tools - Al Qouz Branch",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "hardware_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJkxxZYyBDXz4RHw2LyiVItdc",
+    "types": [
+      "cell_phone_store",
+      "furniture_store",
+      "home_improvement_store",
+      "supermarket",
+      "grocery_store",
+      "home_goods_store",
+      "food",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Park - 16 B St - opposite to Karama - Al Karama - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2431533,
+      "longitude": 55.3040472
+    },
+    "rating": 4,
+    "userRatingCount": 3524,
+    "displayName": {
+      "text": "LuLu Supermarket - Karama",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "supermarket",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJj7KT455DXz4Rqe9PqMUOIc0",
+    "types": [
+      "cell_phone_store",
+      "furniture_store",
+      "home_improvement_store",
+      "supermarket",
+      "grocery_store",
+      "home_goods_store",
+      "food",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Sheikh Khalifa Bin Zayed St - opposite to Medeor Hospital - Al Hamriya - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2574278,
+      "longitude": 55.305591400000004
+    },
+    "rating": 4.2,
+    "userRatingCount": 2847,
+    "displayName": {
+      "text": "LuLu Hypermarket - Hamriya",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "supermarket",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJRYQLd_xDXz4RD8yu78y2abc",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Triple 777, Level 1 - Jumeirah - Jumeirah 3 - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.172836,
+      "longitude": 55.229362300000005
+    },
+    "rating": 4.2,
+    "userRatingCount": 445,
+    "displayName": {
+      "text": "Homes R Us Jumeirah",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "furniture_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJS2hxLE5CXz4RKEDgWkd6LqI",
+    "types": [
+      "restaurant",
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "food",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "102 Beach Rd - Jumeirah - Jumeirah 1 - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.226032399999998,
+      "longitude": 55.2586605
+    },
+    "rating": 4.1,
+    "priceLevel": "PRICE_LEVEL_EXPENSIVE",
+    "userRatingCount": 1054,
+    "displayName": {
+      "text": "Comptoir 102 Healthy Restaurant and Concept Store Dubai",
+      "languageCode": "en"
+    },
+    "takeout": true,
+    "delivery": true,
+    "primaryType": "restaurant",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJtVgTsUJCXz4RvFtFy-PR74c",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Shaafar building - Al Wasl Rd - Al Bada'a - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.213749900000003,
+      "longitude": 55.2584703
+    },
+    "rating": 4,
+    "userRatingCount": 624,
+    "displayName": {
+      "text": "2XL Home",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "furniture_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJVQ5IO-1pXz4RGOdHe5vXqBk",
+    "types": [
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Between Junction 2 & 3 - \u0634\u0627\u0631\u0639 \u0627\u0644\u0634\u064a\u062e \u0632\u0627\u064a\u062f - \u0627\u0644\u0642\u0648\u0632 - \u0627\u0644\u0642\u0648\u0632 3 - \u062f\u0628\u064a - United Arab Emirates",
+    "location": {
+      "latitude": 25.1675664,
+      "longitude": 55.238874
+    },
+    "rating": 4.3,
+    "userRatingCount": 460,
+    "displayName": {
+      "text": "BAGNODESIGN Dubai",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJH3c0fexpXz4ROt3F7HncSCA",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Oasis Centre, Level 2 - \u0627\u0644\u0642\u0648\u0632 - \u0627\u0644\u0642\u0648\u0632 1 - \u062f\u0628\u064a - United Arab Emirates",
+    "location": {
+      "latitude": 25.169380099999998,
+      "longitude": 55.241706799999996
+    },
+    "rating": 4.8,
+    "userRatingCount": 10064,
+    "displayName": {
+      "text": "HomeBox - Oasis Mall, Dubai",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "furniture_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJ5U3VUUxDXz4RqWxhkze36KA",
+    "types": [
+      "home_improvement_store",
+      "home_goods_store",
+      "general_contractor",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Jumeirah Beach Rd - Jumeirah - Jumeirah 3 - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.1839718,
+      "longitude": 55.2273449
+    },
+    "rating": 4.7,
+    "userRatingCount": 452,
+    "displayName": {
+      "text": "SkiptonWall Curtains & Wallpaper",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "home_goods_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJR6qNCohpXz4RZJaUZA3byv0",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "7 2a St - Al Quoz - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.156376899999998,
+      "longitude": 55.230478399999996
+    },
+    "rating": 4.5,
+    "userRatingCount": 340,
+    "displayName": {
+      "text": "Casamia Flagship Store",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJ3_edgoJCXz4Rqib1Q9QeSeg",
+    "types": [
+      "department_store",
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Financial Center Rd - Downtown Dubai - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.1992549,
+      "longitude": 55.2781156
+    },
+    "rating": 3.9,
+    "userRatingCount": 673,
+    "displayName": {
+      "text": "Bloomingdale's",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "department_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJb2ioQptpXz4R5vjqEU-TsQQ",
+    "types": [
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Al Wasl Rd - Al Safa 1 - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.1829742,
+      "longitude": 55.2373048
+    },
+    "rating": 4.3,
+    "userRatingCount": 234,
+    "displayName": {
+      "text": "Al Huzaifa Furniture",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "furniture_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJfWt_77BpXz4RN4tsu4HPedA",
+    "types": [
+      "home_improvement_store",
+      "furniture_store",
+      "home_goods_store",
+      "general_contractor",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "SR04, MZ08 Al Waha Complex - \u0634\u0627\u0631\u0639 \u0627\u0644\u0634\u064a\u062e \u0632\u0627\u064a\u062f - \u0627\u0644\u0642\u0648\u0632 - \u0627\u0644\u0642\u0648\u0632 3 - \u062f\u0628\u064a - United Arab Emirates",
+    "location": {
+      "latitude": 25.1671786,
+      "longitude": 55.2384753
+    },
+    "rating": 4.2,
+    "userRatingCount": 152,
+    "displayName": {
+      "text": "Casa Milano - Dubai",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "home_improvement_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJGdKDPsNpXz4RXkBXWUmc_10",
+    "types": [
+      "restaurant",
+      "banquet_hall",
+      "indian_restaurant",
+      "event_venue",
+      "chinese_restaurant",
+      "home_goods_store",
+      "food",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Sheikh Majid Building - Shop #2, Ground Floor - 224 Sheikh Zayed Rd - Business Bay - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.191873400000002,
+      "longitude": 55.2592157
+    },
+    "rating": 4.3,
+    "priceLevel": "PRICE_LEVEL_MODERATE",
+    "userRatingCount": 709,
+    "displayName": {
+      "text": "Bay Bites Restaurant & Party Hall",
+      "languageCode": "en"
+    },
+    "takeout": true,
+    "delivery": true,
+    "primaryType": "restaurant",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJXWM28ThDXz4Rqp69suwZil8",
+    "types": [
+      "museum",
+      "tourist_attraction",
+      "coffee_shop",
+      "cafe",
+      "home_goods_store",
+      "food",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Historical Neighborhood, Bastakiya, Villa 44 - Al Hisn St - Al Fahidi - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2637195,
+      "longitude": 55.3000933
+    },
+    "rating": 4.4,
+    "userRatingCount": 1091,
+    "displayName": {
+      "text": "Coffee Museum",
+      "languageCode": "en"
+    },
+    "primaryType": "museum"
+  },
+  {
+    "id": "ChIJ4bqF8MxcXz4RFL6qb9exS1E",
+    "types": [
+      "electronics_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Mezzanine Floor Galadari Automobiles Mazda Showroom Building Near Oasis Mall - \u0634\u0627\u0631\u0639 \u0627\u0644\u0634\u064a\u062e \u0632\u0627\u064a\u062f - near Oasis Centre - \u0627\u0644\u0642\u0648\u0632 - \u0627\u0644\u0642\u0648\u0632 1 - \u062f\u0628\u064a - United Arab Emirates",
+    "location": {
+      "latitude": 25.1726536,
+      "longitude": 55.2435134
+    },
+    "rating": 4.6,
+    "userRatingCount": 499,
+    "displayName": {
+      "text": "Advanced Media \u2013 Broadcast, Cinema, Professional Video and Photography Equipment Supplier",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "electronics_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJ6_nxQzxDXz4RBfGCUHKOFW4",
+    "types": [
+      "electronics_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Al Mussallah Rd - Al Raffa - Al Fahidi - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.2576648,
+      "longitude": 55.296291599999996
+    },
+    "rating": 4.1,
+    "priceLevel": "PRICE_LEVEL_EXPENSIVE",
+    "userRatingCount": 1883,
+    "displayName": {
+      "text": "Jumbo Electronics",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "electronics_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJHwrnBChoXz4RM9Sw0NlpEHA",
+    "types": [
+      "electronics_store",
+      "cell_phone_store",
+      "furniture_store",
+      "home_improvement_store",
+      "home_goods_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "Level 2 Electronics Zone - Financial Center Rd - Downtown Dubai - Dubai - United Arab Emirates",
+    "location": {
+      "latitude": 25.197963599999998,
+      "longitude": 55.278160299999996
+    },
+    "rating": 3.9,
+    "userRatingCount": 2311,
+    "displayName": {
+      "text": "Sharaf DG Dubai Mall",
+      "languageCode": "en"
+    },
+    "delivery": true,
+    "primaryType": "electronics_store",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  }
+]

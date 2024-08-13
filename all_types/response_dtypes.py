@@ -69,7 +69,7 @@ class CityData(BaseModel):
     type: str = None
 
 
-class DataCreateLyr(BaseModel):
+class ResFetchDataset(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
     bknd_dataset_id: str
@@ -105,14 +105,12 @@ ResUserLayers = ResModel[List[LayerInfo]]
 ResCtlgLyrs = ResModel[List[PrdcerLyrMapData]]
 ResApplyZoneLayers = ResModel[List[PrdcerLyrMapData]]
 ResCreateUserProfile = ResModel[Dict[str, str]]
-ResAcknowlg = ResModel[str]
 ResSavePrdcerCtlg = ResModel[str]
 ResTypeMapData = ResModel[MapData]
 
 ResCountryCityData = ResModel[Dict[str, List[CityData]]]
 ResNearbyCategories = ResModel[Dict[str, List[str]]]
-ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData]
-ResCreateLyr = ResModel[DataCreateLyr]
+ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData] 
 ResOldNearbyCategories = ResModel[List[str]]
 ResUserCatalogs = ResModel[List[UserCatalogInfo]]
 ResUserLogin = ResModel[Dict[str, Any]]

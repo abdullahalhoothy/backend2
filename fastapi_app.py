@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError
 
 from all_types.myapi_dtypes import (
-    ReqCreateLyr,
+    ReqFetchDataset,
     ReqSavePrdcerLyer,
     ReqPrdcerLyrMapData,
     ReqCreateUserProfile,
@@ -22,14 +22,30 @@ from all_types.myapi_dtypes import (
     ReqCostEstimate,
     ReqUserId,
     ReqSavePrdcerCtlg,
-    ReqApplyZoneLayers
+    ReqApplyZoneLayers,
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
-from all_types.response_dtypes import ResModel, ResAllCards, ResUserLayers, ResCtlgLyrs, ResApplyZoneLayers, \
-    ResCreateUserProfile, \
-    ResAcknowlg, ResSavePrdcerCtlg, ResTypeMapData, ResCountryCityData, ResNearbyCategories, ResPrdcerLyrMapData, \
-    ResCreateLyr, ResUserCatalogs, ResUserLogin, ResUserProfile, ResResetPassword, ResConfirmReset, ResChangePassword, \
-    ResCostEstimate
+from all_types.response_dtypes import (
+    ResModel,
+    ResAllCards,
+    ResUserLayers,
+    ResCtlgLyrs,
+    ResApplyZoneLayers,
+    ResCreateUserProfile,
+    ResSavePrdcerCtlg,
+    ResTypeMapData,
+    ResCountryCityData,
+    ResNearbyCategories,
+    ResPrdcerLyrMapData,
+    ResFetchDataset,
+    ResUserCatalogs,
+    ResUserLogin,
+    ResUserProfile,
+    ResResetPassword,
+    ResConfirmReset,
+    ResChangePassword,
+    ResCostEstimate,
+)
 from auth import (
     create_user_profile,
     get_user_account,
@@ -52,7 +68,8 @@ from data_fetcher import (
     create_save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    apply_zone_layers, fetch_nearby_categories
+    apply_zone_layers,
+    fetch_nearby_categories,
 )
 from database import Database
 from logging_wrapper import log_and_validate
@@ -90,18 +107,18 @@ async def shutdown_event():
 
 @log_and_validate(logger)
 async def http_handling(
-        req: Optional[T],
-        input_type: Optional[Type[T]],
-        output_type: Type[U],
-        custom_function: Optional[Callable[..., Awaitable[Any]]],
-        full_request: Request = None,
+    req: Optional[T],
+    input_type: Optional[Type[T]],
+    output_type: Type[U],
+    custom_function: Optional[Callable[..., Awaitable[Any]]],
+    full_request: Request = None,
 ):
     try:
         output = ""
         if req is not None:
             # Get all headers
             authorization = None
-            if full_request:
+            if full_request and CONF.firebase_api_key != "":
                 headers = full_request.headers
                 # Check for access token in the Authorization header
                 authorization = headers.get("Authorization", None)
@@ -120,8 +137,8 @@ async def http_handling(
                         token_user_id = decoded_token["uid"]
                         # Check if the token user_id matches the requested user_id
                         if (
-                                hasattr(req.request_body, "user_id")
-                                and token_user_id != req.request_body.user_id
+                            hasattr(req.request_body, "user_id")
+                            and token_user_id != req.request_body.user_id
                         ):
                             raise HTTPException(
                                 status_code=status.HTTP_403_FORBIDDEN,
@@ -205,12 +222,12 @@ async def catlog_data(catlog_req: ReqModel[ReqFetchCtlgLyrs]):
     return RedirectResponse(url=new_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
-@app.get(CONF.fetch_acknowlg_id, response_model=ResAcknowlg)
+@app.get(CONF.fetch_acknowlg_id, response_model=ResModel[str])
 async def fetch_acknowlg_id():
     response = await http_handling(
         None,
         None,
-        ResAcknowlg,
+        ResModel[str],
         None,
     )
     return response
@@ -260,28 +277,24 @@ async def nearby_categories():
     return response
 
 
-@app.post(CONF.create_layer, response_model=ResCreateLyr)
-async def create_layer(req: ReqModel[ReqCreateLyr], request: Request):
-    if req.request_body.action == 'sample':
+@app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset])
+async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
+    if req.request_body.action == "sample":
         request = None
     response = await http_handling(
         req,
-        ReqCreateLyr,
-        ResCreateLyr,
+        ReqFetchDataset,
+        ResModel[ResFetchDataset],
         fetch_country_city_category_map_data,
-        request
+        request,
     )
     return response
 
 
-@app.post(CONF.save_producer_layer, response_model=ResAcknowlg)
-async def save_producer_layer(req: ReqModel[ReqSavePrdcerLyer], request: Request):
+@app.post(CONF.save_layer, response_model=ResModel[str])
+async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await http_handling(
-        req,
-        ReqSavePrdcerLyer,
-        ResAcknowlg,
-        save_lyr,
-        request
+        req, ReqSavePrdcerLyer, ResModel[str], save_lyr, request
     )
     return response
 
@@ -303,11 +316,7 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
 @app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg)
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
     response = await http_handling(
-        req,
-        ReqSavePrdcerCtlg,
-        ResSavePrdcerCtlg,
-        create_save_prdcer_ctlg,
-        request
+        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg, request
     )
     return response
 
@@ -342,7 +351,24 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 
 @app.post(CONF.login, response_model=ResUserLogin)
 async def login(req: ReqModel[ReqUserLogin]):
-    response = await http_handling(req, ReqUserLogin, ResUserLogin, login_user)
+    if CONF.api_key != "":
+        response = await http_handling(req, ReqUserLogin, ResUserLogin, login_user)
+    else:
+        response = {
+            "message": "Request received",
+            "request_id": "req-228dc80c-e545-4cfb-ad07-b140ee7a8aac",
+            "data": {
+                "kind": "identitytoolkit#VerifyPasswordResponse",
+                "localId": "dkD2RHu4pcUTMXwF2fotf6rFfK33",
+                "email": "testemail@gmail.com",
+                "displayName": "string",
+                "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNlMzcxNzMwZWY4NmViYTI5YTUyMTJkOWI5NmYzNjc1NTA0ZjYyYmMiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoic3RyaW5nIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2Zpci1sb2NhdG9yLTM1ODM5IiwiYXVkIjoiZmlyLWxvY2F0b3ItMzU4MzkiLCJhdXRoX3RpbWUiOjE3MjM0MjAyMzQsInVzZXJfaWQiOiJka0QyUkh1NHBjVVRNWHdGMmZvdGY2ckZmSzMzIiwic3ViIjoiZGtEMlJIdTRwY1VUTVh3RjJmb3RmNnJGZkszMyIsImlhdCI6MTcyMzQyMDIzNCwiZXhwIjoxNzIzNDIzODM0LCJlbWFpbCI6InRlc3RlbWFpbEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidGVzdGVtYWlsQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.BrHdEDcjycdMj1hdbAtPI4r1HmXPW7cF9YwwNV_W2nH-BcYTXcmv7nK964bvXUCPOw4gSqsk7Nsgig0ATvhLr6bwOuadLjBwpXAbPc2OZNw-m6_ruINKoAyP1FGs7FvtOWNC86-ckwkIKBMB1k3-b2XRvgDeD2WhZ3bZbEAhHohjHzDatWvSIIwclHMQIPRN04b4-qXVTjtDV0zcX6pgkxTJ2XMRTgrpwoAxCNoThmRWbJjILmX-amzmdAiCjFzQW1lCP_RIR4ZOT0blLTupDxNFmdV5mj6oV7WZmH-NPO4sGmfHDoKVwoFX8s82E77p-esKUF7QkRDSCtaSQES3og",
+                "registered": True,
+                "refreshToken": "AMf-vByZFCBWektg34QkcoletyWBbPbLRccBgL32KjX04dwzTtIePkIQ5B48T9oRP9wFBF876Ts-FjBa2ZKAUSm00bxIzigAoX7yEancXdGaLXXQuqTyZ2tdCWtcac_XSd-_EpzuOiZ_6Zoy7d-Y0i14YQNRW3BdEfgkwU6tHRDZTfg0K-uQi3iorbO-9l_O4_REq-sWRTssxyXIik4vKdtrphyhhwuOUTppdRSeiZbaUGZOcJSi7Es",
+                "expiresIn": "3600",
+                "created_at": "2024-08-11T19:50:33.617798",
+            },
+        }
     return response
 
 
@@ -382,6 +408,7 @@ async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Requ
         req, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost
     )
     return response
+
 
 # @app.post("/refresh-token")
 # async def refresh_token(token: dict = Depends(verify_token)):

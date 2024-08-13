@@ -16,9 +16,9 @@ from all_types.myapi_dtypes import (
     ReqApplyZoneLayers,
     ReqPrdcerLyrMapData,
     ReqUserLogin,
-    ReqCreateLyr,
+    ReqFetchDataset,
 )
-from all_types.response_dtypes import ResCreateLyr, Geometry, Feature, LayerInfo, PrdcerLyrMapData, UserCatalogInfo
+from all_types.response_dtypes import Geometry, Feature, LayerInfo, PrdcerLyrMapData, UserCatalogInfo
 from google_api_connector import (
     fetch_from_google_maps_api)
 from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
@@ -157,7 +157,7 @@ def create_string_list(circle_hierarchy, type_string, text_search):
     return result
 
 
-async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqCreateLyr):
+async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
     search_type = req_create_lyr.search_type
     next_page_token = req_dataset.page_token
     plan_name = ""
@@ -328,7 +328,7 @@ async def fetch_layer_collection(**_):
 
 
 async def fetch_country_city_data(
-    req: ReqCreateLyr,
+    req: ReqFetchDataset,
 ) -> Dict[str, List[Dict[str, float]]]:
     """
     Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
@@ -339,7 +339,7 @@ async def fetch_country_city_data(
     return data
 
 
-async def fetch_country_city_category_map_data(req: ReqCreateLyr) -> ResCreateLyr:
+async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,

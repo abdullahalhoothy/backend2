@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from all_types.myapi_dtypes import ReqLocation, ReqCreateLyr
+from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
 
@@ -106,7 +106,7 @@ def make_ggl_dataset_cord_filename(lng: str, lat: str, radius: str):
     return f"{lng}_{lat}_{radius}"
 
 
-def make_ggl_layer_filename(req: ReqCreateLyr) -> str:
+def make_ggl_layer_filename(req: ReqFetchDataset) -> str:
     type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
     tcc_string = f"{type_string}_{req.dataset_country}_{req.dataset_city}"
     return tcc_string

@@ -65,7 +65,7 @@ class ReqPrdcerLyrMapData(BaseModel):
     user_id: str
 
 
-class ReqCreateLyr(BaseModel):
+class ReqFetchDataset(BaseModel):
     dataset_country: str
     dataset_city: str
     excludedTypes: list[str]
