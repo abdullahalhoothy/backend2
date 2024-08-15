@@ -4,7 +4,8 @@
   "email": "testemail@gmail.com",
   "prdcer": {
     "prdcer_dataset": {
-      "include=casino_exclude=_Canada_Montreal": "plan_include=casino_exclude=_Canada_Montreal"
+      "include=casino_exclude=_Canada_Montreal": "plan_include=casino_exclude=_Canada_Montreal",
+      "include=villa_for_rent_exclude=string_Saudi Arabia_Riyadh": "plan_include=villa_for_rent_exclude=string_Saudi Arabia_Riyadh"
     },
     "prdcer_lyrs": {},
     "prdcer_ctlgs": {}
