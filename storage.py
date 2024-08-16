@@ -497,7 +497,7 @@ async def get_dataset_from_storage(req: ReqLocation) -> tuple[Optional[Dict], Op
     return None, None
 
 
-async def get_real_estate_folder(req: ReqRealEstate) -> list:
+async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
     country= req.country_name.lower().replace(" ","_")
     folder_path = f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
     files = os.listdir(folder_path)
