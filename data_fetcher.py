@@ -361,7 +361,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
     return req_dataset, plan_name, next_page_token, current_plan_index
 
 
-async def process_real_estate_req_plan(req_dataset, req_create_lyr):
+async def process_req_plan(req_dataset, req_create_lyr):
     action = req_create_lyr.action
     plan: List[str] = []
     current_plan_index = 0
@@ -370,10 +370,24 @@ async def process_real_estate_req_plan(req_dataset, req_create_lyr):
         req_dataset.page_token == ""
         and action == "full data"
     ):
-        
-        string_list_plan=await get_real_estate_folder(req_dataset)
-        
-        string_list_plan.append("end of search plan")
+    
+    
+        if isinstance(req_dataset, ReqRealEstate) :
+            string_list_plan=await get_real_estate_folder(req_dataset)
+            string_list_plan.append("end of search plan")
+
+        if isinstance(req_dataset, ReqLocation) : 
+                circle_hierarchy = cover_circle_with_seven_circles(
+                    (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
+                )
+                type_string = make_include_exclude_name(
+                    req_dataset.includedTypes, req_dataset.excludedTypes
+                )
+                string_list_plan = create_string_list(
+                    circle_hierarchy, type_string, req_dataset.text_search
+                )
+                string_list_plan.append("end of search plan")
+
 
         # TODO creating the name of the file should be moved to storage
         tcc_string = make_ggl_layer_filename(req_create_lyr)
