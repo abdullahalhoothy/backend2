@@ -313,11 +313,11 @@ async def process_req_plan(req_dataset, req_create_lyr):
     ):
     
     
-        if isinstance(req_dataset, ReqRealEstate) :
+        if isinstance(req_dataset, ReqRealEstate ) :
             string_list_plan=await create_real_estate_plan(req_dataset)
             string_list_plan.append("end of search plan")
 
-        if isinstance(req_dataset, ReqLocation) : 
+        if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750 : 
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
@@ -349,6 +349,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
 
     elif req_dataset.page_token != "":
+        
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
         current_plan_index = int(current_plan_index)
