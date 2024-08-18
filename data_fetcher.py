@@ -315,7 +315,6 @@ async def process_req_plan(req_dataset, req_create_lyr):
     
         if isinstance(req_dataset, ReqRealEstate) :
             string_list_plan=await create_real_estate_plan(req_dataset)
-            string_list_plan.append("end of search plan")
 
         if isinstance(req_dataset, ReqLocation) : 
             circle_hierarchy = cover_circle_with_seven_circles(
@@ -327,7 +326,10 @@ async def process_req_plan(req_dataset, req_create_lyr):
             string_list_plan = create_string_list(
                 circle_hierarchy, type_string, req_dataset.text_search
             )
-            string_list_plan.append("end of search plan")
+        
+        
+        string_list_plan.append("end of search plan")
+
 
 
         # TODO creating the name of the file should be moved to storage
