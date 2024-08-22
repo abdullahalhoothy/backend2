@@ -199,19 +199,13 @@ async def fetch_real_estate_nearby(req_dataset: ReqRealEstate, req_create_lyr: R
     action=req_create_lyr.action 
 
     if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index = await process_req_plan(
+        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
             req_dataset, req_create_lyr
         )
-
-        plan_data=await get_plan(plan_name)
-        bknd_dataset_id=plan_data[current_plan_index]
-
         dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, bknd_dataset_id,action)    
-        next_plan_index =current_plan_index+1
-        if next_page_token=='' :
-            next_page_token=""
-        else:
-            next_page_token = next_page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
+
+
+        
     else:
         dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, '',action)
 
@@ -225,7 +219,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     plan_name = ""
 
     if req_create_lyr.action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index = await process_req_plan(
+        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
             req_dataset, req_create_lyr
         )
 
@@ -306,6 +300,8 @@ async def process_req_plan(req_dataset, req_create_lyr):
     action = req_create_lyr.action
     plan: List[str] = []
     current_plan_index = 0
+    bknd_dataset_id=''
+    
 
     if (
         req_dataset.page_token == ""
@@ -338,6 +334,8 @@ async def process_req_plan(req_dataset, req_create_lyr):
         if req_dataset.text_search != "" and req_dataset.text_search is not None:
             plan_name = plan_name + f"_text_search:"
         await save_plan(plan_name, string_list_plan)
+        plan = string_list_plan
+
 
         if isinstance(req_dataset, ReqLocation) : 
             next_search = string_list_plan[0]
@@ -347,6 +345,8 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 float(first_search[1]),
                 float(first_search[2]),
             )
+        if isinstance(req_dataset, ReqRealEstate ) :
+            bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
 
@@ -357,10 +357,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
         current_plan_index = int(current_plan_index)
         plan = await get_plan(plan_name)
         
-        if plan[current_plan_index + 1] == "end of search plan":
-            next_page_token = ""  # End of search plan
-        else:
-            next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
+        
 
 
         if isinstance(req_dataset, ReqLocation) : 
@@ -370,14 +367,24 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 float(search_info[1]),
                 float(search_info[2]),
             )
-        if plan[current_plan_index + 1] == "end of search plan":
-            next_page_token = ""  # End of search plan
-        else:
-            next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
+            if plan[current_plan_index + 1] == "end of search plan":
+                next_page_token = ""  # End of search plan
+            else:
+                next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
+        
+        if isinstance(req_dataset, ReqRealEstate ) :
+
+            next_plan_index =current_plan_index+1
+            bknd_dataset_id = plan[current_plan_index]
+            if plan[current_plan_index + 1] == "end of search plan":
+                    next_page_token = ""  # End of search plan
+            else:
+                next_page_token = req_dataset.page_token.split('@#$')[0]+'@#$'+str(next_plan_index)
+        
 
 
 
-    return req_dataset, plan_name, next_page_token, current_plan_index
+    return req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id
 
 
 
