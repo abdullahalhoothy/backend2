@@ -413,10 +413,10 @@ def load_google_categories():
             detail="Error parsing categories file",
         )
 
-async def load_real_estate_categories():
+async def load_real_estate_categories() ->dict:
     file_path = REAL_ESTATE_CATEGORIES_PATH
     json_data = await use_json(file_path, "r")
-    return json_data['real_estate']
+    return json_data
 
 
 def generate_layer_id() -> str:

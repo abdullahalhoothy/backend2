@@ -521,9 +521,11 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     
     #TODO fix me
     real_estate_categories= await load_real_estate_categories()
+
     
 
     if not(req.includedTypes!=[] and req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories)))!=set()):
+
         # Create new dataset request
         req_dataset = ReqLocation(
             lat=city_data["lat"],
