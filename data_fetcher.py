@@ -1036,5 +1036,41 @@ async def fetch_nearby_categories(req: None) -> Dict:
     return categories
 
 
+async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
+    try:
+        user_data = load_user_profile(req.user_id)
+        if (len(req.lyrs) > 0):
+        
+            new_ctlg_id = str(uuid.uuid4())
+            new_catalog = {
+                "prdcer_ctlg_name": req.prdcer_ctlg_name,
+                "prdcer_ctlg_id": new_ctlg_id,
+                "subscription_price": req.subscription_price,
+                "ctlg_description": req.ctlg_description,
+                "total_records": req.total_records,
+                "lyrs": req.lyrs,
+                "thumbnail_url": req.thumbnail_url,
+                "ctlg_owner_user_id": req.user_id,
+            }
+            user_data["prdcer"]["draft_ctlgs"][new_ctlg_id] = new_catalog
+
+            serializable_user_data = convert_to_serializable(user_data)
+            update_user_profile(req.user_id, serializable_user_data)
+
+            return new_ctlg_id
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="No layers found in the request",
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while saving draft catalog: {str(e)}",
+        ) from e
+
+
+
+
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

@@ -46,6 +46,8 @@ class static_ApiConfig:
     google_fields: str = (
         "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
     )
+    save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
+    
 
 
 @dataclass

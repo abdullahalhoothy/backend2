@@ -70,6 +70,8 @@ from data_fetcher import (
     fetch_ctlg_lyrs,
     apply_zone_layers,
     fetch_nearby_categories,
+    save_draft_catalog
+
 )
 from database import Database
 from logging_wrapper import log_and_validate
@@ -408,6 +410,13 @@ async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Requ
         req, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost
     )
     return response
+
+
+@app.post(CONF.save_draft_catalog,response_model=ResSavePrdcerCtlg)
+async def save_draft_catalog_endpoint(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
+    response = await http_handling(req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, request)
+    return response 
+
 
 
 # @app.post("/refresh-token")

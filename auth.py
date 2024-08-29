@@ -44,7 +44,7 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
             "user_id": user.uid,
             "username": req.username,
             "email": req.email,
-            "prdcer": {"prdcer_dataset": {}, "prdcer_lyrs": {}, "prdcer_ctlgs": {}},
+            "prdcer": {"prdcer_dataset": {}, "prdcer_lyrs": {}, "prdcer_ctlgs": {},"draft_ctlgs":{}},
         }
 
         # Save additional user data to your database
