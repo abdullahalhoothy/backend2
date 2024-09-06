@@ -199,7 +199,7 @@ async def fetch_real_estate_nearby(req_dataset: ReqRealEstate, req_create_lyr: R
     action=req_create_lyr.action 
 
     if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index,bknd_dataset_id = await process_req_plan(
+        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = await process_req_plan(
             req_dataset, req_create_lyr
         )
         dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(req_dataset, bknd_dataset_id,action)    
@@ -524,7 +524,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
     
 
+
     if not(req.includedTypes!=[] and (set(req.includedTypes).intersection(set(real_estate_categories['real_estate'])))!=set()):
+
         # Create new dataset request
         req_dataset = ReqLocation(
             lat=city_data["lat"],

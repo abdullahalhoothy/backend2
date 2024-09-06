@@ -213,40 +213,45 @@ reponds with multiple layers(only 1 in example below because the catalog c3 only
     "lyrs":["p1335","p33"],
     "lyrs_as_zone(max_2)":[{"p33":"features.properties.rating"}]
 }
+
 13- Frontend should cache all the current layers' data points and use response from the api which will be 3 or 6 layers:
 These three or six layers will be used will be created through a data transformation method which will take all the available points except the designated zone layer and
 then take the points from the designated zone layer and apply a radius of 10 to the zone layer point it will add it to either one of the three layers
-If the zone layer point has a Features.Properties.price value that is at the bottom 1/3 of all the values in that zone layer point it will designate Any point adjacent to that to layer one and if it's in the middle third value in terms of value of the layer zone it will designate it to the middle point and if it's on the higher range of the zone layer values it will designate it to the 3rd layer
+If the zone layer point has a Features.Properties.price value that is at the bottom 1/3 of all the values in that zone layer point it will designate 
+Any point adjacent to that to layer one and if it's in the middle third value in terms of value of the layer zone it will designate it to the middle point and if it's
+on the higher range of the zone layer values it will designate it to the 3rd layer and will return the below
 
 [       
     {    
     "type": "FeatureCollection",
     "features": [......],
     "prdcer_layer_name":"",
-    "prdcer_lyr_id":"zyp33_applied_1_p1335",
+    "prdcer_lyr_id":"colored_p33_basedon_p1335_rating",
+    "sub_lyr_id":"colored_p33_basedon_p1335_rating_1",
     "points_color":"red",
     "layer_legend":"fish resturants high zp33",
     "records_count": 3500,
-    "is_zone_lyr":"False",
+    "is_zone_lyr":"True",
 } , {    
     "type": "FeatureCollection",
     "features": [......],
     "prdcer_layer_name":"",
-    "prdcer_lyr_id":"zyp33_applied_2_p1335",
+    "prdcer_lyr_id":"colored_p33_basedon_p1335_rating",
+    "sub_lyr_id":"colored_p33_basedon_p1335_rating_2",
     "points_color":"Cyan",
     "layer_legend":"fish resturants medium zp33",
-
     "records_count": 2300,
-    "is_zone_lyr":"False",
+    "is_zone_lyr":"True",
 } , {    
     "type": "FeatureCollection",
     "features": [......],
     "prdcer_layer_name":"",
-    "prdcer_lyr_id":"zyp33_applied_3_p1335",
-    "points_color":"grey",
+    "prdcer_lyr_id":"colored_p33_basedon_p1335_rating",
+    "sub_lyr_id":"colored_p33_basedon_p1335_rating_3",
+    "points_color":"green",
     "layer_legend":"fish resturants low zp33",
     "records_count": 2700,
-    "is_zone_lyr":"False",
+    "is_zone_lyr":"True",
 }
 ]
 14- so now current catlog in frontend is like

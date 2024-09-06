@@ -353,7 +353,7 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 
 @app.post(CONF.login, response_model=ResUserLogin)
 async def login(req: ReqModel[ReqUserLogin]):
-    if CONF.api_key != "":
+    if CONF.firebase_api_key != "":
         response = await http_handling(req, ReqUserLogin, ResUserLogin, login_user)
     else:
         response = {
