@@ -125,3 +125,7 @@ ResResetPassword = ResModel[Dict[str, Any]]
 ResConfirmReset = ResModel[Dict[str, Any]]
 ResChangePassword = ResModel[Dict[str, Any]]
 ResfetchGradientColors = ResModel[list[list[str]]]
+
+
+## Added for Refresh token
+ResUserRefreshToken = ResModel[Dict[str,Any]] ## Change 

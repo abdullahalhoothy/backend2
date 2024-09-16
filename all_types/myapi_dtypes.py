@@ -149,3 +149,8 @@ class ReqGradientColorBasedOnZone(ReqPrdcerLyrMapData):
     radius_offset: float
     color_based_on: str
 
+
+## Added it for Refresh token
+class ReqRefreshToken(BaseModel):
+    grant_type:str
+    refresh_token:str

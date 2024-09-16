@@ -10,6 +10,7 @@ from all_types.myapi_dtypes import (
     ReqResetPassword,
     ReqConfirmReset,
     ReqChangePassword,
+    ReqRefreshToken
 )
 from storage import load_user_profile, update_user_profile
 from jose import jwt, JWTError
@@ -75,6 +76,39 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
             detail="Incorrect username or password",
         ) from e
 
+
+
+#######################################################################################
+async def refresh_id_token(req:ReqRefreshToken) -> Dict[str, str]:
+    try:
+        payload = {
+            "grant_type" :req.grant_type,
+            "refresh_token" : req.refresh_token
+        }
+        response = await make_firebase_api_request(CONF.firebase_refresh_token,payload)
+        response["created_at"] = datetime.now()
+        return response
+    except auth.UserNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        ) from e
+    except auth.TokenExpired as t:
+        raise HTTPException(
+            status_code= status.HTTP_401_UNAUTHORIZED,
+            detail="Token Expired"
+        ) from t
+    except auth.UserDisabled as d:
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="User Disabled"
+        ) from d
+    except auth.InvalidRefreshToken as i:
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Refresh Token"
+        )
+########################################################################################
 
 async def my_verify_id_token(token: str = Depends(oauth2_scheme)):
     try:

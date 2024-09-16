@@ -24,6 +24,7 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerCtlg,
     # ReqApplyZoneLayers,
     ReqGradientColorBasedOnZone,
+    ReqRefreshToken
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -47,7 +48,8 @@ from all_types.response_dtypes import (
     ResChangePassword,
     ResCostEstimate,
     ResfetchGradientColors,
-    ResGradientColorBasedOnZone
+    ResGradientColorBasedOnZone,
+    ResUserRefreshToken
 )
 from auth import (
     create_user_profile,
@@ -57,6 +59,7 @@ from auth import (
     reset_password,
     confirm_reset,
     change_password,
+    refresh_id_token
 )
 from config_factory import get_conf
 from cost_calculator import calculate_cost
@@ -376,6 +379,33 @@ async def login(req: ReqModel[ReqUserLogin]):
             },
         }
     return response
+
+##################################################################################################################### 
+@app.post(CONF.refresh_token,response_model=ResUserRefreshToken)
+async def refresh_token(req:ReqModel[ReqRefreshToken]):
+    try:
+        if CONF.firebase_api_key != "":
+            response = await http_handling(req,ReqRefreshToken,ResUserRefreshToken,refresh_id_token)
+        else:
+            response = {
+                "message": "Request received",
+                "request_id": "req-228dc80c-e545-4cfb-ad07-b140ee7a8aac",
+                "data": {
+                    "kind": "identitytoolkit#VerifyPasswordResponse",
+                    "localId": "dkD2RHu4pcUTMXwF2fotf6rFfK33",
+                    "email": "testemail@gmail.com",
+                    "displayName": "string",
+                    "idToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImNlMzcxNzMwZWY4NmViYTI5YTUyMTJkOWI5NmYzNjc1NTA0ZjYyYmMiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoic3RyaW5nIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2Zpci1sb2NhdG9yLTM1ODM5IiwiYXVkIjoiZmlyLWxvY2F0b3ItMzU4MzkiLCJhdXRoX3RpbWUiOjE3MjM0MjAyMzQsInVzZXJfaWQiOiJka0QyUkh1NHBjVVRNWHdGMmZvdGY2ckZmSzMzIiwic3ViIjoiZGtEMlJIdTRwY1VUTVh3RjJmb3RmNnJGZkszMyIsImlhdCI6MTcyMzQyMDIzNCwiZXhwIjoxNzIzNDIzODM0LCJlbWFpbCI6InRlc3RlbWFpbEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsidGVzdGVtYWlsQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.BrHdEDcjycdMj1hdbAtPI4r1HmXPW7cF9YwwNV_W2nH-BcYTXcmv7nK964bvXUCPOw4gSqsk7Nsgig0ATvhLr6bwOuadLjBwpXAbPc2OZNw-m6_ruINKoAyP1FGs7FvtOWNC86-ckwkIKBMB1k3-b2XRvgDeD2WhZ3bZbEAhHohjHzDatWvSIIwclHMQIPRN04b4-qXVTjtDV0zcX6pgkxTJ2XMRTgrpwoAxCNoThmRWbJjILmX-amzmdAiCjFzQW1lCP_RIR4ZOT0blLTupDxNFmdV5mj6oV7WZmH-NPO4sGmfHDoKVwoFX8s82E77p-esKUF7QkRDSCtaSQES3og",
+                    "registered": True,
+                    "refreshToken": "AMf-vByZFCBWektg34QkcoletyWBbPbLRccBgL32KjX04dwzTtIePkIQ5B48T9oRP9wFBF876Ts-FjBa2ZKAUSm00bxIzigAoX7yEancXdGaLXXQuqTyZ2tdCWtcac_XSd-_EpzuOiZ_6Zoy7d-Y0i14YQNRW3BdEfgkwU6tHRDZTfg0K-uQi3iorbO-9l_O4_REq-sWRTssxyXIik4vKdtrphyhhwuOUTppdRSeiZbaUGZOcJSi7Es",
+                    "expiresIn": "3600",
+                    "created_at": "2024-08-11T19:50:33.617798",
+                },
+            }
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Token refresh failed")
+#########################################################################################################################
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
