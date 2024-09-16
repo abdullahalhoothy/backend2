@@ -7,8 +7,8 @@ from dataclasses import dataclass, fields, is_dataclass
 class static_ApiConfig:
     api_key: str = ""
     backend_base_uri: str = "/fastapi/"
-    firebase_api_key: str = "AIzaSyATBQ917GWyxTZVeya7ELG9we9yyOhz7Ik"
-    firebase_sp_path: str = "/home/ahmed/upwork/test-d371f-firebase-adminsdk-jhyfj-815a78f8d4.json"
+    firebase_api_key: str = ""
+    firebase_sp_path: str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
     firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="      ## Change 
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
