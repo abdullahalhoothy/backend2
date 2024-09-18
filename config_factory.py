@@ -5,10 +5,10 @@ from dataclasses import dataclass, fields, is_dataclass
 
 @dataclass
 class static_ApiConfig:
-    api_key: str = ""
+    api_key: str = os.getenv('API_KEY','')
     backend_base_uri: str = "/fastapi/"
-    firebase_api_key: str = ""
-    firebase_sp_path: str = ""
+    firebase_api_key: str = os.getenv('FIREBASE_API_KEY','')
+    firebase_sp_path: str = os.getenv('FIREBASE_SP_PATH','')
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
     firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="      ## Change 
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
