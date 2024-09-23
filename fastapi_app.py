@@ -1,8 +1,8 @@
 import logging
 import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List
-
-from fastapi import HTTPException, status, FastAPI, Request
+import stripe
+from fastapi import Body, HTTPException, status, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -24,7 +24,7 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerCtlg,
     # ReqApplyZoneLayers,
     ReqGradientColorBasedOnZone,
-    ReqRefreshToken
+    ReqRefreshToken,
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -49,7 +49,7 @@ from all_types.response_dtypes import (
     ResCostEstimate,
     ResfetchGradientColors,
     ResGradientColorBasedOnZone,
-    ResUserRefreshToken
+    ResUserRefreshToken,
 )
 from auth import (
     create_user_profile,
@@ -59,7 +59,7 @@ from auth import (
     reset_password,
     confirm_reset,
     change_password,
-    refresh_id_token
+    refresh_id_token,
 )
 from config_factory import get_conf
 from cost_calculator import calculate_cost
@@ -78,11 +78,47 @@ from data_fetcher import (
     fetch_nearby_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    gradient_color_based_on_zone
+    gradient_color_based_on_zone,
+)
+from all_types.stripe_dtypes import (
+    ProductReq,
+    ProductRes,
+    CustomerReq,
+    CustomerRes,
+    SubscriptionCreateReq,
+    SubscriptionRes,
+    PaymentMethodReq,
+    PaymentMethodUpdateReq,
+    PaymentMethodRes,
 )
 from database import Database
 from logging_wrapper import log_and_validate
+from stripe_backend import (
+    create_stripe_product,
+    update_stripe_product,
+    delete_stripe_product,
+    list_stripe_products,
+    create_customer,
+    update_customer,
+    delete_customer,
+    list_customers,
+    fetch_customer,
+    create_subscription,
+    update_subscription,
+    deactivate_subscription,
+    create_payment_method,
+    update_payment_method,
+    delete_payment_method,
+    list_payment_methods,
+    set_default_payment_method,
+    testing_create_card_payment_source,
+    charge_wallet,
+    fetch_wallet,
+)
 
+# TODO: Add stripe secret key
+
+stripe.api_key = "sk_test_51PligvRtvvmhTtnG3d0Ub16a0KCxdNGxp09t7d83ZQylOK2JZ2JXTAQviqVgilklQ2zDFIkhqyjV6NNnNmKO8CVH00Iox4mOog"  # Add your secret key from
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
@@ -380,12 +416,15 @@ async def login(req: ReqModel[ReqUserLogin]):
         }
     return response
 
-##################################################################################################################### 
-@app.post(CONF.refresh_token,response_model=ResUserRefreshToken)
-async def refresh_token(req:ReqModel[ReqRefreshToken]):
+
+#####################################################################################################################
+@app.post(CONF.refresh_token, response_model=ResUserRefreshToken)
+async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
-            response = await http_handling(req,ReqRefreshToken,ResUserRefreshToken,refresh_id_token)
+            response = await http_handling(
+                req, ReqRefreshToken, ResUserRefreshToken, refresh_id_token
+            )
         else:
             response = {
                 "message": "Request received",
@@ -405,6 +444,8 @@ async def refresh_token(req:ReqModel[ReqRefreshToken]):
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail="Token refresh failed")
+
+
 #########################################################################################################################
 
 
@@ -455,24 +496,133 @@ async def save_draft_catalog_endpoint(
     )
     return response
 
+
 @app.get(CONF.fetch_gradient_colors, response_model=ResfetchGradientColors)
 async def fetch_gradient_colors_endpoint():
     response = await http_handling(
-        None,None,ResfetchGradientColors, fetch_gradient_colors)
+        None, None, ResfetchGradientColors, fetch_gradient_colors
+    )
     return response
 
 
-@app.post(CONF.gradient_color_based_on_zone, response_model=ResModel[List[ResGradientColorBasedOnZone]])
+@app.post(
+    CONF.gradient_color_based_on_zone,
+    response_model=ResModel[List[ResGradientColorBasedOnZone]],
+)
 async def gradient_color_based_on_zone_endpoint(
-    req: ReqModel[ReqGradientColorBasedOnZone],
-    request: Request):
+    req: ReqModel[ReqGradientColorBasedOnZone], request: Request
+):
     response = await http_handling(
         req,
         ReqGradientColorBasedOnZone,
         ResModel[List[ResGradientColorBasedOnZone]],
-        gradient_color_based_on_zone)
+        gradient_color_based_on_zone,
+    )
     return response
 
+
+# Stripe Products
+@app.post(
+    CONF.create_stripe_product,
+    response_model=ResModel[ProductReq],
+    description="Create a new subscription product in stripe",
+    tags=["stripe products"],
+)
+async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
+    product = await create_stripe_product(req.request_body)
+
+    response = ResModel(
+        data=product,
+        message="Product created successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    print(response)
+    return response
+
+
+@app.put(
+    CONF.update_stripe_product,
+    response_model=ResModel[ProductReq],
+    description="Update an existing subscription product in stripe",
+    tags=["stripe products"],
+)
+async def update_stripe_product_endpoint(product_id: str, req: ReqModel[ProductReq]):
+    product = await update_stripe_product(product_id, req.request_body)
+    response = ResModel(
+        data=product,
+        message="Product updated successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.delete(
+    CONF.delete_stripe_product,
+    response_model=ResModel[str],
+    description="Delete an existing subscription product in stripe",
+    tags=["stripe products"],
+)
+async def delete_stripe_product_endpoint(product_id: str):
+    deleted = await delete_stripe_product(product_id)
+    response = ResModel(
+        data=deleted,
+        message="Product deleted successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.get(
+    CONF.list_stripe_products,
+    description="List all subscription products in stripe",
+    tags=["stripe products"],
+)
+async def list_stripe_products_endpoint():
+    products = await list_stripe_products()
+    response = ResModel(
+        data=products,
+        message="Products retrieved successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+# Stripe subscripion
+# @app.post(
+#     CONF.create_stripe_subscription,
+#     response_model=ResModel[SubscriptionReq],
+#     description="Create a new subscription in stripe",
+#     tags=["stripe subscriptions"],
+# )
+# async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionReq]):
+#     pass
+
+# @app.put(
+#     CONF.update_stripe_subscription,
+#     response_model=ResModel[SubscriptionReq],
+#     description="Update an existing subscription in stripe",
+#     tags=["stripe subscriptions"],
+# )
+# async def update_stripe_subscription_endpoint(subscription_id: str, req: ReqModel[SubscriptionReq]):
+#     pass
+
+# @app.delete(
+#     CONF.delete_stripe_subscription,
+#     response_model=ResModel[str],
+#     description="Delete an existing subscription in stripe",
+#     tags=["stripe subscriptions"],
+# )
+# async def delete_stripe_subscription_endpoint(subscription_id: str):
+#     pass
+
+# @app.get(
+#     CONF.get_stripe_customer_subscription,
+#     response_model=ResModel[List[SubscriptionRes]],
+#     description="List all subscriptions in stripe",
+#     tags=["stripe subscriptions"],
+# )
+# async def get_stripe_customer_subscription_endpoint(customer_id: str):
+#     pass
 
 
 # @app.post("/refresh-token")
@@ -483,3 +633,293 @@ async def gradient_color_based_on_zone_endpoint(
 #         return {"access_token": new_token, "token_type": "bearer"}
 #     except Exception as e:
 #         raise HTTPException(status_code=400, detail="Token refresh failed")
+
+
+# Stripe Customers
+@app.post(
+    CONF.create_stripe_customer,
+    response_model=ResModel[CustomerRes],
+    description="Create a new customer in stripe",
+    tags=["stripe customers"],
+)
+async def create_stripe_customer_endpoint(
+    req: ReqModel[CustomerReq],
+) -> ResModel[CustomerRes]:
+    customer = await create_customer(req.request_body)
+    response = ResModel(
+        data=customer,
+        message="Customer created successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.put(
+    CONF.update_stripe_customer,
+    response_model=ResModel[CustomerRes],
+    description="Update an existing customer in stripe",
+    tags=["stripe customers"],
+)
+async def update_stripe_customer_endpoint(user_id: str, req: ReqModel[CustomerReq]):
+    customer = await update_customer(user_id, req.request_body)
+    response = ResModel(
+        data=customer,
+        message="Customer updated successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.delete(
+    CONF.delete_stripe_customer,
+    response_model=ResModel[str],
+    description="Delete an existing customer in stripe",
+    tags=["stripe customers"],
+)
+async def delete_stripe_customer_endpoint(user_id: str):
+    deleted = await delete_customer(user_id)
+    response = ResModel(
+        data=deleted,
+        message="Customer deleted successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.get(
+    CONF.list_stripe_customers,
+    response_model=ResModel[List[CustomerRes]],
+    description="List all customers in stripe",
+    tags=["stripe customers"],
+)
+async def list_stripe_customers_endpoint():
+    customers = await list_customers()
+    response = ResModel(
+        data=customers,
+        message="Customers retrieved successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.get(
+    CONF.fetch_stripe_customer,
+    response_model=ResModel[CustomerRes],
+    description="Fetch a customer in stripe",
+    tags=["stripe customers"],
+)
+async def fetch_stripe_customer_endpoint(user_id: str):
+    customer = await fetch_customer(user_id)
+    response = ResModel(
+        data=customer,
+        message="Customer retrieved successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+# Stripe Wallet
+@app.post(
+    CONF.charge_wallet,
+    description="Charge a customer's wallet in stripe",
+    tags=["stripe wallet"],
+)
+async def charge_wallet_endpoint(user_id: str, amount):
+    response = await charge_wallet(user_id, amount)
+
+    return ResModel(
+        data=response,
+        message="Wallet charged successfully",
+        request_id=str(uuid.uuid4()),
+    )
+
+
+@app.get(
+    CONF.fetch_wallet,
+    description="Fetch a customer's wallet in stripe",
+    tags=["stripe wallet"],
+)
+async def fetch_wallet_endpoint(user_id: str):
+    resp = await fetch_wallet(user_id)
+    response = ResModel(
+        data=resp,
+        message="Wallet fetched successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.post(
+    CONF.deduct_wallet,
+    response_model=ResModel[str],
+    description="Deduct from a customer's wallet in stripe",
+    tags=["stripe wallet"],
+)
+async def deduct_wallet_endpoint(req: ReqModel[CustomerReq]):
+    pass
+
+
+# Stripe Subscriptions
+
+
+@app.post(
+    CONF.create_stripe_subscription,
+    description="Create a new subscription in stripe",
+    tags=["stripe subscriptions"],
+)
+async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateReq]):
+    subscription = await create_subscription(req.request_body)
+    response = ResModel(
+        data=subscription,
+        message="Subscription created successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.put(
+    CONF.update_stripe_subscription,
+    response_model=ResModel[str],
+    description="Update an existing subscription in stripe",
+    tags=["stripe subscriptions"],
+)
+async def update_stripe_subscription_endpoint(
+    subscription_id: str, req: ReqModel[SubscriptionCreateReq]
+):
+    subscription = await update_subscription(subscription_id, req.request_body)
+    response = ResModel(
+        data=subscription,
+        message="Subscription updated successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.delete(
+    CONF.deactivate_stripe_subscription,
+    response_model=ResModel[str],
+    description="Deactivate an existing subscription in stripe",
+    tags=["stripe subscriptions"],
+)
+async def deactivate_stripe_subscription_endpoint(subscription_id: str):
+    deactivated = await deactivate_subscription(subscription_id)
+    response = ResModel(
+        data=deactivated,
+        message="Subscription deactivated successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+# Stripe Payment methods
+@app.post(
+    CONF.create_stripe_payment_method,
+    response_model=ResModel[PaymentMethodRes],
+    description="Create a new payment method in stripe",
+    tags=["stripe payment methods"],
+)
+async def create_stripe_payment_method_endpoint(
+    user_id: str, req: ReqModel[PaymentMethodReq]
+):
+    payment_method = await create_payment_method(user_id, req.request_body)
+    response = ResModel(
+        data=payment_method,
+        message="Payment method created successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.put(
+    CONF.update_stripe_payment_method,
+    response_model=ResModel[PaymentMethodRes],
+    description="Update an existing payment method in stripe",
+    tags=["stripe payment methods"],
+)
+async def update_stripe_payment_method_endpoint(
+    payment_method_id: str, req: ReqModel[PaymentMethodUpdateReq]
+):
+    payment_method = await update_payment_method(payment_method_id, req.request_body)
+    response = ResModel(
+        data=payment_method,
+        message="Payment method updated successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.delete(
+    CONF.detach_stripe_payment_method,
+    response_model=ResModel[str],
+    description="Delete an existing payment method in stripe",
+    tags=["stripe payment methods"],
+)
+async def delete_stripe_payment_method_endpoint(payment_method_id: str):
+    deleted = await delete_payment_method(payment_method_id)
+    response = ResModel(
+        data=deleted,
+        message="Payment method deleted successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.get(
+    CONF.list_stripe_payment_methods,
+    response_model=ResModel[List[PaymentMethodRes]],
+    description="List all payment methods in stripe",
+    tags=["stripe payment methods"],
+)
+async def list_stripe_payment_methods_endpoint():
+    payment_methods = await list_payment_methods()
+    response = ResModel(
+        data=payment_methods,
+        message="Payment methods retrieved successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.put(
+    CONF.set_default_stripe_payment_method,
+    response_model=ResModel[str],
+    description="Set a default payment method in stripe",
+    tags=["stripe payment methods"],
+)
+async def set_default_payment_method_endpoint(payment_method_id: str):
+    default_payment_method = await set_default_payment_method(payment_method_id)
+    response = ResModel(
+        data=default_payment_method,
+        message="Default payment method set successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+@app.post(
+    CONF.testing_create_card_payment_source,
+    response_model=ResModel[dict],
+    description="Create a new payment method in stripe",
+    tags=["stripe payment methods"],
+)
+async def testing_create_card_payment_source_endpoint(
+    user_id: str, source: str = "tok_visa"
+):
+    payment_method = await testing_create_card_payment_source(user_id, source)
+    response = ResModel(
+        data=payment_method,
+        message="Payment method created successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
+# Stripe Payment Methods
+# @app.get(
+#     CONF.list_stripe_payment_methods,
+#     response_model=ResModel[str],
+#     description="List all payment methods in stripe",
+#     tags=["stripe payment methods"],
+# )
+# async def list_stripe_payment_methods_endpoint(user_id: str):
+#     pass

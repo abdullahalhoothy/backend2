@@ -10,7 +10,7 @@ class static_ApiConfig:
     firebase_api_key: str = ""
     firebase_sp_path: str = ""
     firebase_base_url: str = "https://identitytoolkit.googleapis.com/v1/accounts:"
-    firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="      ## Change 
+    firebase_refresh_token = f"{firebase_base_url[:-9]}token?key="  ## Change
     firebase_signInWithPassword = f"{firebase_base_url}signInWithPassword?key="
     firebase_sendOobCode = f"{firebase_base_url}sendOobCode?key="
     firebase_resetPassword = f"{firebase_base_url}resetPassword?key="
@@ -43,17 +43,62 @@ class static_ApiConfig:
     confirm_reset = backend_base_uri + "confirm-reset"
     change_password = backend_base_uri + "change-password"
     login: str = backend_base_uri + "login"
-    refresh_token = backend_base_uri + "refresh-token"     ## Change
+    refresh_token = backend_base_uri + "refresh-token"  ## Change
     user_profile: str = backend_base_uri + "user_profile"
     cost_calculator: str = backend_base_uri + "cost_calculator"
     google_fields: str = (
         "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
     )
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
-    fetch_gradient_colors :str = backend_base_uri + "fetch_gradient_colors"
-    gradient_color_based_on_zone :str = backend_base_uri + "gradient_color_based_on_zone"
-    
+    fetch_gradient_colors: str = backend_base_uri + "fetch_gradient_colors"
+    gradient_color_based_on_zone: str = (
+        backend_base_uri + "gradient_color_based_on_zone"
+    )
 
+    # Stripe Product URLs
+    create_stripe_product: str = backend_base_uri + "create_stripe_product"
+    update_stripe_product: str = backend_base_uri + "update_stripe_product"
+    delete_stripe_product: str = backend_base_uri + "delete_stripe_product"
+    list_stripe_products: str = backend_base_uri + "list_stripe_products"
+    # Stripe subscription URLs
+    create_stripe_subscription: str = backend_base_uri + "create_stripe_subscription"
+    update_stripe_subscription: str = backend_base_uri + "update_stripe_subscription"
+    deactivate_stripe_subscription: str = (
+        backend_base_uri + "deactivate_stripe_subscription"
+    )
+    fetch_stripe_subscription: str = backend_base_uri + "fetch_stripe_subscription"
+
+    # Stripe wallet URLs
+    charge_wallet: str = backend_base_uri + "charge_wallet"
+    fetch_wallet: str = backend_base_uri + "fetch_wallet"
+    deduct_wallet: str = backend_base_uri + "deduct_wallet"
+
+    # Stripe customers
+    create_stripe_customer: str = backend_base_uri + "create_stripe_customer"
+    update_stripe_customer: str = backend_base_uri + "update_stripe_customer"
+    fetch_stripe_customer: str = backend_base_uri + "fetch_stripe_customer"
+    delete_stripe_customer: str = backend_base_uri + "delete_stripe_customer"
+    list_stripe_customers: str = backend_base_uri + "list_stripe_customers"
+
+    # Stripe Subscription
+
+    create_stripe_subscription: str = backend_base_uri + "create_stripe_subscription"
+    update_stripe_subscription: str = backend_base_uri + "update_stripe_subscription"
+    deactivate_stripe_subscription: str = (
+        backend_base_uri + "deactivate_stripe_subscription"
+    )
+
+    # Stripe Payment Methods
+    create_stripe_payment_method: str = backend_base_uri + "create_stripe_payment_method"
+    update_stripe_payment_method: str = backend_base_uri + "update_stripe_payment_method"
+    detach_stripe_payment_method: str = backend_base_uri + "detach_stripe_payment_method"
+    set_default_stripe_payment_method: str = backend_base_uri + "set_default_stripe_payment_method"
+    list_stripe_payment_methods: str = backend_base_uri + "list_stripe_payment_methods"
+    testing_create_card_payment_source: str = backend_base_uri + "testing_create_card_payment_source"
+
+    # Stripe Wallets
+    charge_wallet: str = backend_base_uri + "charge_wallet"
+    fetch_wallet: str = backend_base_uri + "fetch_wallet"
 
 @dataclass
 class ConfigDict:
@@ -117,7 +162,9 @@ def get_conf() -> static_ApiConfig:
             conf.api_key = data.get("gmaps_api", "")
 
         if os.path.exists("secrets/secrets_firebase.json"):
-            with open("secrets/secrets_firebase.json", "r", encoding="utf-8") as config_file:
+            with open(
+                "secrets/secrets_firebase.json", "r", encoding="utf-8"
+            ) as config_file:
                 data = json.load(config_file)
                 conf.firebase_api_key = data.get("firebase_api_key", "")
                 conf.firebase_sp_path = data.get("firebase_sp_path", "")

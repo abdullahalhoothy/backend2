@@ -12,8 +12,8 @@ class Database:
     pool: Optional[Pool] = None
     last_refresh_time: float = 0
     refresh_interval: int = 3600  # Refresh every hour
-    dsn: str = "postgresql://scraper_user:scraper_password@s-locator.northernacs.com:5432/aqar_scraper"
-
+    # dsn: str = "postgresql://scraper_user:scraper_password@s-locator.northernacs.com:5432/aqar_scraper"
+    dsn: str = "postgresql://scraper_user:scraper_password@db:5432/aqar_scraper"
     @classmethod
     async def create_pool(cls):
         cls.pool = await asyncpg.create_pool(
@@ -108,4 +108,3 @@ class Database:
             return True
         except Exception:
             return False
-   

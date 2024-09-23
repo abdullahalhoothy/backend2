@@ -43,7 +43,7 @@ async def calculate_cost(req: ReqCostEstimate):
     api_calls = estimate_api_calls(
         flattened_categories, req.included_categories, req.excluded_categories
     )
-    cost = ((api_calls / 1000) * COST_PER_1000_CALLS)
+    cost = (api_calls / 1000) * COST_PER_1000_CALLS
 
     return ResCostEstimate(cost=cost, api_calls=api_calls)
 
