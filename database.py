@@ -12,7 +12,8 @@ class Database:
     pool: Optional[Pool] = None
     last_refresh_time: float = 0
     refresh_interval: int = 3600  # Refresh every hour
-    dsn: str = os.getenv('DATABASE_URL')
+    # dsn: str = os.getenv('DATABASE_URL')
+    dsn: str = "postgresql://ahmed:pass@localhost:5432/aqar_scraper"
 
     @classmethod
     async def create_pool(cls):

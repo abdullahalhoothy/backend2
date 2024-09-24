@@ -55,7 +55,7 @@ class static_ApiConfig:
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
     fetch_gradient_colors :str = backend_base_uri + "fetch_gradient_colors"
     gradient_color_based_on_zone :str = backend_base_uri + "gradient_color_based_on_zone"
-    
+    fetch_query_from_map: str = backend_base_uri + "search_place"
 
 
 @dataclass

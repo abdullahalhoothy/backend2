@@ -51,7 +51,7 @@ class ZoneLayerInfo(BaseModel):
 class ReqLocation(BaseModel):
     lat: float
     lng: float
-    radius: int
+    radius: float
     excludedTypes: list[str]
     includedTypes: list[str]
     page_token: Optional[str] = ""
@@ -167,3 +167,5 @@ class ReqRefreshToken(BaseModel):
 
 class ReqGetPaymentMethods(BaseModel):
     user_id: str
+
+

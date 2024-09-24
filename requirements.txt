@@ -14,3 +14,4 @@ asyncpg
 python-multipart
 pytest
 aiofiles
+httpx

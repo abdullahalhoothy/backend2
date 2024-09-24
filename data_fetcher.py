@@ -85,8 +85,8 @@ def cover_circle_with_seven_circles(
     Calculate the centers and radii of seven circles covering a larger circle, recursively.
     """
     small_radius = 0.5 * radius
-    if (is_center_circle and small_radius < 0.5) or (
-        not is_center_circle and small_radius < 1
+    if (is_center_circle and small_radius < 125) or (
+        not is_center_circle and small_radius < 250
     ):
         return {
             "center": center,
@@ -122,14 +122,12 @@ def cover_circle_with_seven_circles(
     }
 
 
-def print_circle_hierarchy(circle: dict, number=""):
-    center_marker = "*" if circle["is_center"] else ""
-    print(
-        f"Circle {number}{center_marker}: Center: (lng: {circle['center'][0]:.4f}, lat: {circle['center'][1]:.4f}), Radius: {circle['radius']:.2f} km"
-    )
+def print_circle_hierarchy(circle: dict,output_list:List[str], number=1):
+    ## circle_number:lat:lng:radius
+    output_list.append(f"{number}:{circle['center'][0]:.4f}:{circle['center'][1]:.4f}:{circle['radius']:.2f}")
     for i, sub_circle in enumerate(circle["sub_circles"], 1):
-        print_circle_hierarchy(sub_circle, f"{number}.{i}" if number else f"{i}")
-
+        print_circle_hierarchy(sub_circle,output_list,number/2)
+    return output_list
 
 def count_circles(circle: dict):
     return 1 + sum(count_circles(sub_circle) for sub_circle in circle["sub_circles"])
