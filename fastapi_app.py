@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
+from collections import Counter
 
 from all_types.myapi_dtypes import (
     ReqFetchDataset,
@@ -26,7 +27,8 @@ from all_types.myapi_dtypes import (
     ReqRefreshToken,
     ReqChangeEmail,
     ReqAddPaymentMethod,
-    ReqGetPaymentMethods
+    ReqGetPaymentMethods,
+    ReqLocation
 )
 from all_types.myapi_dtypes import ReqFetchCtlgLyrs
 from all_types.response_dtypes import (
@@ -83,7 +85,13 @@ from data_fetcher import (
     fetch_nearby_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    gradient_color_based_on_zone
+    gradient_color_based_on_zone,
+    cover_circle_with_seven_circles,
+    print_circle_hierarchy
+)
+
+from google_api_connector import (
+    fetch_from_google_maps_api
 )
 from database import Database
 from logging_wrapper import log_and_validate
@@ -507,3 +515,26 @@ async def get_payment_methods_endpoint(req: ReqGetPaymentMethods, request: Reque
         request
     )
     return response
+
+
+
+############################################# Test
+@app.post(CONF.fetch_query_from_map)
+async def get_search_query_results(req:ReqLocation):
+    req.radius *= 1000
+    main_circle = cover_circle_with_seven_circles((req.lat,req.lng),req.radius,is_center_circle=True)
+    all_circles = print_circle_hierarchy(main_circle)
+    ## circle_number:lat:lng:radius
+    id_set = set()
+    result = []
+    for circle in all_circles:
+        fields = circle.split(':')
+        circle_number,req.lat,req.lng,req.radius = fields[0],fields[1],fields[2],fields[3]
+        places = await fetch_from_google_maps_api(req)
+        for place in places:
+            if place['id'] not in id_set:
+                id_set.add(place['id'])
+                result.append((place,float(circle_number)*float(place.get('rating',3))))
+    result.sort(key=lambda p: p[1],reverse=True)
+    return result
+#############################################

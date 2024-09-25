@@ -3,6 +3,7 @@ import math
 from typing import List, Tuple
 
 import requests
+import httpx
 
 from all_types.myapi_dtypes import ReqLocation
 from config_factory import get_conf
@@ -18,38 +19,35 @@ CONF = get_conf()
 
 
 
-
 async def fetch_from_google_maps_api(req: ReqLocation):
-
-
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
         "X-Goog-FieldMask": CONF.google_fields,
     }
-    data = {
-        "includedTypes": [req.includedTypes],
-        "excludedTypes": [req.excludedTypes],
-        "locationRestriction": {
-            "circle": {
-                "center": {
-                    "latitude": req.lat,
-                    "longitude": req.lng
-                },
-                "radius": req.radius
+    data ={
+            "includedTypes": req.includedTypes,
+            "excludedTypes":[],
+            "maxResultCount": 10,
+            "locationRestriction": {
+                "circle": {
+                    "center": {
+                        "latitude": req.lat,
+                        "longitude": req.lng
+                    },
+                    "radius": req.radius
+                }
             }
-        },
     }
-
-    response = requests.post(CONF.nearby_search, headers=headers, json=data)
+    client = httpx.AsyncClient()
+    response = await client.post(CONF.nearby_search, headers=headers, json=data)
     if response.status_code == 200:
         response_data = response.json()
         results = response_data.get("places", [])
-
-        return results, ''
+        return results
     else:
         print("Error:", response.status_code)
-        return [], None
+        return []
 
 
 
