@@ -122,11 +122,11 @@ def cover_circle_with_seven_circles(
     }
 
 
-def print_circle_hierarchy(circle: dict,output_list:List[str], number=1):
+def print_circle_hierarchy(circle: dict, number=1):
     ## circle_number:lat:lng:radius
-    output_list.append(f"{number}:{circle['center'][0]:.4f}:{circle['center'][1]:.4f}:{circle['radius']:.2f}")
+    output_list = [f"{number}:{circle['center'][0]:.4f}:{circle['center'][1]:.4f}:{circle['radius']:.2f}"]
     for i, sub_circle in enumerate(circle["sub_circles"], 1):
-        print_circle_hierarchy(sub_circle,output_list,number/2)
+        output_list += print_circle_hierarchy(sub_circle,number/2)
     return output_list
 
 def count_circles(circle: dict):

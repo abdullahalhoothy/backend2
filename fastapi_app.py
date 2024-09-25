@@ -521,22 +521,20 @@ async def get_payment_methods_endpoint(req: ReqGetPaymentMethods, request: Reque
 ############################################# Test
 @app.post(CONF.fetch_query_from_map)
 async def get_search_query_results(req:ReqLocation):
+    req.radius *= 1000
     main_circle = cover_circle_with_seven_circles((req.lat,req.lng),req.radius,is_center_circle=True)
-    output_list = []
-    output_list = print_circle_hierarchy(main_circle,output_list)
+    all_circles = print_circle_hierarchy(main_circle)
     ## circle_number:lat:lng:radius
     id_set = set()
     result = []
-    for ll in output_list:
-        fields = ll.split(':')
-        req.lat = fields[1]
-        req.lng = fields[2]
-        req.radius = fields[3]
+    for circle in all_circles:
+        fields = circle.split(':')
+        circle_number,req.lat,req.lng,req.radius = fields[0],fields[1],fields[2],fields[3]
         places = await fetch_from_google_maps_api(req)
         for place in places:
-            print(place)
             if place['id'] not in id_set:
                 id_set.add(place['id'])
-                result.append(place)
+                result.append((place,float(circle_number)*float(place['rating'])))
+    result.sort(key=lambda p: p[1],reverse=True)
     return result
 #############################################

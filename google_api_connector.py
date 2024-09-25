@@ -27,6 +27,7 @@ async def fetch_from_google_maps_api(req: ReqLocation):
     }
     data ={
             "includedTypes": req.includedTypes,
+            "excludedTypes":[],
             "maxResultCount": 10,
             "locationRestriction": {
                 "circle": {
@@ -38,12 +39,8 @@ async def fetch_from_google_maps_api(req: ReqLocation):
                 }
             }
     }
-    print(data)
     client = httpx.AsyncClient()
     response = await client.post(CONF.nearby_search, headers=headers, json=data)
-    print(response.json())
-    print(response.content)
-    print(response.text)
     if response.status_code == 200:
         response_data = response.json()
         results = response_data.get("places", [])
