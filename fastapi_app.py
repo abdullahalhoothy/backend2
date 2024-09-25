@@ -534,7 +534,7 @@ async def get_search_query_results(req:ReqLocation):
         for place in places:
             if place['id'] not in id_set:
                 id_set.add(place['id'])
-                result.append((place,float(circle_number)*float(place['rating'])))
+                result.append((place,float(circle_number)*float(place.get('rating',3))))
     result.sort(key=lambda p: p[1],reverse=True)
     return result
 #############################################
