@@ -21,7 +21,7 @@ from firebase_admin import auth
 import firebase_admin
 from firebase_admin import credentials
 from config_factory import get_conf
-
+import time
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -52,6 +52,21 @@ async def create_user_profile(req: ReqCreateUserProfile) -> Dict[str, str]:
         # Save additional user data to your database
         update_user_profile(user.uid, user_data)
 
+        # Send user verify email
+
+        payload = {
+            "email": req.email,
+            "password": req.password,
+            "returnSecureToken": True,
+        }
+        response = await make_firebase_api_request(CONF.firebase_signInWithPassword, payload)
+
+        ## Send Verifiy Email
+        payload = {
+            "requestType" : "VERIFY_EMAIL",
+            "idToken": response['idToken']
+        }
+        response = await make_firebase_api_request(CONF.firebase_send_verify_email,payload=payload)
         return {"user_id": user.uid, "message": "User profile created successfully"}
     except auth.EmailAlreadyExistsError as emialerrror:
         raise HTTPException(
@@ -70,14 +85,21 @@ async def login_user(req: ReqUserLogin) -> Dict[str, str]:
         }
         response = await make_firebase_api_request(CONF.firebase_signInWithPassword, payload)
         response["created_at"] = datetime.now()
-        return response
+        if response.get('localId','null') != 'null':
+            user = auth.get_user(response['localId'])
+            if user.email_verified:
+                return response
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Unverified Email"
+                )
+        raise auth.UserNotFoundError(message="")
     except auth.UserNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         ) from e
-
-
 
 #######################################################################################
 async def refresh_id_token(req:ReqRefreshToken) -> Dict[str, str]:
@@ -142,8 +164,9 @@ async def confirm_reset(req: ReqConfirmReset) -> Dict[str, str]:
 
 
 async def change_password(req: ReqChangePassword) -> Dict[str, str]:
-    response = await login_user(req)
-    if response["localId"] != req.user_id:
+    login_req = ReqUserLogin(email=req.email,password=req.password)
+    response = await login_user(login_req)
+    if response.get("localId","Null") != req.user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User id did not match firebase user ID acquired from user name and password",
@@ -156,24 +179,39 @@ async def change_password(req: ReqChangePassword) -> Dict[str, str]:
         "returnSecureToken": True,
     }
     response = await make_firebase_api_request(CONF.firebase_update, payload)
+
     return response
 
 async def change_email(req: ReqChangeEmail) -> Dict[str, str]:
-    response = await login_user(req)
-    if response["localId"] != req.user_id:
+    login_req = ReqUserLogin(email=req.current_email,password=req.password)
+    response = await login_user(login_req)
+    if response.get('localId',"Null") != req.user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User id did not match firebase user ID acquired from user name and password",
         ) 
 
     payload = {
-        "idToken": response["idToken"],
+        "idToken": response['idToken'],
         "email": req.new_email,
         "returnSecureToken": True,
     }
+
     response = await make_firebase_api_request(CONF.firebase_update, payload)
+
+    ## Send vertification email
+    payload = {
+            "requestType" : "VERIFY_EMAIL",
+            "idToken": response['idToken']
+        }
+    output_not_needed = await make_firebase_api_request(CONF.firebase_send_verify_email,payload=payload)
+
     return response
 
+
+#################################################################################### Confirm testing
+
+####################################################################################
 
 async def make_firebase_api_request(url, payload):
     try:
