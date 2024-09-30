@@ -16,7 +16,6 @@ class static_ApiConfig:
     firebase_resetPassword = f"{firebase_base_url}resetPassword?key="
     firebase_signInWithCustomToken = f"{firebase_base_url}signInWithCustomToken?key="
     firebase_update = f"{firebase_base_url}update?key="
-    firebase_send_verify_email = f"{firebase_base_url}sendOobCode?key="
     ggl_base_url: str = "https://places.googleapis.com/v1/places:"
     nearby_search: str = ggl_base_url + "searchNearby"
     place_details: str = ggl_base_url + "details/json"

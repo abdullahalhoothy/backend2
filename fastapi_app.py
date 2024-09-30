@@ -385,7 +385,6 @@ async def login(req: ReqModel[ReqUserLogin]):
         }
     return response
 
-##################################################################################################################### 
 @app.post(CONF.refresh_token,response_model=ResUserRefreshToken)
 async def refresh_token(req:ReqModel[ReqRefreshToken]):
     try:
@@ -410,7 +409,7 @@ async def refresh_token(req:ReqModel[ReqRefreshToken]):
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail="Token refresh failed")
-#########################################################################################################################
+
 
 
 @app.post(CONF.user_profile, response_model=ResUserProfile)
@@ -438,7 +437,7 @@ async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
 @app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]])
 async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
     response = await http_handling(
-        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password,request
+        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password, request
     )
     return response
 
@@ -446,7 +445,7 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
 @app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]])
 async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
     response = await http_handling(
-        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email,request
+        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email, request
     )
     return response
 
