@@ -16,3 +16,4 @@ pytest
 aiofiles
 aiohttp
 stripe
+nest-asyncio

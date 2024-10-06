@@ -10,6 +10,10 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
+from sql_object import SqlObject
+import nest_asyncio
+from database import Database
+
 from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
@@ -215,21 +219,33 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
 
 def load_user_profile(user_id: str) -> Dict:
     """
-    Loads user data from a file based on the user ID.
+    Loads user data from database based on the user ID.
     """
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+
     try:
-        with open(user_file_path, "r") as f:
-            user_data = json.load(f)
-        return user_data
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User profile does not exist"
-        )
-    except json.JSONDecodeError:
+
+        user_data = asyncio_run(Database.fetchrow(SqlObject.load_user_profile_query,user_id))
+
+        dict_data = dict(user_data)
+
+        data = {
+            'user_id':dict_data['user_id'],
+            'user_name':dict_data['user_name'],
+            'email':dict_data['email'],
+            'prdcer':{
+                'prdcer_dataset':dict_data['prdcer_dataset'],
+                'prdcer_lyrs':dict_data['prdcer_lyrs'],
+                'prdcer_ctlgs':dict_data['prdcer_ctlgs'],
+                'draft_ctlgs':dict_data['draft_ctlgs']
+            }
+        }
+
+        return data
+
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing user profile",
+            detail=e
         )
 
 
@@ -279,14 +295,34 @@ def update_user_layer_matching(layer_id: str, layer_owner_id: str):
 
 
 def update_user_profile(user_id: str, user_data: Dict):
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     try:
-        with open(user_file_path, "w") as f:
-            json.dump(user_data, f, indent=2)
+        values = (
+            user_data['user_id'],
+            user_data['username'],
+            user_data['email'],
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_dataset',{})),
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_lyrs',{})),
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_ctlgs',{})),
+            json.dumps(user_data.get('prdcer',{}).get('draft_ctlgs',{})),
+        )
+        result = None
+        result = asyncio_run(Database.fetch(SqlObject.load_user_profile_query,user_id))
+        if not result:
+            ## Means that user_profile is new and should be inserted
+            _ = asyncio_run(Database.execute(SqlObject.insert_user_profile_query,*values))
+        else:
+            ## User profile exists, we just need to update it
+            _ = asyncio_run(Database.execute(SqlObject.update_user_profile_query,*values))
+
     except IOError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating user profile",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=e
         )
 
 
@@ -295,9 +331,11 @@ def fetch_user_layers(user_id: str) -> Dict[str, Any]:
         user_data = load_user_profile(user_id)
         user_layers = user_data.get("prdcer", {}).get("prdcer_lyrs", {})
         return user_layers
-    except FileNotFoundError as fnfe:
-        logger.error(f"User layers not found for user_id: {user_id}")
-        raise HTTPException(status_code=404, detail="User layers not found") from fnfe
+    except Exception as e:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = e
+        )
 
 
 def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
@@ -307,8 +345,8 @@ def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
         return user_catalogs
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user catalogs: {str(e)}",
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail = f"Error fetching user catalogs: {str(e)}",
         )
 
 
@@ -590,6 +628,20 @@ async def load_gradient_colors() -> Optional[List[List]]:
     json_data = await use_json(COLOR_PATH, "r")
     return json_data
 
+
+
+def asyncio_run(coroutine):
+    """
+    A better implementation of `asyncio.run`.
+    """
+
+    loop = None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+    nest_asyncio.apply(loop)
+    return asyncio.run(coroutine)
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
