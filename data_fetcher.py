@@ -16,8 +16,8 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
 )
 from google_api_connector import fetch_from_google_maps_api
-from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
-from logging_wrapper import log_and_validate
+from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
+from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import generate_layer_id
 from storage import (

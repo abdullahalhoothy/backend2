@@ -2,8 +2,8 @@ from all_types.myapi_dtypes import ReqCostEstimate
 from all_types.response_dtypes import ResCostEstimate
 from storage import use_json
 import logging
-from logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
-from logging_wrapper import log_and_validate
+from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
+from backend_common.logging_wrapper import log_and_validate
 
 logging.basicConfig(
     level=logging.INFO,

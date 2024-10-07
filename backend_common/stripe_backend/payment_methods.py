@@ -5,9 +5,9 @@ from all_types.stripe_dtypes import (
     PaymentMethodUpdateReq,
 )
 import stripe
-from database import Database
+from backend_common.database import Database
 import json
-from stripe_backend.customers import fetch_customer
+from backend_common.stripe_backend.customers import fetch_customer
 
 # Payment methods
 async def create_payment_method(

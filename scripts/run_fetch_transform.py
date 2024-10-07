@@ -1,6 +1,6 @@
 # run_fetch_transform.py
 import asyncio
-from database import Database
+from backend_common.database import Database
 
 
 async def main():
@@ -17,7 +17,7 @@ async def main():
         # Run the fetch and transform process
         query = "SELECT price, additional__WebListing_uri___location_lat, additional__WebListing_uri___location_lng, * FROM public.riyadh_villa_allrooms limit 10"
 
-        # Fetch data from database
+        # Fetch data from backend_common.database
         rows = await Database.fetch(query)
 
         # do your transofmration

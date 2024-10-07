@@ -4,9 +4,9 @@ from all_types.stripe_dtypes import (
     ProductRes,
 )
 import stripe
-from database import Database
+from backend_common.database import Database
 import json
-from stripe_backend.prices import create_price
+from backend_common.stripe_backend.prices import create_price
 
 
 # Stripe Products

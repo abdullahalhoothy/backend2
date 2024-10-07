@@ -1,6 +1,6 @@
 # database_transformation.py
 import json
-from database import Database
+from backend_common.database import Database
 from all_types.response_dtypes import MapData
 from storage import (
     convert_to_serializable,

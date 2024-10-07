@@ -1,7 +1,7 @@
 from datetime import datetime
 from all_types.stripe_dtypes import ProductReq, PriceReq, PriceRes, ProductRes
 import stripe
-from database import Database
+from backend_common.database import Database
 
 
 # Create a new price

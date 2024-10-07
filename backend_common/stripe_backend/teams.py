@@ -1,4 +1,4 @@
-from database import Database
+from backend_common.database import Database
 
 
 # teams functions

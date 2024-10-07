@@ -8,7 +8,7 @@ import requests
 
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
 from config_factory import get_conf
-from logging_wrapper import apply_decorator_to_module
+from backend_common.logging_wrapper import apply_decorator_to_module
 
 logging.basicConfig(
     level=logging.INFO,

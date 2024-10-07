@@ -55,7 +55,7 @@ from all_types.response_dtypes import (
     ResUserRefreshToken,
     ResGetPaymentMethods,
 )
-from auth import (
+from backend_common.auth import (
     create_user_profile,
     get_user_account,
     login_user,
@@ -67,7 +67,7 @@ from auth import (
     change_email,
 )
 from google_api_connector import check_street_view_availability
-from payment_handler import add_payment_method, get_payment_methods
+from backend_common.payment_handler import add_payment_method, get_payment_methods
 from config_factory import get_conf
 from cost_calculator import calculate_cost
 from data_fetcher import (
@@ -98,9 +98,9 @@ from all_types.stripe_dtypes import (
     PaymentMethodUpdateReq,
     PaymentMethodRes,
 )
-from database import Database
-from logging_wrapper import log_and_validate
-from stripe_backend import (
+from backend_common.database import Database
+from backend_common.logging_wrapper import log_and_validate
+from backend_common.stripe_backend import (
     create_stripe_product,
     update_stripe_product,
     delete_stripe_product,

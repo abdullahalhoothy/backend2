@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 import stripe
-from stripe_backend.customers import fetch_customer
+from backend_common.stripe_backend.customers import fetch_customer
 
 
 # wallet functions

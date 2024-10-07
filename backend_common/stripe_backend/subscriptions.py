@@ -4,11 +4,11 @@ from all_types.stripe_dtypes import (
     SubscriptionRes,
 )
 import stripe
-from database import Database
-from stripe_backend.customers import fetch_customer
-from stripe_backend.products import fetch_stripe_product
-from stripe_backend.prices import calculate_seat_based_pricing
-# from stripe_backend.prices import calculate_seat_based_p/ricing
+from backend_common.database import Database
+from backend_common.stripe_backend.customers import fetch_customer
+from backend_common.stripe_backend.products import fetch_stripe_product
+from backend_common.stripe_backend.prices import calculate_seat_based_pricing
+# from backend_common.stripe_backend.prices import calculate_seat_based_p/ricing
 
 
 # Subscription for individual or team

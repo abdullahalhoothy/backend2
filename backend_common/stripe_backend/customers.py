@@ -5,9 +5,9 @@ from all_types.stripe_dtypes import (
     CustomerRes,
 )
 import stripe
-from database import Database
+from backend_common.database import Database
 import json
-from auth import get_user_email_and_username
+from backend_common.auth import get_user_email_and_username
 
 # customer functions
 async def create_customer(req: CustomerReq) -> CustomerRes:
