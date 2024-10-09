@@ -10,6 +10,9 @@ from contextlib import asynccontextmanager
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
+from database import Database
+from sql_object import SqlObject
+
 from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
 from config_factory import get_conf
 from logging_wrapper import apply_decorator_to_module
@@ -215,23 +218,40 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
 
 async def load_user_profile(user_id: str) -> Dict:
     """
-    Loads user data from a file based on the user ID.
+    Loads user data from database based on the user ID.
     """
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
+
     try:
-        with open(user_file_path, "r") as f:
-            user_data = json.load(f)
-        return user_data
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User profile does not exist"
-        )
-    except json.JSONDecodeError:
+
+        user_data = await Database.fetchrow(SqlObject.load_user_profile_query,user_id)
+
+        dict_data = dict(user_data)
+
+        prdcer_dataset_processing = json.loads(dict_data['prdcer_dataset'])
+        prdcer_lyrs_proceessing = json.loads(dict_data['prdcer_lyrs'])
+        prdcer_ctlgs_processing = json.loads(dict_data['prdcer_ctlgs'])
+        draft_ctlgs_processing = json.loads(dict_data['draft_ctlgs'])
+
+        print(prdcer_dataset_processing)
+        print(prdcer_lyrs_proceessing)
+
+        data = {
+            'user_id':dict_data['user_id'],
+            'prdcer':{
+                'prdcer_dataset':prdcer_dataset_processing,
+                'prdcer_lyrs':prdcer_lyrs_proceessing,
+                'prdcer_ctlgs':prdcer_ctlgs_processing,
+                'draft_ctlgs':draft_ctlgs_processing
+            }
+        }
+
+        return data
+
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing user profile",
+            detail=e
         )
-
 
 def update_dataset_layer_matching(
     prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
@@ -279,14 +299,26 @@ def update_user_layer_matching(layer_id: str, layer_owner_id: str):
 
 
 async def update_user_profile(user_id: str, user_data: Dict):
-    user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     try:
-        with open(user_file_path, "w") as f:
-            json.dump(user_data, f, indent=2)
+        values = (
+            user_data['user_id'],
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_dataset',{})),
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_lyrs',{})),
+            json.dumps(user_data.get('prdcer',{}).get('prdcer_ctlgs',{})),
+            json.dumps(user_data.get('prdcer',{}).get('draft_ctlgs',{})),
+        )
+
+        _ = await Database.execute(SqlObject.upsert_user_profile_query,*values)
+
     except IOError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating user profile",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=e
         )
 
 
