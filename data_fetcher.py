@@ -551,11 +551,11 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
-        user_data = load_user_profile(req.user_id)
+        user_data = await load_user_profile(req.user_id)
         user_data["prdcer"]["prdcer_dataset"][
             plan_name.replace("plan_", "")
         ] = plan_name
-        update_user_profile(req.user_id, user_data)
+        await update_user_profile(req.user_id, user_data)
 
     existing_dataset["bknd_dataset_id"] = bknd_dataset_id
     existing_dataset["records_count"] = len(existing_dataset["features"])
@@ -566,7 +566,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     try:
-        user_data = load_user_profile(req.user_id)
+        user_data = await load_user_profile(req.user_id)
     except FileNotFoundError as fnfe:
         logger.error(f"User profile not found for user_id: {req.user_id}")
         raise HTTPException(
@@ -580,7 +580,7 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         )
 
         # Save updated user data
-        update_user_profile(req.user_id, user_data)
+        await update_user_profile(req.user_id, user_data)
         update_dataset_layer_matching(req.prdcer_lyr_id, req.bknd_dataset_id)
         update_user_layer_matching(req.prdcer_lyr_id, req.user_id)
     except KeyError as ke:
@@ -602,7 +602,7 @@ async def fetch_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     all layers owned by the user, including metadata like layer name, color,
     and record count.
     """
-    user_layers = fetch_user_layers(req.user_id)
+    user_layers = await fetch_user_layers(req.user_id)
 
     user_layers_metadata = []
     for lyr_id, lyr_data in user_layers.items():
@@ -640,7 +640,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     """
     try:
         layer_owner_id = fetch_layer_owner(req.prdcer_lyr_id)
-        layer_owner_data = load_user_profile(layer_owner_id)
+        layer_owner_data = await load_user_profile(layer_owner_id)
 
         try:
             layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
@@ -680,7 +680,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     Creates and saves a new producer catalog.
     """
     try:
-        user_data = load_user_profile(req.user_id)
+        user_data = await load_user_profile(req.user_id)
 
         new_ctlg_id = str(uuid.uuid4())
         new_catalog = {
@@ -696,7 +696,7 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
 
         serializable_user_data = convert_to_serializable(user_data)
-        update_user_profile(req.user_id, serializable_user_data)
+        await update_user_profile(req.user_id, serializable_user_data)
 
         return new_ctlg_id
     except Exception as e:
@@ -711,7 +711,7 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
     Retrieves all producer catalogs associated with a specific user.
     """
     try:
-        user_catalogs = fetch_user_catalogs(req.user_id)
+        user_catalogs = await fetch_user_catalogs(req.user_id)
         validated_catalogs = []
 
         for ctlg_id, ctlg_data in user_catalogs.items():
@@ -740,7 +740,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
     Fetches all layers associated with a specific catalog.
     """
     try:
-        user_data = load_user_profile(req.user_id)
+        user_data = await load_user_profile(req.user_id)
         ctlg = (
             user_data.get("prdcer", {})
             .get("prdcer_ctlgs", {})
@@ -761,7 +761,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
         if not ctlg:
             raise HTTPException(status_code=404, detail="Catalog not found")
 
-        ctlg_owner_data = load_user_profile(ctlg["ctlg_owner_user_id"])
+        ctlg_owner_data = await load_user_profile(ctlg["ctlg_owner_user_id"])
 
         ctlg_lyrs_map_data = []
         for lyr_info in ctlg["lyrs"]:
@@ -986,7 +986,7 @@ async def fetch_nearby_categories(req: None) -> Dict:
 
 async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
     try:
-        user_data = load_user_profile(req.user_id)
+        user_data = await load_user_profile(req.user_id)
         if len(req.lyrs) > 0:
 
             new_ctlg_id = str(uuid.uuid4())
@@ -1003,7 +1003,7 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
             user_data["prdcer"]["draft_ctlgs"][new_ctlg_id] = new_catalog
 
             serializable_user_data = convert_to_serializable(user_data)
-            update_user_profile(req.user_id, serializable_user_data)
+            await update_user_profile(req.user_id, serializable_user_data)
 
             return new_ctlg_id
         else:
@@ -1028,7 +1028,7 @@ async def fetch_gradient_colors(req) -> List[List]:
 async def given_layer_fetch_dataset(layer_id: str):
     # given layer id get dataset
     layer_owner_id = fetch_layer_owner(layer_id)
-    layer_owner_data = load_user_profile(layer_owner_id)
+    layer_owner_data = await load_user_profile(layer_owner_id)
     try:
         layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][layer_id]
     except KeyError as ke:

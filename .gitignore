@@ -2,6 +2,7 @@
 **/*desktop.ini
 **secrets*
 **/venv
+**/.venv
 pc_venv/
 **/.idea/
 **/secret*

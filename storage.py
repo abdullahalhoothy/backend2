@@ -213,7 +213,7 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
         )
 
 
-def load_user_profile(user_id: str) -> Dict:
+async def load_user_profile(user_id: str) -> Dict:
     """
     Loads user data from a file based on the user ID.
     """
@@ -278,7 +278,7 @@ def update_user_layer_matching(layer_id: str, layer_owner_id: str):
         )
 
 
-def update_user_profile(user_id: str, user_data: Dict):
+async def update_user_profile(user_id: str, user_data: Dict):
     user_file_path = os.path.join(USERS_PATH, f"user_{user_id}.json")
     try:
         with open(user_file_path, "w") as f:
@@ -290,9 +290,9 @@ def update_user_profile(user_id: str, user_data: Dict):
         )
 
 
-def fetch_user_layers(user_id: str) -> Dict[str, Any]:
+async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
     try:
-        user_data = load_user_profile(user_id)
+        user_data = await load_user_profile(user_id)
         user_layers = user_data.get("prdcer", {}).get("prdcer_lyrs", {})
         return user_layers
     except FileNotFoundError as fnfe:
@@ -300,9 +300,9 @@ def fetch_user_layers(user_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="User layers not found") from fnfe
 
 
-def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
+async def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
     try:
-        user_data = load_user_profile(user_id)
+        user_data = await load_user_profile(user_id)
         user_catalogs = user_data.get("prdcer", {}).get("prdcer_ctlgs", {})
         return user_catalogs
     except Exception as e:
