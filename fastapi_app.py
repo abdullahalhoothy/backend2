@@ -67,8 +67,7 @@ from backend_common.auth import (
     change_email,
 )
 from google_api_connector import check_street_view_availability
-from backend_common.payment_handler import add_payment_method, get_payment_methods
-from config_factory import get_conf
+from backend_common.config_factory import get_conf
 from cost_calculator import calculate_cost
 from data_fetcher import (
     fetch_country_city_data,
@@ -87,7 +86,7 @@ from data_fetcher import (
     fetch_gradient_colors,
     gradient_color_based_on_zone,
 )
-from all_types.stripe_dtypes import (
+from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
     ProductRes,
     CustomerReq,
@@ -217,7 +216,10 @@ async def http_handling(
 
         if custom_function is not None:
             try:
-                output = await custom_function(req=req)
+                if req:
+                    output = await custom_function(req=req)
+                else:
+                    output = await custom_function()
             except HTTPException:
                 # If it's already an HTTPException, just re-raise it
                 raise
@@ -599,7 +601,7 @@ async def list_stripe_customers_endpoint():
     )
     return response
 
-@app.get(
+@app.post(
     CONF.fetch_stripe_customer,
     response_model=ResModel[CustomerRes],
     description="Fetch a customer in stripe",
