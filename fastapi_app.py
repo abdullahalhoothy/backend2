@@ -204,9 +204,8 @@ async def http_handling(
                         headers={"WWW-Authenticate": "Bearer"},
                     )
 
-            req = req.request_body
             try:
-                input_type.model_validate(req)
+                input_type.model_validate(req.request_body)
             except ValidationError as e:
                 logger.error("Request validation error: %s", str(e))
                 raise HTTPException(

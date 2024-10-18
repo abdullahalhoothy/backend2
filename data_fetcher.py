@@ -371,7 +371,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
     return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
 
-async def fetch_catlog_collection(**_):
+async def fetch_catlog_collection():
     """
     Generates and returns a collection of catalog metadata. This function creates
     a list of predefined catalog entries and then adds 20 more dummy entries.
@@ -426,7 +426,7 @@ async def fetch_catlog_collection(**_):
     return metadata
 
 
-async def fetch_layer_collection(**_):
+async def fetch_layer_collection():
     """
     Similar to fetch_catlog_collection, this function returns a collection of layer
     metadata. It provides a smaller, fixed set of layer entries. Each entry includes
@@ -457,9 +457,7 @@ async def fetch_layer_collection(**_):
     return metadata
 
 
-async def fetch_country_city_data(
-    req: ReqFetchDataset,
-) -> Dict[str, List[Dict[str, float]]]:
+async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
     """
     Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
     The data is structured as a dictionary where keys are country names and values are lists of cities.
@@ -968,7 +966,7 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
 #         raise ValueError(f"Error creating feature: {str(e)}")
 
 
-async def fetch_nearby_categories(req: None) -> Dict:
+async def fetch_nearby_categories() -> Dict:
     """
     Provides a comprehensive list of nearby place categories, organized into
     broader categories. This function returns a large, predefined dictionary
