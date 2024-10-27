@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, Type, Callable, Awaitable, Any, TypeVar, List, Dict
 
 import stripe
-from fastapi import Body, HTTPException, status, FastAPI, Request
+from fastapi import Body, HTTPException, status, FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -32,6 +32,8 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
 )
+from backend_common.request_processor import request_handling
+from backend_common.auth import JWTBearer
 
 
 from all_types.response_dtypes import (
@@ -59,14 +61,14 @@ from all_types.response_dtypes import (
     ResGetPaymentMethods,
 )
 from backend_common.auth import (
-    create_user,
-    login_user,
+    create_user_old,
+    login_user_old,
     my_verify_id_token,
-    reset_password,
-    confirm_reset,
-    change_password,
-    refresh_id_token,
-    change_email,
+    reset_password_old,
+    confirm_reset_old,
+    change_password_old,
+    refresh_id_token_old,
+    change_email_old,
 )
 from google_api_connector import check_street_view_availability
 from config_factory import CONF
@@ -107,11 +109,11 @@ from backend_common.stripe_backend import (
     update_stripe_product,
     delete_stripe_product,
     list_stripe_products,
-    create_customer,
-    update_customer,
-    delete_customer,
-    list_customers,
-    fetch_customer,
+    create_customer_old,
+    update_customer_old,
+    delete_customer_old,
+    list_customers_old,
+    fetch_customer_old,
     create_subscription,
     update_subscription,
     deactivate_subscription,
@@ -266,7 +268,7 @@ async def http_handling(
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResModel[str])
 async def fetch_acknowlg_id():
-    response = await http_handling(
+    response = await request_handling(
         None,
         None,
         ResModel[str],
@@ -277,7 +279,7 @@ async def fetch_acknowlg_id():
 
 @app.get(CONF.catlog_collection, response_model=ResAllCards)
 async def catlog_collection():
-    response = await http_handling(
+    response = await request_handling(
         None,
         None,
         ResAllCards,
@@ -288,7 +290,7 @@ async def catlog_collection():
 
 @app.get(CONF.layer_collection, response_model=ResAllCards)
 async def layer_collection():
-    response = await http_handling(
+    response = await request_handling(
         None,
         None,
         ResAllCards,
@@ -299,7 +301,7 @@ async def layer_collection():
 
 @app.get(CONF.country_city, response_model=ResCountryCityData)
 async def country_city():
-    response = await http_handling(
+    response = await request_handling(
         None,
         None,
         ResCountryCityData,
@@ -310,7 +312,7 @@ async def country_city():
 
 @app.get(CONF.nearby_categories, response_model=ResNearbyCategories)
 async def nearby_categories():
-    response = await http_handling(
+    response = await request_handling(
         None,
         None,
         ResNearbyCategories,
@@ -319,65 +321,64 @@ async def nearby_categories():
     return response
 
 
-@app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset])
+@app.post(CONF.fetch_dataset, response_model=ResModel[ResFetchDataset], dependencies=[Depends(JWTBearer())])
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     if req.request_body.action == "sample":
         request = None
-    response = await http_handling(
+    response = await request_handling(
         req,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
-        fetch_country_city_category_map_data,
-        request,
+        fetch_country_city_category_map_data
     )
     return response
 
 
-@app.post(CONF.save_layer, response_model=ResModel[str])
+@app.post(CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())])
 async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
-    response = await http_handling(
-        req, ReqSavePrdcerLyer, ResModel[str], save_lyr, request)
+    response = await request_handling(
+        req, ReqSavePrdcerLyer, ResModel[str], save_lyr)
     return response
 
 
 @app.post(CONF.user_layers, response_model=ResUserLayers)
 async def user_layers(req: ReqModel[ReqUserId]):
-    response = await http_handling(req, ReqUserId, ResUserLayers, aquire_user_lyrs)
+    response = await request_handling(req, ReqUserId, ResUserLayers, aquire_user_lyrs)
     return response
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResPrdcerLyrMapData)
 async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
-    response = await http_handling(
+    response = await request_handling(
         req, ReqPrdcerLyrMapData, ResPrdcerLyrMapData, fetch_lyr_map_data
     )
     return response
 
 
-@app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg)
+@app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
-    response = await http_handling(
-        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg, request
+    response = await request_handling(
+        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, create_save_prdcer_ctlg
     )
     return response
 
 
 @app.post(CONF.user_catalogs, response_model=ResUserCatalogs)
 async def user_catalogs(req: ReqModel[ReqUserId]):
-    response = await http_handling(req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs)
+    response = await request_handling(req, ReqUserId, ResUserCatalogs, fetch_prdcer_ctlgs)
     return response
 
 
 @app.post(CONF.fetch_ctlg_lyrs, response_model=ResCtlgLyrs)
 async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
-    response = await http_handling(req, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs)
+    response = await request_handling(req, ReqFetchCtlgLyrs, ResCtlgLyrs, fetch_ctlg_lyrs)
     return response
 
 
 @app.post(CONF.create_user_profile, response_model=ResCreateUserProfile)
 async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
-    response = await http_handling(
-        req, ReqCreateUserProfile, ResCreateUserProfile, create_user
+    response = await request_handling(
+        req, ReqCreateUserProfile, ResCreateUserProfile, create_user_old
     )
     return response
 
@@ -385,7 +386,7 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 @app.post(CONF.login, response_model=ResUserLogin)
 async def login(req: ReqModel[ReqUserLogin]):
     if CONF.firebase_api_key != "":
-        response = await http_handling(req, ReqUserLogin, ResUserLogin, login_user)
+        response = await request_handling(req, ReqUserLogin, ResUserLogin, login_user_old)
     else:
         response = {
             "message": "Request received",
@@ -409,8 +410,8 @@ async def login(req: ReqModel[ReqUserLogin]):
 async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
         if CONF.firebase_api_key != "":
-            response = await http_handling(
-                req, ReqRefreshToken, ResUserRefreshToken, refresh_id_token
+            response = await request_handling(
+                req, ReqRefreshToken, ResUserRefreshToken, refresh_id_token_old
             )
         else:
             response = {
@@ -433,65 +434,65 @@ async def refresh_token(req: ReqModel[ReqRefreshToken]):
         raise HTTPException(status_code=400, detail="Token refresh failed")
 
 
-@app.post(CONF.user_profile, response_model=ResUserProfile)
+@app.post(CONF.user_profile, response_model=ResUserProfile, dependencies=[Depends(JWTBearer())])
 async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
-    response = await http_handling(
-        req, ReqUserProfile, ResUserProfile, get_user_profile, request
+    response = await request_handling(
+        req, ReqUserProfile, ResUserProfile, get_user_profile
     )
     return response
 
 
 @app.post(CONF.reset_password, response_model=ResResetPassword)
 async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
-    response = await http_handling(
-        req, ReqResetPassword, ResResetPassword, reset_password
+    response = await request_handling(
+        req, ReqResetPassword, ResResetPassword, reset_password_old
     )
     return response
 
 
 @app.post(CONF.confirm_reset, response_model=ResConfirmReset)
 async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
-    response = await http_handling(req, ReqConfirmReset, ResConfirmReset, confirm_reset)
+    response = await request_handling(req, ReqConfirmReset, ResConfirmReset, confirm_reset_old)
     return response
 
 
-@app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]])
+@app.post(CONF.change_password, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
 async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
-    response = await http_handling(
-        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password, request
+    response = await request_handling(
+        req, ReqChangePassword, ResModel[Dict[str, Any]], change_password_old
     )
     return response
 
 
-@app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]])
+@app.post(CONF.change_email, response_model=ResModel[Dict[str, Any]], dependencies=[Depends(JWTBearer())])
 async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
-    response = await http_handling(
-        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email, request
+    response = await request_handling(
+        req, ReqChangeEmail, ResModel[Dict[str, Any]], change_email_old
     )
     return response
 
 
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
 async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
-    response = await http_handling(
+    response = await request_handling(
         req, ReqCostEstimate, ResModel[ResCostEstimate], calculate_cost
     )
     return response
 
 
-@app.post(CONF.save_draft_catalog, response_model=ResSavePrdcerCtlg)
+@app.post(CONF.save_draft_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
 async def save_draft_catalog_endpoint(
     req: ReqModel[ReqSavePrdcerCtlg], request: Request
 ):
-    response = await http_handling(
-        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog, request
+    response = await request_handling(
+        req, ReqSavePrdcerCtlg, ResSavePrdcerCtlg, save_draft_catalog
     )
     return response
 
 
 @app.get(CONF.fetch_gradient_colors, response_model=ResfetchGradientColors)
 async def fetch_gradient_colors_endpoint():
-    response = await http_handling(
+    response = await request_handling(
         None, None, ResfetchGradientColors, fetch_gradient_colors
     )
     return response
@@ -504,7 +505,7 @@ async def fetch_gradient_colors_endpoint():
 async def gradient_color_based_on_zone_endpoint(
     req: ReqModel[ReqGradientColorBasedOnZone], request: Request
 ):
-    response = await http_handling(
+    response = await request_handling(
         req,
         ReqGradientColorBasedOnZone,
         ResModel[List[ResGradientColorBasedOnZone]],
@@ -517,7 +518,7 @@ async def gradient_color_based_on_zone_endpoint(
 # async def add_payment_method_endpoint(
 #     req: ReqModel[ReqAddPaymentMethod], request: Request
 # ):
-#     response = await http_handling(
+#     response = await request_handling(
 #         req,
 #         ReqAddPaymentMethod,
 #         ResModel[ResAddPaymentMethod],
@@ -529,7 +530,7 @@ async def gradient_color_based_on_zone_endpoint(
 
 @app.post(CONF.check_street_view, response_model=ResModel[Dict[str, bool]])
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
-    response = await http_handling(
+    response = await request_handling(
         req,
         ReqStreeViewCheck,
         ResModel[Dict[str, Any]],
@@ -542,7 +543,7 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 # async def get_payment_methods_endpoint(
 #     req: ReqModel[ReqGetPaymentMethods], request: Request
 # ):
-#     response = await http_handling(
+#     response = await request_handling(
 #         req,
 #         ReqGetPaymentMethods,
 #         ResModel[ResGetPaymentMethods],
@@ -560,8 +561,8 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     tags=["stripe customers"],
 )
 async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
-    response = await http_handling(
-        req, CustomerReq, ResModel[CustomerRes], create_customer
+    response = await request_handling(
+        req, CustomerReq, ResModel[CustomerRes], create_customer_old
     )
     return response
 
@@ -573,8 +574,8 @@ async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     tags=["stripe customers"],
 )
 async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
-    response = await http_handling(
-        req, CustomerReq, ResModel[CustomerRes], update_customer
+    response = await request_handling(
+        req, CustomerReq, ResModel[CustomerRes], update_customer_old
     )
     return response
 
@@ -586,7 +587,7 @@ async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     tags=["stripe customers"],
 )
 async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-    response = await http_handling(req, ReqUserId, ResModel[str], delete_customer)
+    response = await request_handling(req, ReqUserId, ResModel[str], delete_customer_old)
     return response
 
 
@@ -597,8 +598,8 @@ async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
     tags=["stripe customers"],
 )
 async def list_stripe_customers_endpoint():
-    response = await http_handling(
-        None, None, ResModel[List[CustomerRes]], list_customers
+    response = await request_handling(
+        None, None, ResModel[List[CustomerRes]], list_customers_old
     )
     return response
 
@@ -610,8 +611,8 @@ async def list_stripe_customers_endpoint():
     tags=["stripe customers"],
 )
 async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
-    response = await http_handling(
-        req, ReqUserId, ResModel[CustomerRes], fetch_customer
+    response = await request_handling(
+        req, ReqUserId, ResModel[CustomerRes], fetch_customer_old
     )
     return response
 
