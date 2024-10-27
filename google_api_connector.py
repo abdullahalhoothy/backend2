@@ -7,6 +7,7 @@ from fastapi import HTTPException
 import requests
 
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
+from backend_common.request_processor import output_update_with_req_msg
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 
@@ -54,6 +55,7 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         return [], None
 
 
+@output_update_with_req_msg
 async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bool]:
     url = f"https://maps.googleapis.com/maps/api/streetview?return_error_code=true&size=600x300&location={req.lat},{req.lng}&heading=151.78&pitch=-0.76&key={CONF.api_key}"
 
