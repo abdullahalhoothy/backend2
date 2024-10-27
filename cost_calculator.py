@@ -4,6 +4,8 @@ from storage import use_json
 import logging
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
+from backend_common.request_processor import output_update_with_req_msg
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,6 +30,7 @@ def estimate_api_calls(categories_data, included_categories, excluded_categories
     return int(max(min_calls, total_calls) * MAX_CALLS_PER_CITY_PER_CATEGORY)
 
 
+@output_update_with_req_msg
 async def calculate_cost(req: ReqCostEstimate):
     # Load city info from appropriate json file
     file_path = f"Backend/country_info/{req.country.lower().replace(' ', '_')}/city_info/{req.city_name.lower()}/ggl_categories.json"
