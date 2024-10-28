@@ -49,8 +49,6 @@ from storage import (
     make_ggl_layer_filename,
 )
 
-from backend_common.request_processor import output_update_with_req_msg
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -372,7 +370,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
     return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
-@output_update_with_req_msg
+
 async def fetch_catlog_collection():
     """
     Generates and returns a collection of catalog metadata. This function creates
@@ -428,7 +426,6 @@ async def fetch_catlog_collection():
     return metadata
 
 
-@output_update_with_req_msg
 async def fetch_layer_collection():
     """
     Similar to fetch_catlog_collection, this function returns a collection of layer
@@ -460,7 +457,6 @@ async def fetch_layer_collection():
     return metadata
 
 
-@output_update_with_req_msg
 async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
     """
     Returns a set of country and city data for United Arab Emirates, Saudi Arabia, and Canada.
@@ -471,7 +467,6 @@ async def fetch_country_city_data() -> Dict[str, List[Dict[str, float]]]:
     return data
 
 
-@output_update_with_req_msg
 async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
@@ -567,8 +562,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     return existing_dataset
 
 
-@output_update_with_req_msg
-async def save_lyr(req: ReqSavePrdcerLyer) -> dict:
+async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     user_data = await load_user_profile(req.user_id)
 
     try:
@@ -593,7 +587,6 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> dict:
 
 @preserve_validate_decorator
 @log_and_validate(logger, validate_output=True, output_model=List[LayerInfo])
-@output_update_with_req_msg
 async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     """
     Retrieves all producer layers associated with a specific user. It reads the
@@ -633,7 +626,6 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
     return user_layers_metadata
 
 
-@output_update_with_req_msg
 async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
     """
     Fetches detailed map data for a specific producer layer.
@@ -675,7 +667,6 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         ) from e
 
 
-@output_update_with_req_msg
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     """
     Creates and saves a new producer catalog.
@@ -707,7 +698,6 @@ async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         ) from e
 
 
-@output_update_with_req_msg
 async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
     """
     Retrieves all producer catalogs associated with a specific user.
@@ -737,7 +727,6 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
         ) from e
 
 
-@output_update_with_req_msg
 async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[PrdcerLyrMapData]:
     """
     Fetches all layers associated with a specific catalog.
@@ -971,7 +960,6 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
 #         raise ValueError(f"Error creating feature: {str(e)}")
 
 
-@output_update_with_req_msg
 async def fetch_nearby_categories() -> Dict:
     """
     Provides a comprehensive list of nearby place categories, organized into
@@ -988,7 +976,6 @@ async def fetch_nearby_categories() -> Dict:
     return categories
 
 
-@output_update_with_req_msg
 async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
     try:
         user_data = await load_user_profile(req.user_id)
@@ -1023,7 +1010,6 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
         ) from e
 
 
-@output_update_with_req_msg
 async def fetch_gradient_colors() -> List[List]:
     """ """
 
@@ -1048,7 +1034,6 @@ async def given_layer_fetch_dataset(layer_id: str):
     return all_datasets
 
 
-@output_update_with_req_msg
 async def gradient_color_based_on_zone(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
@@ -1153,7 +1138,6 @@ async def gradient_color_based_on_zone(
     return new_layers
 
 
-@output_update_with_req_msg
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
