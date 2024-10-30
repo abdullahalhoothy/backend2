@@ -760,12 +760,15 @@ async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
 )
 async def update_stripe_product_endpoint(product_id: str, req: ReqModel[ProductReq]):
     product = await update_stripe_product(product_id, req.request_body)
+    print('|'*2000)
     response = ResModel(
         data=product,
         message="Product updated successfully",
         request_id=str(uuid.uuid4()),
     )
-    return response
+    print('|'*2000)
+
+    return response.model_dump()
 
 
 @app.delete(
