@@ -97,6 +97,7 @@ from backend_common.dtypes.stripe_dtypes import (
     CustomerReq,
     CustomerRes,
     SubscriptionCreateReq,
+    SubscriptionUpdateReq,
     SubscriptionRes,
     PaymentMethodReq,
     PaymentMethodUpdateReq,
@@ -589,14 +590,14 @@ async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateRe
 
 @app.put(
     CONF.update_stripe_subscription,
-    response_model=ResModel[str],
+    response_model=ResModel,
     description="Update an existing subscription in stripe",
     tags=["stripe subscriptions"],
 )
 async def update_stripe_subscription_endpoint(
-    subscription_id: str, req: ReqModel[SubscriptionCreateReq]
+    subscription_id: str, req: ReqModel[SubscriptionUpdateReq]
 ):
-    subscription = await update_subscription(subscription_id, req.request_body)
+    subscription = await update_subscription(subscription_id, req.request_body.seats)
     response = ResModel(
         data=subscription,
         message="Subscription updated successfully",
@@ -607,7 +608,7 @@ async def update_stripe_subscription_endpoint(
 
 @app.delete(
     CONF.deactivate_stripe_subscription,
-    response_model=ResModel[str],
+    response_model=ResModel,
     description="Deactivate an existing subscription in stripe",
     tags=["stripe subscriptions"],
 )
@@ -622,22 +623,22 @@ async def deactivate_stripe_subscription_endpoint(subscription_id: str):
 
 
 # Stripe Payment methods
-@app.post(
-    CONF.create_stripe_payment_method,
-    response_model=ResModel[PaymentMethodRes],
-    description="Create a new payment method in stripe",
-    tags=["stripe payment methods"],
-)
-async def create_stripe_payment_method_endpoint(
-    user_id: str, req: ReqModel[PaymentMethodReq]
-):
-    payment_method = await create_payment_method(user_id, req.request_body)
-    response = ResModel(
-        data=payment_method,
-        message="Payment method created successfully",
-        request_id=str(uuid.uuid4()),
-    )
-    return response
+# @app.post(
+#     CONF.create_stripe_payment_method,
+#     response_model=ResModel[PaymentMethodRes],
+#     description="Create a new payment method in stripe",
+#     tags=["stripe payment methods"],
+# )
+# async def create_stripe_payment_method_endpoint(
+#     user_id: str, req: ReqModel[PaymentMethodReq]
+# ):
+#     payment_method = await create_payment_method(user_id, req.request_body)
+#     response = ResModel(
+#         data=payment_method,
+#         message="Payment method created successfully",
+#         request_id=str(uuid.uuid4()),
+#     )
+#     return response
 
 
 @app.put(
@@ -660,14 +661,14 @@ async def update_stripe_payment_method_endpoint(
 
 @app.delete(
     CONF.detach_stripe_payment_method,
-    response_model=ResModel[str],
+    response_model=ResModel,
     description="Delete an existing payment method in stripe",
     tags=["stripe payment methods"],
 )
 async def delete_stripe_payment_method_endpoint(payment_method_id: str):
-    deleted = await delete_payment_method(payment_method_id)
+    data = await delete_payment_method(payment_method_id)
     response = ResModel(
-        data=deleted,
+        data=data,
         message="Payment method deleted successfully",
         request_id=str(uuid.uuid4()),
     )
@@ -680,8 +681,8 @@ async def delete_stripe_payment_method_endpoint(payment_method_id: str):
     description="List all payment methods in stripe",
     tags=["stripe payment methods"],
 )
-async def list_stripe_payment_methods_endpoint():
-    payment_methods = await list_payment_methods()
+async def list_stripe_payment_methods_endpoint(user_id: str):
+    payment_methods = await list_payment_methods(user_id)
     response = ResModel(
         data=payment_methods,
         message="Payment methods retrieved successfully",
@@ -692,12 +693,12 @@ async def list_stripe_payment_methods_endpoint():
 
 @app.put(
     CONF.set_default_stripe_payment_method,
-    response_model=ResModel[str],
+    response_model=ResModel,
     description="Set a default payment method in stripe",
     tags=["stripe payment methods"],
 )
-async def set_default_payment_method_endpoint(payment_method_id: str):
-    default_payment_method = await set_default_payment_method(payment_method_id)
+async def set_default_payment_method_endpoint(user_id: str, payment_method_id: str):
+    default_payment_method = await set_default_payment_method(user_id, payment_method_id)
     response = ResModel(
         data=default_payment_method,
         message="Default payment method set successfully",
@@ -706,22 +707,22 @@ async def set_default_payment_method_endpoint(payment_method_id: str):
     return response
 
 
-@app.post(
-    CONF.testing_create_card_payment_source,
-    response_model=ResModel[dict],
-    description="Create a new payment method in stripe",
-    tags=["stripe payment methods"],
-)
-async def testing_create_card_payment_source_endpoint(
-    user_id: str, source: str = "tok_visa"
-):
-    payment_method = await testing_create_card_payment_source(user_id, source)
-    response = ResModel(
-        data=payment_method,
-        message="Payment method created successfully",
-        request_id=str(uuid.uuid4()),
-    )
-    return response
+# @app.post(
+#     CONF.testing_create_card_payment_source,
+#     response_model=ResModel[dict],
+#     description="Create a new payment method in stripe",
+#     tags=["stripe payment methods"],
+# )
+# async def testing_create_card_payment_source_endpoint(
+#     user_id: str, source: str = "tok_visa"
+# ):
+#     payment_method = await testing_create_card_payment_source(user_id, source)
+#     response = ResModel(
+#         data=payment_method,
+#         message="Payment method created successfully",
+#         request_id=str(uuid.uuid4()),
+#     )
+#     return response
 
 
 # Stripe Payment Methods
@@ -748,7 +749,6 @@ async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
         message="Product created successfully",
         request_id=str(uuid.uuid4()),
     )
-    print(response)
     return response
 
 
@@ -760,13 +760,11 @@ async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
 )
 async def update_stripe_product_endpoint(product_id: str, req: ReqModel[ProductReq]):
     product = await update_stripe_product(product_id, req.request_body)
-    print('|'*2000)
     response = ResModel(
         data=product,
         message="Product updated successfully",
         request_id=str(uuid.uuid4()),
     )
-    print('|'*2000)
 
     return response.model_dump()
 
