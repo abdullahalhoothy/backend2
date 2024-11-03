@@ -560,14 +560,14 @@ async def fetch_wallet_endpoint(user_id: str):
     return response
 
 
-@app.post(
-    CONF.deduct_wallet,
-    response_model=ResModel[str],
-    description="Deduct from a customer's wallet in stripe",
-    tags=["stripe wallet"],
-)
-async def deduct_wallet_endpoint(req: ReqModel[CustomerReq]):
-    pass
+# @app.post(
+#     CONF.deduct_wallet,
+#     response_model=ResModel[str],
+#     description="Deduct from a customer's wallet in stripe",
+#     tags=["stripe wallet"],
+# )
+# async def deduct_wallet_endpoint(req: ReqModel[CustomerReq]):
+#     pass
 
 
 # Stripe Subscriptions
