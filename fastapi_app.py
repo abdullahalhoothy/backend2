@@ -102,6 +102,7 @@ from backend_common.dtypes.stripe_dtypes import (
     PaymentMethodReq,
     PaymentMethodUpdateReq,
     PaymentMethodRes,
+    PaymentMethodAttachReq
 )
 from backend_common.database import Database
 from backend_common.logging_wrapper import log_and_validate
@@ -120,6 +121,7 @@ from backend_common.stripe_backend import (
     deactivate_subscription,
     create_payment_method,
     update_payment_method,
+    attach_payment_method,
     delete_payment_method,
     list_payment_methods,
     set_default_payment_method,
@@ -468,33 +470,33 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 # Stripe Customers
 @app.post(
     CONF.create_stripe_customer,
-    response_model=ResModel[CustomerRes],
+    response_model=ResModel[dict],
     description="Create a new customer in stripe",
     tags=["stripe customers"],
 )
 async def create_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     response = await request_handling(
-        req, CustomerReq, ResModel[CustomerRes], create_customer, wrap_output=True
+        req, CustomerReq, ResModel[dict], create_customer, wrap_output=True
     )
     return response
 
 
 @app.put(
     CONF.update_stripe_customer,
-    response_model=ResModel[CustomerRes],
+    response_model=ResModel[dict],
     description="Update an existing customer in stripe",
     tags=["stripe customers"],
 )
 async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     response = await request_handling(
-        req, CustomerReq, ResModel[CustomerRes], update_customer, wrap_output=True
+        req, CustomerReq, ResModel[dict], update_customer, wrap_output=True
     )
     return response
 
 
 @app.delete(
     CONF.delete_stripe_customer,
-    response_model=ResModel[str],
+    response_model=ResModel[dict],
     description="Delete an existing customer in stripe",
     tags=["stripe customers"],
 )
@@ -505,26 +507,26 @@ async def delete_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
 
 @app.get(
     CONF.list_stripe_customers,
-    response_model=ResModel[List[CustomerRes]],
+    response_model=ResModel[List[dict]],
     description="List all customers in stripe",
     tags=["stripe customers"],
 )
 async def list_stripe_customers_endpoint():
     response = await request_handling(
-        None, None, ResModel[List[CustomerRes]], list_customers, wrap_output=True
+        None, None, ResModel[List[dict]], list_customers, wrap_output=True
     )
     return response
 
 
 @app.post(
     CONF.fetch_stripe_customer,
-    response_model=ResModel[CustomerRes],
+    response_model=ResModel[dict],
     description="Fetch a customer in stripe",
     tags=["stripe customers"],
 )
 async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
     response = await request_handling(
-        req, ReqUserId, ResModel[CustomerRes], fetch_customer, wrap_output=True
+        req, ReqUserId, ResModel[dict], fetch_customer, wrap_output=True
     )
     return response
 
@@ -534,6 +536,7 @@ async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
     CONF.charge_wallet,
     description="Charge a customer's wallet in stripe",
     tags=["stripe wallet"],
+    response_model=ResModel[dict],
 )
 async def charge_wallet_endpoint(user_id: str, amount):
     response = await charge_wallet(user_id, amount)
@@ -549,6 +552,7 @@ async def charge_wallet_endpoint(user_id: str, amount):
     CONF.fetch_wallet,
     description="Fetch a customer's wallet in stripe",
     tags=["stripe wallet"],
+    response_model=ResModel[dict],
 )
 async def fetch_wallet_endpoint(user_id: str):
     resp = await fetch_wallet(user_id)
@@ -575,6 +579,7 @@ async def fetch_wallet_endpoint(user_id: str):
     CONF.create_stripe_subscription,
     description="Create a new subscription in stripe",
     tags=["stripe subscriptions"],
+    response_model=ResModel[dict],
 )
 async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateReq]):
     subscription = await create_subscription(req.request_body)
@@ -588,7 +593,7 @@ async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateRe
 
 @app.put(
     CONF.update_stripe_subscription,
-    response_model=ResModel,
+    response_model=ResModel[dict],
     description="Update an existing subscription in stripe",
     tags=["stripe subscriptions"],
 )
@@ -606,7 +611,7 @@ async def update_stripe_subscription_endpoint(
 
 @app.delete(
     CONF.deactivate_stripe_subscription,
-    response_model=ResModel,
+    response_model=ResModel[dict],
     description="Deactivate an existing subscription in stripe",
     tags=["stripe subscriptions"],
 )
@@ -641,7 +646,7 @@ async def deactivate_stripe_subscription_endpoint(subscription_id: str):
 
 @app.put(
     CONF.update_stripe_payment_method,
-    response_model=ResModel[PaymentMethodRes],
+    response_model=ResModel[dict],
     description="Update an existing payment method in stripe",
     tags=["stripe payment methods"],
 )
@@ -657,9 +662,26 @@ async def update_stripe_payment_method_endpoint(
     return response
 
 
+@app.post(
+    CONF.attach_stripe_payment_method,
+    response_model=ResModel[dict],
+    description="Add an existing stripe payment method to a customer",
+    tags=["stripe payment methods"],
+)
+async def attach_stripe_payment_method_endpoint(req: ReqModel[PaymentMethodAttachReq]):
+    data = await attach_payment_method(req.request_body.user_id,
+                                       req.request_body.payment_method_id)
+    response = ResModel(
+        data=data,
+        message="Payment method attached successfully",
+        request_id=str(uuid.uuid4()),
+    )
+    return response
+
+
 @app.delete(
     CONF.detach_stripe_payment_method,
-    response_model=ResModel,
+    response_model=ResModel[dict],
     description="Delete an existing payment method in stripe",
     tags=["stripe payment methods"],
 )
@@ -675,7 +697,7 @@ async def delete_stripe_payment_method_endpoint(payment_method_id: str):
 
 @app.get(
     CONF.list_stripe_payment_methods,
-    response_model=ResModel[List[PaymentMethodRes]],
+    response_model=ResModel[List[dict]],
     description="List all payment methods in stripe",
     tags=["stripe payment methods"],
 )
@@ -691,7 +713,7 @@ async def list_stripe_payment_methods_endpoint(user_id: str):
 
 @app.put(
     CONF.set_default_stripe_payment_method,
-    response_model=ResModel,
+    response_model=ResModel[dict],
     description="Set a default payment method in stripe",
     tags=["stripe payment methods"],
 )
@@ -735,7 +757,7 @@ async def set_default_payment_method_endpoint(user_id: str, payment_method_id: s
 # Stripe Products
 @app.post(
     CONF.create_stripe_product,
-    response_model=ResModel[ProductReq],
+    response_model=ResModel[dict],
     description="Create a new subscription product in stripe",
     tags=["stripe products"],
 )
@@ -752,7 +774,7 @@ async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
 
 @app.put(
     CONF.update_stripe_product,
-    response_model=ResModel[ProductReq],
+    response_model=ResModel[dict],
     description="Update an existing subscription product in stripe",
     tags=["stripe products"],
 )
@@ -769,7 +791,7 @@ async def update_stripe_product_endpoint(product_id: str, req: ReqModel[ProductR
 
 @app.delete(
     CONF.delete_stripe_product,
-    response_model=ResModel[str],
+    response_model=ResModel[dict],
     description="Delete an existing subscription product in stripe",
     tags=["stripe products"],
 )
@@ -787,6 +809,7 @@ async def delete_stripe_product_endpoint(product_id: str):
     CONF.list_stripe_products,
     description="List all subscription products in stripe",
     tags=["stripe products"],
+    response_model=ResModel[list[dict]],
 )
 async def list_stripe_products_endpoint():
     products = await list_stripe_products()
