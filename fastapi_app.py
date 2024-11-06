@@ -25,6 +25,7 @@ from all_types.myapi_dtypes import (
     ReqModel,
     ReqFetchDataset,
     ReqPrdcerLyrMapData,
+    ReqNearestRoute,
     ReqCostEstimate,
     ReqSavePrdcerCtlg,
     ReqGradientColorBasedOnZone,
@@ -47,6 +48,7 @@ from all_types.response_dtypes import (
     ResCountryCityData,
     ResNearbyCategories,
     ResPrdcerLyrMapData,
+    ResNearestLocData,
     ResFetchDataset,
     ResUserCatalogs,
     ResUserLogin,
@@ -89,7 +91,8 @@ from data_fetcher import (
     save_draft_catalog,
     fetch_gradient_colors,
     gradient_color_based_on_zone,
-    get_user_profile
+    get_user_profile,
+    fetch_lyr_map_data_coordinates
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -254,6 +257,15 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     )
     return response
 
+@app.post(CONF.nearest_lyr_map_data, 
+          description="Get Nearest Point",
+          response_model=ResNearestLocData)
+async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
+    response = await request_handling(
+        req, ReqNearestRoute, ResNearestLocData, fetch_lyr_map_data_coordinates,
+        wrap_output=True
+    )
+    return response
 
 @app.post(CONF.save_producer_catalog, response_model=ResSavePrdcerCtlg, dependencies=[Depends(JWTBearer())])
 async def save_producer_catalog(req: ReqModel[ReqSavePrdcerCtlg], request: Request):
@@ -796,3 +808,4 @@ async def list_stripe_products_endpoint():
         request_id=str(uuid.uuid4()),
     )
     return response
+

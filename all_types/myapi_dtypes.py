@@ -67,10 +67,16 @@ class ReqUserId(BaseModel):
     user_id: str
 
 
+class Coordinate(BaseModel):
+    latitude: float
+    longitude: float
+
 class ReqPrdcerLyrMapData(BaseModel):
     prdcer_lyr_id: str
     user_id: str
 
+class ReqNearestRoute(ReqPrdcerLyrMapData):
+    points: List[Coordinate]
 
 class ReqFetchDataset(BaseModel):
     dataset_country: str
