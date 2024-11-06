@@ -9,7 +9,11 @@ import requests
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
-
+from all_types.response_dtypes import (
+    LegInfo,
+    TrafficCondition,
+    RouteInfo,
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -66,7 +70,61 @@ async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bo
                     status_code=response.status,
                     detail="Error checking Street View availability",
                 )
+async def calculate_distance_traffic_route(origin: str, destination: str) -> RouteInfo: #GoogleApi connector
+    url = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
+    payload = {
+        "origin": {"location": {"latLng": {"latitude": origin.split(",")[0], "longitude": origin.split(",")[1]}}},
+        "destination": {"location": {"latLng": {"latitude": destination.split(",")[0], "longitude": destination.split(",")[1]}}},
+        "travelMode": "DRIVE",
+        "routingPreference": "TRAFFIC_AWARE",
+        "computeAlternativeRoutes": True,
+        "extraComputations": ["TRAFFIC_ON_POLYLINE"],
+        "polylineQuality": "high_quality",
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": CONF.api_key,
+        "X-Goog-fieldmask": "*"
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response_data = response.json()
+
+        if "routes" not in response_data:
+            raise HTTPException(status_code=400, detail="No route found.")
+
+        # Parse the first route's leg for necessary details
+        route_info = []
+        for leg in response_data["routes"][0]["legs"]:
+            leg_info = LegInfo(
+                start_location=leg["startLocation"],
+                end_location=leg["endLocation"],
+                distance=leg["distanceMeters"],
+                duration=leg["duration"],
+                static_duration=leg["staticDuration"],
+                polyline=leg["polyline"]["encodedPolyline"],
+                traffic_conditions=[
+                    TrafficCondition(
+                        start_index=interval.get("startPolylinePointIndex", 0),
+                        end_index=interval["endPolylinePointIndex"],
+                        speed=interval["speed"]
+                    )
+                    for interval in leg["travelAdvisory"].get("speedReadingIntervals", [])
+                ]
+            )
+            route_info.append(leg_info)
+
+        return RouteInfo(
+            origin=origin,
+            destination=destination,
+            route=route_info
+        )
+
+    except requests.RequestException:
+        raise HTTPException(status_code=400, detail="Error fetching route information from Google Maps API")
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

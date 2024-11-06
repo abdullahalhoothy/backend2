@@ -7,15 +7,17 @@ from geopy.distance import geodesic
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
-
+import requests
+from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
     ResGradientColorBasedOnZone,
     PrdcerLyrMapData,
     LayerInfo,
     UserCatalogInfo,
+    NearestPointRouteResponse
 )
-from google_api_connector import fetch_from_google_maps_api
+from google_api_connector import calculate_distance_traffic_route, fetch_from_google_maps_api
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
@@ -665,7 +667,71 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> PrdcerLyrMapData:
         raise HTTPException(
             status_code=500, detail=f"An error occurred: {str(e)}"
         ) from e
+    
 
+async def fetch_lyr_map_data_coordinates(req: ReqNearestRoute) -> List[NearestPointRouteResponse]:
+    """
+    Fetches detailed map data for a specific producer layer.
+    """
+    try:
+        dataset_id, dataset_info = fetch_dataset_id(req.prdcer_lyr_id)
+        all_datasets = await load_dataset(dataset_id)
+        coordinates_list = [{"latitude": item["location"]["latitude"], "longitude": item["location"]["longitude"]} for item in all_datasets]
+
+        business_target_coordinates = [{"latitude": point.latitude, "longitude": point.longitude} for point in req.points]
+
+        nearest_points=await calculate_nearest_points(coordinates_list,business_target_coordinates)
+
+        Gmap_response=await calculate_nearest_points_Gmap(nearest_points)
+        return Gmap_response
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"An error occurred: {str(e)}"
+        ) from e
+
+async def calculate_nearest_points(
+    category_coordinates: List[Dict[str, float]], 
+    bussiness_target_coordinates: List[Dict[str, float]]
+) -> List[Dict[str, Any]]:
+    nearest_locations = []
+    for target in bussiness_target_coordinates:
+        distances = []
+        for loc in category_coordinates:
+            dist = calculate_distance_km((target["longitude"], target["latitude"]), (loc["longitude"], loc["latitude"]))
+            distances.append({"latitude": loc["latitude"], "longitude": loc["longitude"], "distance": dist})
+        
+        # Sort distances and get the nearest 3
+        nearest = sorted(distances, key=lambda x: x["distance"])[:3]
+        nearest_locations.append({"target": target, "nearest_coordinates": [(loc["latitude"], loc["longitude"]) for loc in nearest]})
+    
+    return nearest_locations
+
+async def calculate_nearest_points_Gmap(nearest_locations: List[Dict[str, Any]])-> List[NearestPointRouteResponse]:
+    results = []
+    for item in nearest_locations:
+        target = item["target"]
+        target_routes = NearestPointRouteResponse(target=target, routes=[])
+
+        for nearest in item["nearest_coordinates"]:
+            origin = f"{target['latitude']},{target['longitude']}"
+            destination = f"{nearest[0]},{nearest[1]}"
+
+            try:
+                # Fetch route information between target and nearest location
+                route_info = await calculate_distance_traffic_route(origin, destination)
+                target_routes.routes.append(route_info)
+            except HTTPException as e:
+                # Handle HTTP exceptions during the route fetching
+                target_routes.routes.append({"error": str(e.detail)})
+            except Exception as e:
+                # Handle any other exceptions
+                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
+
+        results.append(target_routes)
+
+    return results
 
 async def create_save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     """

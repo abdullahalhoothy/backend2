@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional
+from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -95,8 +95,28 @@ class PrdcerLyrMapData(MapData):
     layer_description: str
     records_count: int
     is_zone_lyr: str
+class TrafficCondition(BaseModel):
+    start_index: int
+    end_index: int
+    speed: Optional[str]
 
+class LegInfo(BaseModel):
+    start_location: dict 
+    end_location: dict    
+    distance: float
+    duration: str
+    static_duration: str
+    polyline: str
+    traffic_conditions: List[TrafficCondition]
 
+class RouteInfo(BaseModel):
+    origin: str 
+    destination: str  
+    route: List[LegInfo]
+
+class NearestPointRouteResponse(BaseModel):
+    target: dict
+    routes: List[Union[RouteInfo, dict]] 
 class ResGradientColorBasedOnZone(PrdcerLyrMapData):
     sub_lyr_id: str  # This is the additional property
 
@@ -129,6 +149,7 @@ ResTypeMapData = ResModel[MapData]
 ResCountryCityData = ResModel[Dict[str, List[CityData]]]
 ResNearbyCategories = ResModel[Dict[str, List[str]]]
 ResPrdcerLyrMapData = ResModel[PrdcerLyrMapData]
+ResNearestLocData=ResModel[List[NearestPointRouteResponse]]
 ResOldNearbyCategories = ResModel[List[str]]
 ResUserCatalogs = ResModel[List[UserCatalogInfo]]
 ResUserLogin = ResModel[Dict[str, Any]]
