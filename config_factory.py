@@ -10,6 +10,7 @@ class ApiConfig(CommonApiConfig):
     backend_base_uri: str = "/fastapi/"
     ggl_base_url: str = "https://places.googleapis.com/v1/places:"
     nearby_search: str = ggl_base_url + "searchNearby"
+    search_text: str = ggl_base_url + "searchText"
     place_details: str = ggl_base_url + "details/json"
     enable_CORS_url: str = "http://localhost:3000"
     catlog_collection: str = backend_base_uri + "catlog_collection"

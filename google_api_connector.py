@@ -58,6 +58,29 @@ async def fetch_from_google_maps_api(req: ReqLocation):
         return [], None
 
 
+async def text_fetch_from_google_maps_api(req: ReqLocation):
+
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": CONF.api_key,
+        "X-Goog-FieldMask": CONF.google_fields,
+    }
+    data = {
+        "textQuery": req.text_search,
+    }
+
+    response = requests.post(CONF.search_text, headers=headers, json=data)
+    if response.status_code == 200:
+        response_data = response.json()
+        results = response_data.get("places", [])
+
+        return results, ""
+    else:
+        print("Error:", response.status_code)
+        return [], None
+
+
 async def check_street_view_availability(req: ReqStreeViewCheck) -> Dict[str, bool]:
     url = f"https://maps.googleapis.com/maps/api/streetview?return_error_code=true&size=600x300&location={req.lat},{req.lng}&heading=151.78&pitch=-0.76&key={CONF.api_key}"
 

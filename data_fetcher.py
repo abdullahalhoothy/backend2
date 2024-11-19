@@ -17,7 +17,8 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
     NearestPointRouteResponse
 )
-from google_api_connector import calculate_distance_traffic_route, fetch_from_google_maps_api
+from google_api_connector import (calculate_distance_traffic_route, fetch_from_google_maps_api,
+                                  text_fetch_from_google_maps_api)
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
@@ -227,9 +228,8 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         #     dataset, next_page_token = await old_fetch_from_google_maps_api(req_dataset)
         # elif 'nearby but actually text search' in search_type:
         #     dataset, next_page_token = await text_as_nearby_fetch_from_google_maps_api(req)
-        # else:  # text search
-        #     dataset, next_page_token = await text_fetch_from_google_maps_api(req)
-
+        else:  # text search
+            dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
         if dataset is not None:
             # Store the fetched data in storage
             bknd_dataset_id = await store_ggl_data_resp(req_dataset, dataset)
