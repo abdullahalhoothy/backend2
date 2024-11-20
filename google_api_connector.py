@@ -68,6 +68,15 @@ async def text_fetch_from_google_maps_api(req: ReqLocation):
     }
     data = {
         "textQuery": req.text_search,
+        "locationRestriction": {
+            "circle": {
+                "center": {
+                    "latitude": req.lat,
+                    "longitude": req.lng
+                },
+                "radius": req.radius
+            }
+        }
     }
 
     response = requests.post(CONF.search_text, headers=headers, json=data)
