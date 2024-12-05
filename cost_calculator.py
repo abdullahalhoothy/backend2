@@ -30,7 +30,7 @@ def estimate_api_calls(categories_data, included_categories, excluded_categories
 
 async def calculate_cost(req: ReqCostEstimate):
     # Load city info from appropriate json file
-    file_path = f"Backend/country_info/{req.country.lower().replace(' ', '_')}/city_info/{req.city_name.lower()}/ggl_categories.json"
+    file_path = f"Backend/country_info/{req.country.lower().replace(' ', '_')}/city_info/{req.city_name.lower().replace(' ', '_')}/ggl_categories.json"
     categories_data = await use_json(file_path, "r")
 
     # Flatten the nested dictionary

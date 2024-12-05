@@ -23,6 +23,7 @@ class ApiConfig(CommonApiConfig):
     country_city: str = backend_base_uri + "country_city"
     nearby_categories: str = backend_base_uri + "nearby_categories"
     old_nearby_categories: str = backend_base_uri + "old_nearby_categories"
+    fetch_dataset_full_data: str = backend_base_uri + "fetch_dataset/full_data"
     fetch_dataset: str = backend_base_uri + "fetch_dataset"
     save_layer: str = backend_base_uri + "save_layer"
     user_layers: str = backend_base_uri + "user_layers"

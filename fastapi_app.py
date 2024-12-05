@@ -83,7 +83,8 @@ from data_fetcher import (
     fetch_country_city_data,
     fetch_catlog_collection,
     fetch_layer_collection,
-    fetch_country_city_category_map_data,
+    default_fetch_country_city_category_map_data,
+    full_data_fetch_country_city_category_map_data,
     save_lyr,
     aquire_user_lyrs,
     fetch_lyr_map_data,
@@ -222,6 +223,22 @@ async def nearby_categories():
 @app.post(
     CONF.fetch_dataset,
     response_model=ResModel[ResFetchDataset],
+    dependencies=[],
+)
+async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqFetchDataset,
+        ResModel[ResFetchDataset],
+        default_fetch_country_city_category_map_data,
+        wrap_output=True,
+    )
+    return response
+
+
+@app.post(
+    CONF.fetch_dataset_full_data,
+    response_model=ResModel[ResFetchDataset],
     dependencies=[Depends(JWTBearer())],
 )
 async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
@@ -229,7 +246,7 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
         req.request_body,
         ReqFetchDataset,
         ResModel[ResFetchDataset],
-        fetch_country_city_category_map_data,
+        full_data_fetch_country_city_category_map_data,
         wrap_output=True,
     )
     return response

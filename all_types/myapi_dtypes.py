@@ -75,7 +75,6 @@ class ReqFetchDataset(BaseModel):
     dataset_city: str
     excludedTypes: list[str]
     includedTypes: list[str]
-    action: Optional[str] = ""
     page_token: Optional[str] = ""
     search_type: Optional[str] = "default"
     text_search: Optional[str] = ""
