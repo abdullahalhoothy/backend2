@@ -224,13 +224,9 @@ def to_location_req(req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation]) -
         page_token=req_dataset.page_token or ""
     )
 
-<<<<<<< Updated upstream
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset
+    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset, action: str = ''
 ) -> Tuple[Any, str, str, str]:
-=======
-async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchDataset, action: str = ''):
->>>>>>> Stashed changes
     next_page_token = req_dataset.page_token
     plan_name = ""
     bknd_dataset_id = ""
@@ -244,7 +240,6 @@ async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchData
     bknd_dataset_id = make_dataset_filename(temp_req)
     dataset = await load_dataset(bknd_dataset_id)
 
-<<<<<<< Updated upstream
     if not dataset:
         if isinstance(req_dataset, ReqCensus):
             get_dataset_func = get_census_dataset_from_storage
@@ -253,21 +248,6 @@ async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchData
         
         dataset, bknd_dataset_id = await get_dataset_func(
             req_dataset, bknd_dataset_id, action
-=======
-    return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-async def fetch_real_estate_nearby(
-    req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset, action: str = ''
-):
-    next_page_token = req_dataset.page_token
-    plan_name = ""
-    bknd_dataset_id = ""
-
-    if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr, action)
->>>>>>> Stashed changes
         )
         if dataset:
             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
@@ -673,11 +653,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             text_search=req.text_search,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-<<<<<<< Updated upstream
-            await fetch_census_realestate(req_dataset, req_create_lyr=req)
-=======
-            await fetch_real_estate_nearby(req_dataset, req_create_lyr=req, action=action)
->>>>>>> Stashed changes
+            await fetch_census_realestate(req_dataset, req_create_lyr=req, action=action)
         )
 
     elif data_type in ["demographics", "economic", "housing", "social"]:
@@ -688,11 +664,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             page_token=req.page_token,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-<<<<<<< Updated upstream
-            await fetch_census_realestate(req_dataset, req_create_lyr=req)
-=======
-            await fetch_census_data(req_dataset, req_create_lyr=req, action=action)
->>>>>>> Stashed changes
+            await fetch_census_realestate(req_dataset, req_create_lyr=req, action=action)
         )
 
     else:
@@ -706,13 +678,8 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset, action: str
             page_token=req.page_token,
             text_search=req.text_search,
         )
-<<<<<<< Updated upstream
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_ggl_nearby(req_dataset, req_create_lyr=req)
-=======
-        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = await fetch_ggl_nearby(
-            req_dataset, req_create_lyr=req, action=action
->>>>>>> Stashed changes
+            await fetch_ggl_nearby(req_dataset, req_create_lyr=req, action=action)
         )
 
     # if request action was "full data" then store dataset id in the user profile
