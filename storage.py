@@ -717,12 +717,8 @@ async def get_census_dataset_from_storage(
             status_code=404, detail="Invalid census data type requested"
         )
 
-    city_data = await Database.fetch(query, req.city_name)
+    city_data = await Database.fetch(query, req.city_name, "3")
     city_df = pd.DataFrame([dict(record) for record in city_data])
-
-    # Read CSV file
-    # df = pd.read_csv(csv_file)
-    city_df = city_df[city_df["Zoom Level"] == "3"]
 
     if city_df.empty:
         raise HTTPException(

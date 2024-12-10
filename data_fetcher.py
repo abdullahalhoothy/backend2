@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from fastapi import status
 import requests
 from backend_common.auth import load_user_profile, update_user_profile
+from backend_common.utils.utils import convert_strings_to_ints
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
@@ -251,6 +252,7 @@ async def fetch_census_realestate(
             req_dataset, bknd_dataset_id, action
         )
         if dataset:
+            dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
     else:
         dataset = orjson.loads(dataset)
@@ -336,6 +338,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
         if dataset:
             # Store the fetched data in storage
             dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+            dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
 
     # if dataset is less than 20 or none and action is full data
@@ -1028,7 +1031,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
             lyr_metadata = (
                 ctlg_owner_data.get("prdcer", {}).get("prdcer_lyrs", {}).get(lyr_id, {})
             )
-            
+
             ctlg_lyrs_map_data.append(
                 ResLyrMapData(
                     type="FeatureCollection",
