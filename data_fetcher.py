@@ -344,7 +344,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
-    if len(dataset) < 20 and req_create_lyr.action == "full data":
+    if len(dataset["features"]) < 20 and req_create_lyr.action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
             next_page_token = ""
@@ -634,8 +634,6 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     next_page_token = None
     dataset_country = req.dataset_country
     dataset_city = req.dataset_city
-    page_token = req.page_token
-    text_search = req.text_search
 
     geojson_dataset = []
 
