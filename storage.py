@@ -51,6 +51,7 @@ CENSUS_FILE_MAPPING = {
     "household": "Backend/census_data/Final_household_all.csv",
     "population": "Backend/census_data/Final_population_all.csv",
     "housing": "Backend/census_data/Final_housing_all.csv",
+    "economic": "Backend/census_data/Final_economic_all.csv",
 }
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -715,13 +716,16 @@ async def get_census_dataset_from_storage(
     elif any(type in data_type for type in ["housing", "units"]):
         csv_file = CENSUS_FILE_MAPPING["housing"]
         query = SqlObject.housing_w_city
+    elif any(type in data_type for type in ["economic", "income"]):
+        csv_file = CENSUS_FILE_MAPPING["economic"]
+        query = SqlObject.economic_w_city
 
     if not csv_file:
         raise HTTPException(
             status_code=404, detail="Invalid census data type requested"
         )
 
-    city_data = await Database.fetch(query, req.city_name, "3")
+    city_data = await Database.fetch(query, req.city_name)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -733,11 +737,13 @@ async def get_census_dataset_from_storage(
     features = []
     for _, row in city_df.iterrows():
         # Parse coordinates from Degree column
-        coords_str = row["Degree"].split()
-        coordinates = [float(coords_str[0]), float(coords_str[1])]
+        coordinates = [float(row["latitude"]), float(row["longitude"])]
 
         # Create properties dict excluding certain columns
-        properties = row.drop(["Location", "Degree"]).to_dict()
+        columns_to_drop = ["latitude", "longitude", "city"]
+        if "country" in row:
+            columns_to_drop.append("country")
+        properties = row.drop(columns_to_drop).to_dict()
 
         feature = {
             "type": "Feature",

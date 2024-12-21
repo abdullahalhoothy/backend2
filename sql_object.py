@@ -17,13 +17,16 @@ class SqlObject:
     load_user_profile_query: str = """SELECT * FROM user_data WHERE user_id = $1;"""
 
     population_w_city: str = """SELECT * FROM "schema_marketplace".population
-                                    where "Location" = $1 AND "Zoom Level" = $2;
+                                    where "city" = $1;
                                     """
     housing_w_city: str = """SELECT * FROM "schema_marketplace".housing
-                                    where "Location" = $1 AND "Zoom Level" = $2;
+                                    where "city" = $1;
                                     """
     household_w_city: str = """SELECT * FROM "schema_marketplace".household
-                                    where "Location" = $1 AND "Zoom Level" = $2;
+                                    where "city" = $1;
+                                    """
+    economic_w_city: str = """SELECT * FROM "schema_marketplace".economic
+                                    where "city" = $1;
                                     """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
