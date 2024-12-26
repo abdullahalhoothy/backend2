@@ -18,6 +18,7 @@ from fastapi import (
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from pydantic import ValidationError
@@ -197,6 +198,7 @@ def create_formatted_example(model_class):
 # Enable CORS
 origins = [CONF.enable_CORS_url]
 
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=origins,
