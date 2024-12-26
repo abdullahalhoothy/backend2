@@ -31,8 +31,8 @@ class SqlObject:
     canada_commercial_w_city: str = """
         SELECT * 
         FROM "schema_marketplace".canada_commercial_properties
-        WHERE unaccent("city") ILIKE unaccent($1)
-        ORDER BY similarity(unaccent("city"), unaccent($1)) DESC;
+        WHERE lower(property_type) LIKE '%' || lower($1) || '%' AND unaccent("city") ILIKE unaccent($2)
+        ORDER BY similarity(unaccent("city"), unaccent($2)) DESC;
     """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";

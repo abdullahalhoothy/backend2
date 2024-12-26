@@ -772,7 +772,7 @@ async def get_commercial_properties_dataset_from_storage(
     data_type = req.includedTypes[0]
     query = SqlObject.canada_commercial_w_city
 
-    city_data = await Database.fetch(query, req.city_name)
+    city_data = await Database.fetch(query, data_type.replace("_", " "), req.city_name)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -784,7 +784,7 @@ async def get_commercial_properties_dataset_from_storage(
     features = []
     for _, row in city_df.iterrows():
         # Parse coordinates from Degree column
-        coordinates = [float(row["latitude"]), float(row["longitude"])]
+        coordinates = [float(row["longitude"]), float(row["latitude"])]
 
         # Create properties dict excluding certain columns
         columns_to_drop = ["latitude", "longitude", "city"]
