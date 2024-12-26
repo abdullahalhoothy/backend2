@@ -4,5 +4,19 @@
         "villa_for_sale",
         "apartment_for_rent",
         "apartment_for_sale"
+    ],
+    "commercial": [
+        "business_for_rent",
+        "business_for_sale_or_for_rent",
+        "commercial_unit_for_rent",
+        "commercial_unit_for_sale_or_for_rent",
+        "farm_for_rent",
+        "industrial_building_for_rent",
+        "industrial_building_for_sale_or_for_rent",
+        "industrial_unit_for_rent",
+        "industrial_unit_for_sale_or_for_rent",
+        "land_for_rent",
+        "lot_for_rent",
+        "lot_for_sale_or_for_rent"
     ]
 }
