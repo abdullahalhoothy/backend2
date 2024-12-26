@@ -28,6 +28,12 @@ class SqlObject:
     economic_w_city: str = """SELECT * FROM "schema_marketplace".economic
                                     where "city" = $1;
                                     """
+    canada_commercial_w_city: str = """
+        SELECT * 
+        FROM "schema_marketplace".canada_commercial_properties
+        WHERE unaccent("city") ILIKE unaccent($1)
+        ORDER BY similarity(unaccent("city"), unaccent($1)) DESC;
+    """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
     

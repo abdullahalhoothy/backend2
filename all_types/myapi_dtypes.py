@@ -131,6 +131,13 @@ class ReqCensus(BaseModel):
     page_token: Optional[str] = None
 
 
+class ReqCommercial(BaseModel):
+    country_name: str
+    city_name: str
+    includedTypes: List[str]
+    page_token: Optional[str] = None
+    
+
 class ReqGradientColorBasedOnZone(BaseModel):
     color_grid_choice: list[str]
     change_lyr_id: str

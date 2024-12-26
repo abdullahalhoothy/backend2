@@ -14,7 +14,7 @@ from backend_common.database import Database
 import pandas as pd
 from backend_common.dtypes.auth_dtypes import ReqUserProfile
 from sql_object import SqlObject
-from all_types.myapi_dtypes import ReqLocation, ReqFetchDataset, ReqRealEstate
+from all_types.myapi_dtypes import ReqCommercial, ReqLocation, ReqFetchDataset, ReqRealEstate
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
@@ -758,6 +758,53 @@ async def get_census_dataset_from_storage(
     # Generate a unique filename if one isn't provided
     if not filename:
         filename = f"census_{req.city_name.lower()}_{data_type}"
+
+    return geojson_data, filename
+
+
+async def get_commercial_properties_dataset_from_storage(
+    req: ReqCommercial, filename: str, action: str
+) -> tuple[dict, str]:
+    """
+    Retrieves commercial properties data from database based on the data type requested.
+    Returns data in GeoJSON format for consistency with other dataset types.
+    """
+    data_type = req.includedTypes[0]
+    query = SqlObject.canada_commercial_w_city
+
+    city_data = await Database.fetch(query, req.city_name)
+    city_df = pd.DataFrame([dict(record) for record in city_data])
+
+    if city_df.empty:
+        raise HTTPException(
+            status_code=404, detail=f"No data found for {req.city_name}"
+        )
+
+    # Convert to GeoJSON format
+    features = []
+    for _, row in city_df.iterrows():
+        # Parse coordinates from Degree column
+        coordinates = [float(row["latitude"]), float(row["longitude"])]
+
+        # Create properties dict excluding certain columns
+        columns_to_drop = ["latitude", "longitude", "city"]
+        if "country" in row:
+            columns_to_drop.append("country")
+        properties = row.drop(columns_to_drop).to_dict()
+
+        feature = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": coordinates},
+            "properties": properties,
+        }
+        features.append(feature)
+
+    # Create GeoJSON structure similar to Google Maps API response
+    geojson_data = {"type": "FeatureCollection", "features": features}
+
+    # Generate a unique filename if one isn't provided
+    if not filename:
+        filename = f"commercial_canada_{req.city_name.lower()}_{data_type}"
 
     return geojson_data, filename
 

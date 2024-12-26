@@ -39,6 +39,7 @@ from storage import (
     load_census_categories,
     get_real_estate_dataset_from_storage,
     get_census_dataset_from_storage,
+    get_commercial_properties_dataset_from_storage,
     fetch_dataset_id,
     load_dataset,
     fetch_layer_owner,
@@ -199,7 +200,7 @@ def create_string_list(
 
 
 def to_location_req(
-    req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation]
+    req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation, ReqCommercial]
 ) -> ReqLocation:
     # If it's already a ReqLocation, return it directly
     if isinstance(req_dataset, ReqLocation):
@@ -233,7 +234,7 @@ def to_location_req(
 
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCensus, ReqRealEstate], req_create_lyr: ReqFetchDataset
+    req_dataset: Union[ReqCensus, ReqRealEstate, ReqCommercial], req_create_lyr: ReqFetchDataset
 ) -> Tuple[Any, str, str, str]:
     next_page_token = req_dataset.page_token
     plan_name = ""
@@ -254,6 +255,8 @@ async def fetch_census_realestate(
             get_dataset_func = get_census_dataset_from_storage
         elif isinstance(req_dataset, ReqRealEstate):
             get_dataset_func = get_real_estate_dataset_from_storage
+        elif isinstance(req_dataset, ReqCommercial):
+            get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id = await get_dataset_func(
             req_dataset, bknd_dataset_id, action
@@ -667,7 +670,6 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
-
     elif data_type in ["demographics", "economic", "housing", "social"]:
         req_dataset = ReqCensus(
             country_name=req.dataset_country,
@@ -678,7 +680,16 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
             await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
-
+    elif data_type == "commercial" and req.dataset_country.lower() == "canada":
+        req_dataset = ReqCommercial(
+            country_name=req.dataset_country,
+            city_name=req.dataset_city,
+            includedTypes=req.includedTypes,
+            page_token=req.page_token,
+        )
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
+            await fetch_census_realestate(req_dataset, req_create_lyr=req)
+        )
     else:
         # Default to Google Maps API
         req_dataset = ReqLocation(
