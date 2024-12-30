@@ -737,7 +737,7 @@ async def get_census_dataset_from_storage(
     features = []
     for _, row in city_df.iterrows():
         # Parse coordinates from Degree column
-        coordinates = [float(row["latitude"]), float(row["longitude"])]
+        coordinates = [float(row["longitude"]), float(row["latitude"])]
 
         # Create properties dict excluding certain columns
         columns_to_drop = ["latitude", "longitude", "city"]
