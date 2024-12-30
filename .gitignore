@@ -16,3 +16,6 @@ all_types/__pycache__/**
 
 # IDE - VSCode
 .vscode/
+
+# user files
+docker-compose.yml
