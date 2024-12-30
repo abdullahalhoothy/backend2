@@ -724,8 +724,17 @@ async def get_census_dataset_from_storage(
         raise HTTPException(
             status_code=404, detail="Invalid census data type requested"
         )
+    
+    city_name = req.city_name
+    # db is using different names for cities in Saudi Arabia.
+    # will not need this in the future
+    if req.country_name == "Saudi Arabia":
+        if req.city_name == "Mecca":
+            city_name = "Makkah"
+        elif req.city_name == "Riyadh":
+            city_name = "Al-Riyadh"
 
-    city_data = await Database.fetch(query, req.city_name)
+    city_data = await Database.fetch(query, city_name)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
