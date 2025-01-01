@@ -16,28 +16,33 @@ class SqlObject:
     """
     load_user_profile_query: str = """SELECT * FROM user_data WHERE user_id = $1;"""
 
-    population_w_city: str = """SELECT * FROM "schema_marketplace".population
-                                    where "city" = $1;
+    population_w_bounding_box: str = """SELECT * FROM "schema_marketplace".population
+                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
-    housing_w_city: str = """SELECT * FROM "schema_marketplace".housing
-                                    where "city" = $1;
+    housing_w_bounding_box: str = """SELECT * FROM "schema_marketplace".housing
+                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
-    household_w_city: str = """SELECT * FROM "schema_marketplace".household
-                                    where "city" = $1;
+    household_w_bounding_box: str = """SELECT * FROM "schema_marketplace".household
+                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
-    economic_w_city: str = """SELECT * FROM "schema_marketplace".economic
-                                    where "city" = $1;
+    economic_w_bounding_box: str = """SELECT * FROM "schema_marketplace".economic
+                                    where latitude BETWEEN $1 AND $2 AND longitude BETWEEN $3 AND $4 LIMIT 20;
                                     """
-    canada_commercial_w_city: str = """
+    canada_commercial_w_bounding_box_and_property_type: str = """
         SELECT address, price, price_description, property_type, city, description, region_stats_summary, latitude, longitude
         FROM "schema_marketplace".canada_commercial_properties
-        WHERE lower(property_type) LIKE '%' || lower($1) || '%' AND unaccent("city") ILIKE unaccent($2)
-        ORDER BY similarity(unaccent("city"), unaccent($2)) DESC LIMIT 20;
+        WHERE lower(property_type) LIKE '%' || lower($1) || '%'
+            AND latitude BETWEEN $2 AND $3
+            AND longitude BETWEEN $4 AND $5
+        LIMIT 20;
     """
 
-    saudi_real_estate_w_city_and_category: str = """
+    saudi_real_estate_w_bounding_box_and_category: str = """
         SELECT url, price, city, latitude, longitude FROM "schema_marketplace".saudi_real_estate
-        WHERE "city" = $1 AND "category" = $2 LIMIT 20;
+        WHERE "category" = $1
+            AND latitude BETWEEN $2 AND $3
+            AND longitude BETWEEN $4 AND $5
+        LIMIT 20;
     """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
