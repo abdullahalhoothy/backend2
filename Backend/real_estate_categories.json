@@ -1,22 +1,40 @@
 {
     "real_estate": [
         "villa_for_rent",
-        "villa_for_sale",
+        "villa_for_sale", 
         "apartment_for_rent",
-        "apartment_for_sale"
+        "apartment_for_sale",
+        "house_for_sale",
+        "chalet_for_sale",
+        "floor_for_sale",
+        "house_for_rent",
+        "furnished_apartment_for_rent",
+        "istiraha_for_rent", 
+        "chalet_for_rent",
+        "rooms_for_rent",
+        "floor_for_rent"
     ],
     "commercial": [
         "business_for_rent",
         "business_for_sale_or_for_rent",
-        "commercial_unit_for_rent",
+        "commercial_unit_for_rent", 
         "commercial_unit_for_sale_or_for_rent",
         "farm_for_rent",
+        "farm_for_sale",
         "industrial_building_for_rent",
-        "industrial_building_for_sale_or_for_rent",
+        "industrial_building_for_sale_or_for_rent", 
         "industrial_unit_for_rent",
         "industrial_unit_for_sale_or_for_rent",
         "land_for_rent",
         "lot_for_rent",
-        "lot_for_sale_or_for_rent"
+        "lot_for_sale_or_for_rent",
+        "lands_for_sale",
+        "shops_for_sale",
+        "buildings_for_sale",
+        "commercial_office_for_rent",
+        "buildings_for_rent",
+        "warehouse_for_rent", 
+        "shops_for_rent",
+        "camp_for_rent"
     ]
 }
