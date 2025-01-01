@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Union, Tuple
 import json
 import orjson
 from geopy.distance import geodesic
+from geopy.geocoders import Nominatim
 import numpy as np
 from fastapi import HTTPException
 from fastapi import status
@@ -198,6 +199,18 @@ def create_string_list(
 
     return result
 
+def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
+    try:
+        geolocator = Nominatim(user_agent="city_country_search")
+        location = geolocator.geocode(f"{city_name}, {country_name}", exactly_one=True)
+        if not location:
+            logger.warning(f"No location found for {city_name}, {country_name}")
+            return None
+        bounding_box = location.raw['boundingbox']
+        return ReqGeodata(lat=float(location.latitude), lng=float(location.longitude), bounding_box=bounding_box)
+    except Exception as e:
+        logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
+        return None
 
 def to_location_req(
     req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation, ReqCommercial]
@@ -210,12 +223,23 @@ def to_location_req(
     country_city_data = load_country_city()
 
     # Find the city coordinates
-    city_data = None
+    city_data: Optional[ReqGeodata] = None
     if req_dataset.country_name in country_city_data:
         for city in country_city_data[req_dataset.country_name]:
             if city["name"] == req_dataset.city_name:
-                city_data = city
+                if city.get("lat") is None or city.get("lng") is None or city.get("bounding_box") is None:
+                    raise ValueError(f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}")
+                
+                city_data = ReqGeodata(
+                    lat=float(city.get("lat")),
+                    lng=float(city.get("lng")),
+                    bounding_box=city.get("bounding_box", []),
+                )
                 break
+        else:
+            # if city not found in country_city_data, use geocoding to get city_data
+            city_data = get_req_geodata(req_dataset.city_name, req_dataset.country_name)
+
 
     if not city_data:
         raise ValueError(
@@ -224,8 +248,9 @@ def to_location_req(
 
     # Create ReqLocation object
     return ReqLocation(
-        lat=city_data["lat"],
-        lng=city_data["lng"],
+        lat=city_data.lat,
+        lng=city_data.lng,
+        bounding_box=city_data.bounding_box,
         radius=5000,  # Default radius
         includedTypes=req_dataset.includedTypes,
         excludedTypes=[],  # Default empty list for excludedTypes
@@ -644,13 +669,8 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     fetching data from Google Maps API.
     """
     next_page_token = None
-    dataset_country = req.dataset_country
-    dataset_city = req.dataset_city
 
     geojson_dataset = []
-
-    # Fetch and validate city data
-    city_data = await validate_city_data(dataset_country, dataset_city)
 
     # Load all categories
     categories = await fetch_nearby_categories()
@@ -691,10 +711,17 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
     else:
+        city_data = await get_req_geodata(req.dataset_country, req.dataset_city)
+
+        if city_data is None:
+            raise HTTPException(
+                status_code=404, detail="City not found in the specified country"
+            )
         # Default to Google Maps API
         req_dataset = ReqLocation(
-            lat=city_data["lat"],
-            lng=city_data["lng"],
+            lat=city_data.lat,
+            lng=city_data.lng,
+            bounding_box=city_data.bounding_box,
             radius=30000,
             excludedTypes=req.excludedTypes,
             includedTypes=req.includedTypes,

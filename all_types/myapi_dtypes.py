@@ -111,6 +111,7 @@ class ReqLocation(BaseModel):
     radius: int
     excludedTypes: list[str]
     includedTypes: list[str]
+    bounding_box: list[str]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
 
@@ -137,6 +138,11 @@ class ReqCommercial(BaseModel):
     includedTypes: List[str]
     page_token: Optional[str] = None
     
+
+class ReqGeodata(BaseModel):
+    lat: float
+    lng: float
+    bounding_box: list[str]
 
 class ReqGradientColorBasedOnZone(BaseModel):
     color_grid_choice: list[str]
