@@ -422,7 +422,7 @@ def load_country_city():
                 "name": "Dubai",
                 "lat": 25.2048,
                 "lng": 55.2708,
-                'bounding_box': ['25.1053471', '25.4253471', '55.1324914', '55.4524914'],
+                'bounding_box': [25.1053471, 25.4253471, 55.1324914, 55.4524914],
                 "borders": {
                     "northeast": {"lat": 25.3960, "lng": 55.5643},
                     "southwest": {"lat": 24.7921, "lng": 54.8911},
@@ -432,7 +432,7 @@ def load_country_city():
                 "name": "Abu Dhabi",
                 "lat": 24.4539,
                 "lng": 54.3773,
-                'bounding_box': ['24.2810331', '24.6018540', '54.2971553', '54.7659108'],
+                'bounding_box': [24.2810331, 24.6018540, 54.2971553, 54.7659108],
                 "borders": {
                     "northeast": {"lat": 24.5649, "lng": 54.5485},
                     "southwest": {"lat": 24.3294, "lng": 54.2783},
@@ -442,7 +442,7 @@ def load_country_city():
                 "name": "Sharjah",
                 "lat": 25.3573,
                 "lng": 55.4033,
-                'bounding_box': ['24.7572612', '25.6989797', '53.9777051', '56.6024458'],
+                'bounding_box': [24.7572612, 25.6989797, 53.9777051, 56.6024458],
                 "borders": {
                     "northeast": {"lat": 25.4283, "lng": 55.5843},
                     "southwest": {"lat": 25.2865, "lng": 55.2723},
@@ -454,7 +454,7 @@ def load_country_city():
                 "name": "Riyadh",
                 "lat": 24.7136,
                 "lng": 46.6753,
-                'bounding_box': ['19.2083336', '27.7020999', '41.6811300', '48.2582000'],
+                'bounding_box': [19.2083336, 27.7020999, 41.6811300, 48.2582000],
                 "borders": {
                     "northeast": {"lat": 24.9182, "lng": 46.8482},
                     "southwest": {"lat": 24.5634, "lng": 46.5023},
@@ -464,7 +464,7 @@ def load_country_city():
                 "name": "Jeddah",
                 "lat": 21.5433,
                 "lng": 39.1728,
-                'bounding_box': ['21.3904432', '21.7104432', '39.0142363', '39.3342363'],
+                'bounding_box': [21.3904432, 21.7104432, 39.0142363, 39.3342363],
                 "borders": {
                     "northeast": {"lat": 21.7432, "lng": 39.2745},
                     "southwest": {"lat": 21.3234, "lng": 39.0728},
@@ -474,7 +474,7 @@ def load_country_city():
                 "name": "Mecca",
                 "lat": 21.4225,
                 "lng": 39.8262,
-                'bounding_box': ['21.1198192', '21.8480401', '39.5058552', '40.4756100'],
+                'bounding_box': [21.1198192, 21.8480401, 39.5058552, 40.4756100],
                 "borders": {
                     "northeast": {"lat": 21.5432, "lng": 39.9283},
                     "southwest": {"lat": 21.3218, "lng": 39.7241},
@@ -486,7 +486,7 @@ def load_country_city():
                 "name": "Toronto",
                 "lat": 43.6532,
                 "lng": -79.3832,
-                'bounding_box': ['43.5796082', '43.8554425', '-79.6392832', '-79.1132193'],
+                'bounding_box': [43.5796082, 43.8554425, -79.6392832, -79.1132193],
                 "borders": {
                     "northeast": {"lat": 43.8554, "lng": -79.1168},
                     "southwest": {"lat": 43.5810, "lng": -79.6396},
@@ -496,7 +496,7 @@ def load_country_city():
                 "name": "Vancouver",
                 "lat": 49.2827,
                 "lng": -123.1207,
-                'bounding_box': ['49.1989306', '49.3161714', '-123.2249611', '-123.0232419'],
+                'bounding_box': [49.1989306, 49.3161714, -123.2249611, -123.0232419],
                 "borders": {
                     "northeast": {"lat": 49.3932, "lng": -122.9856},
                     "southwest": {"lat": 49.1986, "lng": -123.2642},
@@ -506,7 +506,7 @@ def load_country_city():
                 "name": "Montreal",
                 "lat": 45.5017,
                 "lng": -73.5673,
-                'bounding_box': ['45.4100756', '45.7047897', '-73.9741567', '-73.4742952'],
+                'bounding_box': [45.4100756, 45.7047897, -73.9741567, -73.4742952],
                 "borders": {
                     "northeast": {"lat": 45.7058, "lng": -73.4734},
                     "southwest": {"lat": 45.4139, "lng": -73.7089},
@@ -705,7 +705,7 @@ async def load_dataset(dataset_id: str) -> Dict:
 
 
 async def get_census_dataset_from_storage(
-    req: ReqRealEstate, filename: str, action: str
+    req: ReqRealEstate, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves census data from CSV files based on the data type requested.
@@ -718,32 +718,23 @@ async def get_census_dataset_from_storage(
 
     if any(type in data_type for type in ["household", "degree"]):
         csv_file = CENSUS_FILE_MAPPING["household"]
-        query = SqlObject.household_w_city
+        query = SqlObject.household_w_bounding_box
     elif any(type in data_type for type in ["population", "demographics"]):
         csv_file = CENSUS_FILE_MAPPING["population"]
-        query = SqlObject.population_w_city
+        query = SqlObject.population_w_bounding_box
     elif any(type in data_type for type in ["housing", "units"]):
         csv_file = CENSUS_FILE_MAPPING["housing"]
-        query = SqlObject.housing_w_city
+        query = SqlObject.housing_w_bounding_box
     elif any(type in data_type for type in ["economic", "income"]):
         csv_file = CENSUS_FILE_MAPPING["economic"]
-        query = SqlObject.economic_w_city
+        query = SqlObject.economic_w_bounding_box
 
     if not csv_file:
         raise HTTPException(
             status_code=404, detail="Invalid census data type requested"
         )
-    
-    city_name = req.city_name
-    # db is using different names for cities in Saudi Arabia.
-    # will not need this in the future
-    if req.country_name == "Saudi Arabia":
-        if req.city_name == "Mecca":
-            city_name = "Makkah"
-        elif req.city_name == "Riyadh":
-            city_name = "Al-Riyadh"
 
-    city_data = await Database.fetch(query, city_name)
+    city_data = await Database.fetch(query, *request_location.bounding_box)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -781,16 +772,16 @@ async def get_census_dataset_from_storage(
 
 
 async def get_commercial_properties_dataset_from_storage(
-    req: ReqCommercial, filename: str, action: str
+    req: ReqCommercial, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves commercial properties data from database based on the data type requested.
     Returns data in GeoJSON format for consistency with other dataset types.
     """
     data_type = req.includedTypes[0]
-    query = SqlObject.canada_commercial_w_city
+    query = SqlObject.canada_commercial_w_bounding_box_and_property_type
 
-    city_data = await Database.fetch(query, data_type.replace("_", " "), req.city_name)
+    city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -828,7 +819,7 @@ async def get_commercial_properties_dataset_from_storage(
 
 
 async def get_real_estate_dataset_from_storage(
-    req: ReqRealEstate, filename: str, action: str
+    req: ReqRealEstate, filename: str, action: str, request_location: ReqLocation
 ) -> tuple[dict, str]:
     """
     Retrieves data from storage based on the location request.
@@ -839,9 +830,9 @@ async def get_real_estate_dataset_from_storage(
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
     data_type = req.includedTypes[0]
-    query = SqlObject.saudi_real_estate_w_city_and_category
+    query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
-    city_data = await Database.fetch(query, req.city_name, data_type)
+    city_data = await Database.fetch(query, data_type, *request_location.bounding_box)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:

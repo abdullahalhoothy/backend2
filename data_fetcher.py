@@ -206,7 +206,8 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         if not location:
             logger.warning(f"No location found for {city_name}, {country_name}")
             return None
-        bounding_box = location.raw['boundingbox']
+        bounding_box = location.raw['boundingbox'] # geopy boundingbox format [south_lat, north_lat, west_lon, east_lon]
+        bounding_box = [float(box) for box in bounding_box]
         return ReqGeodata(lat=float(location.latitude), lng=float(location.longitude), bounding_box=bounding_box)
     except Exception as e:
         logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
@@ -284,7 +285,7 @@ async def fetch_census_realestate(
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
         dataset, bknd_dataset_id = await get_dataset_func(
-            req_dataset, bknd_dataset_id, action
+            req_dataset, bknd_dataset_id, action, request_location=temp_req
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
@@ -711,7 +712,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             await fetch_census_realestate(req_dataset, req_create_lyr=req)
         )
     else:
-        city_data = await get_req_geodata(req.dataset_country, req.dataset_city)
+        city_data = get_req_geodata(req.dataset_country, req.dataset_city)
 
         if city_data is None:
             raise HTTPException(
