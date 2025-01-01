@@ -829,18 +829,44 @@ async def get_real_estate_dataset_from_storage(
     # filtered_categories = [item for item in realEstateData if item in req.includedTypes]
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
-    country = req.country_name.lower().replace(" ", "_")
-    folder_path = (
-        f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
-    )
-    files = os.listdir(folder_path)
-    if action == "full data":
-        file_path = f"{folder_path}/{filename}.json"
-    else:
-        file_path = f"{folder_path}/{files[0]}"
-        filename = files[0].split(".json")[0]
-    json_data = await use_json(file_path, "r")
-    return json_data, filename
+    data_type = req.includedTypes[0]
+    query = SqlObject.saudi_real_estate_w_city_and_category
+
+    city_data = await Database.fetch(query, req.city_name, data_type)
+    city_df = pd.DataFrame([dict(record) for record in city_data])
+
+    if city_df.empty:
+        raise HTTPException(
+            status_code=404, detail=f"No data found for {req.city_name}"
+        )
+
+    # Convert to GeoJSON format
+    features = []
+    for _, row in city_df.iterrows():
+        # Parse coordinates from Degree column
+        coordinates = [float(row["longitude"]), float(row["latitude"])]
+
+        # Create properties dict excluding certain columns
+        columns_to_drop = ["latitude", "longitude", "city"]
+        if "country" in row:
+            columns_to_drop.append("country")
+        properties = row.drop(columns_to_drop).to_dict()
+
+        feature = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": coordinates},
+            "properties": properties,
+        }
+        features.append(feature)
+
+    # Create GeoJSON structure similar to Google Maps API response
+    geojson_data = {"type": "FeatureCollection", "features": features}
+
+    # Generate a unique filename if one isn't provided
+    if not filename:
+        filename = f"saudi_real_estate_{req.city_name.lower()}_{data_type}"
+
+    return geojson_data, filename
 
 
 # Apply the decorator to all functions in this module

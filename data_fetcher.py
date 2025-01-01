@@ -658,7 +658,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     # Determine the data type based on included types
     data_type = determine_data_type(req.includedTypes, categories)
 
-    if data_type == "real_estate":
+    if data_type == "real_estate" or (data_type == "commercial" and req.dataset_country == "Saudi Arabia"):
         req_dataset = ReqRealEstate(
             country_name=req.dataset_country,
             city_name=req.dataset_city,

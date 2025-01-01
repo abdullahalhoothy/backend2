@@ -34,6 +34,11 @@ class SqlObject:
         WHERE lower(property_type) LIKE '%' || lower($1) || '%' AND unaccent("city") ILIKE unaccent($2)
         ORDER BY similarity(unaccent("city"), unaccent($2)) DESC LIMIT 20;
     """
+
+    saudi_real_estate_w_city_and_category: str = """
+        SELECT url, price, city, latitude, longitude FROM "schema_marketplace".saudi_real_estate
+        WHERE "city" = $1 AND "category" = $2 LIMIT 20;
+    """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
     
