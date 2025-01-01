@@ -111,7 +111,7 @@ class ReqLocation(BaseModel):
     radius: int
     excludedTypes: list[str]
     includedTypes: list[str]
-    bounding_box: list[str]
+    bounding_box: list[float]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
 
@@ -142,7 +142,7 @@ class ReqCommercial(BaseModel):
 class ReqGeodata(BaseModel):
     lat: float
     lng: float
-    bounding_box: list[str]
+    bounding_box: list[float]
 
 class ReqGradientColorBasedOnZone(BaseModel):
     color_grid_choice: list[str]
