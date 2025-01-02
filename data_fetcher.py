@@ -200,15 +200,9 @@ def create_string_list(
 
     return result
 
-def get_custom_bounding_box(bounding_box: list, expansion_distance_km: float = EXPANSION_DISTANCE_KM) -> list:
+def get_custom_bounding_box(lat: float, lon: float, expansion_distance_km: float = EXPANSION_DISTANCE_KM) -> list:
     try:
-        south_lat, north_lat, west_lon, east_lon = bounding_box
-        center_lat = (south_lat + north_lat) / 2
-        center_lon = (west_lon + east_lon) / 2
-
-        center_point = (center_lat, center_lon)
-
-        expanded_bbox = []
+        center_point = (lat, lon)
         
         # Calculate the distance in degrees
         north_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 0)  # North
@@ -236,7 +230,7 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
             logger.warning(f"No location found for {city_name}, {country_name}")
             return None
         
-        bounding_box = get_custom_bounding_box([float(x) for x in location.raw['boundingbox']])
+        bounding_box = get_custom_bounding_box(location.latitude, location.longitude)
         if bounding_box is None:
             logger.warning(f"No bounding box found for {city_name}, {country_name}")
             return None
@@ -264,7 +258,7 @@ def to_location_req(
                 if city.get("lat") is None or city.get("lng") is None or city.get("bounding_box") is None:
                     raise ValueError(f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}")
                 
-                bounding_box = get_custom_bounding_box(city.get("bounding_box"))
+                bounding_box = get_custom_bounding_box(city.get("lat"), city.get("lng"))
                 if bounding_box is None:
                     raise ValueError(f"Invalid bounding box for {req_dataset.city_name} in {req_dataset.country_name}")
 
