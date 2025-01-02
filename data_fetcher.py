@@ -1192,7 +1192,6 @@ async def given_layer_fetch_dataset(layer_id: str):
 
     dataset_id, dataset_info = await fetch_dataset_id(layer_id)
     all_datasets = await load_dataset(dataset_id)
-
     return all_datasets, layer_metadata
 
 
@@ -1203,13 +1202,80 @@ def assign_point_properties(point):
         "properties": point.get("properties", {}),
     }
 
+def get_layer_name_and_legend(index, thresholds, layer_data_length):
+    """Determine the layer name and legend based on the index and thresholds."""
+    if index == layer_data_length - 1:
+        return "Unallocated Points", "No nearby points"
+    if len(thresholds) > 0:
+        if index == 0:
+            return f"Gradient Layer {index + 1}", f"Influence Score < {thresholds[0]:.2f}"
+        if index == len(thresholds):
+            return f"Gradient Layer {index + 1}", f"Influence Score > {thresholds[-1]:.2f}"
+        return (
+            f"Gradient Layer {index + 1}",
+            f"Influence Score {thresholds[index - 1]:.2f} - {thresholds[index]:.2f}",
+        )
+    return f"Layer {index + 1}", "No threshold data available"
+def calculate_thresholds(influence_scores):
+    """Calculate threshold values based on percentiles."""
+    percentiles = [16.67, 33.33, 50, 66.67, 83.33]
+    return np.percentile(influence_scores, percentiles) if influence_scores else []
 
-async def process_color_based_on(
-    req: ReqGradientColorBasedOnZone,
-) -> List[ResGradientColorBasedOnZone]:
+def determine_layer_index(avg_metric, thresholds, fallback_index):
+    """
+    Determine the appropriate layer index for a given metric based on thresholds.
+    Returns the fallback index if no match is found or an error occurs.
+    """
+    if avg_metric is None:
+        return fallback_index
+
+    try:
+        return next(
+            (i for i, threshold in enumerate(thresholds) if avg_metric <= threshold),
+            len(thresholds),  # Default to last layer if no match
+        )
+    except Exception as e:
+        logger.error(f"Error determining layer index: {e}")
+        return fallback_index
+
+
+def set_influence_score(feature, avg_metric):
+    """Set the influence score property for a feature."""
+    feature["properties"]["influence_score"] = avg_metric
+
+def extract_properties(data):
+    """Extract properties from the first feature in the data, if available."""
+    if data and len(data) > 0:
+        return list(data[0].get("properties", {}).keys())
+    return []
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+            return geodesic((lat1, lon1), (lat2, lon2)).meters
+
+def get_nearby_average_metric(color_based_on, point, based_on_dataset, radius):
+    lat, lon = (
+        point["geometry"]["coordinates"][1],
+        point["geometry"]["coordinates"][0],
+    )
+    nearby_metric_value = [
+        point_2['properties'][color_based_on]
+        for point_2 in based_on_dataset["features"]
+        if color_based_on in point_2["properties"]
+        and calculate_distance(
+            lat,
+            lon,
+            point_2["geometry"]["coordinates"][1],
+            point_2["geometry"]["coordinates"][0],
+        )
+        <= radius
+    ]
+    return np.mean(nearby_metric_value) if nearby_metric_value else None
+
+async def process_color_based_on(req: ReqGradientColorBasedOnZone) -> List[ResGradientColorBasedOnZone]:
     change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(
         req.change_lyr_id
     )
+    
     based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(
         req.based_on_lyr_id
     )
@@ -1358,116 +1424,66 @@ async def process_color_based_on(
 
         return new_layers
     else:
-
-        def calculate_distance(lat1, lon1, lat2, lon2):
-            return geodesic((lat1, lon1), (lat2, lon2)).meters
-
-        def get_nearby_average_metric(color_based_on, point, based_on_dataset, radius):
-            lat, lon = (
-                point["geometry"]["coordinates"][1],
-                point["geometry"]["coordinates"][0],
-            )
-            nearby_metric_value = [
-                point_2[color_based_on]
-                for point_2 in based_on_dataset["features"]
-                if color_based_on in point_2
-                and calculate_distance(
-                    lat,
-                    lon,
-                    point_2["geometry"]["coordinates"][1],
-                    point_2["geometry"]["coordinates"][2],
-                )
-                <= radius
-            ]
-            return np.mean(nearby_metric_value) if nearby_metric_value else None
-
-        # Calculate influence scores for change_layer_dataset and store them
         influence_scores = []
         point_influence_map = {}
-        for point in change_layer_dataset:
+        for point in change_layer_dataset['features']:
+            # give id to each point
+            point["id"] = str(uuid.uuid4())
             avg_metric = get_nearby_average_metric(
                 req.color_based_on, point, based_on_layer_dataset, req.coverage_value
             )
             if avg_metric is not None:
                 influence_scores.append(avg_metric)
                 point_influence_map[point["id"]] = avg_metric
-
         # Calculate thresholds based on influence scores
-        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
-        thresholds = np.percentile(influence_scores, percentiles)
+        thresholds = calculate_thresholds(influence_scores)
 
         # Create layers
         new_layers = []
-        layer_data = [
-            [] for _ in range(len(thresholds) + 2)
-        ]  # +1 for above highest threshold, +1 for unallocated
+        layer_data = [[] for _ in range(len(thresholds) + 2)]  # +1 for above highest threshold, +1 for unallocated
 
         # Assign points to layers
-        for point in change_layer_dataset:
-            avg_metric = point_influence_map.get(point["id"])
+        for point in change_layer_dataset["features"]:
+
+            avg_metric = point_influence_map.get(point['id'])
             feature = MapBoxConnector.assign_point_properties(point)
 
-            if avg_metric is None:
-                layer_index = -1  # Last layer (unallocated)
-                feature["properties"]["influence_score"] = None
-            else:
-                layer_index = next(
-                    (
-                        i
-                        for i, threshold in enumerate(thresholds)
-                        if avg_metric <= threshold
-                    ),
-                    len(thresholds),
-                )
-                feature["properties"]["influence_score"] = avg_metric
+            # Determine the layer index and set the influence score
+            fallback_index = len(layer_data) - 1  # Last layer (unallocated)
+            layer_index = determine_layer_index(avg_metric, thresholds, fallback_index)
+            set_influence_score(feature, avg_metric)
 
+            # Append the feature to the appropriate layer
             layer_data[layer_index].append(feature)
 
-        # Create layers only for non-empty data
-        for i, data in enumerate(layer_data):
-            if data:
-                color = (
-                    req.color_grid_choice[i]
-                    if i < len(req.color_grid_choice)
-                    else "white"
+                # Main loop
+        for index, data in enumerate(layer_data):
+            if not data:
+                continue
+            # Determine the color for the layer
+            color = req.color_grid_choice[index] if index < len(req.color_grid_choice) else "white"
+            # Determine layer name and legend
+            layer_name, layer_legend = get_layer_name_and_legend(index, thresholds, len(layer_data))
+            # Extract properties
+            properties = extract_properties(data)
+            # Add the new layer
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=data,
+                    properties=properties,
+                    prdcer_layer_name=layer_name,
+                    prdcer_lyr_id=req.change_lyr_id,
+                    sub_lyr_id=f"{req.change_lyr_id}_gradient_{index + 1}",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color=color,
+                    layer_legend=layer_legend,
+                    layer_description=f"Gradient layer based on nearby {req.color_based_on} influence",
+                    records_count=len(data),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
                 )
-                if i == len(layer_data) - 1:
-                    layer_name = "Unallocated Points"
-                    layer_legend = "No nearby points"
-                elif i == 0:
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = f"Influence Score < {thresholds[0]:.2f}"
-                elif i == len(thresholds):
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = f"Influence Score > {thresholds[-1]:.2f}"
-                else:
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = (
-                        f"Influence Score {thresholds[i-1]:.2f} - {thresholds[i]:.2f}"
-                    )
-
-                # Extract properties from first feature if available
-                properties = []
-                if data and len(data) > 0:
-                    first_feature = data[0]
-                    properties = list(first_feature.get("properties", {}).keys())
-
-                new_layers.append(
-                    ResGradientColorBasedOnZone(
-                        type="FeatureCollection",
-                        features=data,
-                        properties=properties,  # Add the properties list here
-                        prdcer_layer_name=layer_name,
-                        prdcer_lyr_id=req.change_lyr_id,
-                        sub_lyr_id=f"{req.change_lyr_id}_gradient_{i+1}",
-                        bknd_dataset_id=req.change_lyr_id,
-                        points_color=color,
-                        layer_legend=layer_legend,
-                        layer_description=f"Gradient layer based on nearby {req.color_based_on} influence",
-                        records_count=len(data),
-                        is_zone_lyr="true",
-                    )
-                )
+            )
 
         return new_layers
 
@@ -1477,4 +1493,4 @@ async def get_user_profile(req):
 
 
 # Apply the decorator to all functions in this module
-apply_decorator_to_module(logger)(__name__)
+# apply_decorator_to_module(logger)(__name__)

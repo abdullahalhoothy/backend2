@@ -1,29 +1,37 @@
 from all_types.google_dtypes import GglResponse
 from all_types.response_dtypes import MapData
 from fastapi import HTTPException
+import logging
 
+logger = logging.getLogger(__name__)
 
 class MapBoxConnector:
 
     @classmethod
     def assign_point_properties(cls, place):
-        lng = place.get("location", {}).get("longitude", 0)
-        lat = place.get("location", {}).get("latitude", 0)
+        # Extract coordinates
+        coordinates = place.get("geometry", {}).get("coordinates", [0, 0])
+        lng, lat = coordinates if len(coordinates) == 2 else (0, 0)
+
+        # Extract properties
+        properties = place.get("properties", {})
+        
         return {
             "type": "Feature",
             "properties": {
-                "name": place.get("displayName", {}).get("text", ""),
-                "rating": place.get("rating", ""),
-                "address": place.get("formattedAddress", ""),
-                "phone": place.get("internationalPhoneNumber", ""),
-                "types": place.get("types", ""),
-                "priceLevel": place.get("priceLevel", ""),
-                "primaryType": place.get("primaryType", ""),
-                "user_ratings_total": place.get("userRatingCount", ""),
-                "heatmap_weight": 1,
+                "name": properties.get("name", ""),
+                "rating": properties.get("rating", ""),
+                "address": properties.get("address", ""),
+                "phone": properties.get("phone", ""),
+                "types": properties.get("types", []),
+                "priceLevel": properties.get("priceLevel", ""),
+                "primaryType": properties.get("primaryType", ""),
+                "user_ratings_total": properties.get("user_ratings_total", ""),
+                "heatmap_weight": properties.get("heatmap_weight", 1),
             },
             "geometry": {"type": "Point", "coordinates": [lng, lat]},
         }
+
 
     @classmethod
     async def new_ggl_to_boxmap(cls, ggl_api_resp) -> MapData:
