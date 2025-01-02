@@ -71,6 +71,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+EXPANSION_DISTANCE_KM = 10.0 # for each side from the center of the bounding box
 
 def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
     """
@@ -199,6 +200,34 @@ def create_string_list(
 
     return result
 
+def get_custom_bounding_box(bounding_box: list, expansion_distance_km: float = EXPANSION_DISTANCE_KM) -> list:
+    try:
+        south_lat, north_lat, west_lon, east_lon = bounding_box
+        center_lat = (south_lat + north_lat) / 2
+        center_lon = (west_lon + east_lon) / 2
+
+        center_point = (center_lat, center_lon)
+
+        expanded_bbox = []
+        
+        # Calculate the distance in degrees
+        north_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 0)  # North
+        south_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 180)  # South
+        east_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 90)  # East
+        west_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 270)  # West
+        
+        expanded_bbox = [
+            south_expansion[0],
+            north_expansion[0],
+            west_expansion[1],
+            east_expansion[1]   
+        ]
+        
+        return expanded_bbox
+    except Exception as e:
+        logger.error(f"Error expanding bounding box: {str(e)}")
+        return None
+
 def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
     try:
         geolocator = Nominatim(user_agent="city_country_search")
@@ -206,8 +235,12 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         if not location:
             logger.warning(f"No location found for {city_name}, {country_name}")
             return None
-        bounding_box = location.raw['boundingbox'] # geopy boundingbox format [south_lat, north_lat, west_lon, east_lon]
-        bounding_box = [float(box) for box in bounding_box]
+        
+        bounding_box = get_custom_bounding_box([float(x) for x in location.raw['boundingbox']])
+        if bounding_box is None:
+            logger.warning(f"No bounding box found for {city_name}, {country_name}")
+            return None
+
         return ReqGeodata(lat=float(location.latitude), lng=float(location.longitude), bounding_box=bounding_box)
     except Exception as e:
         logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
@@ -231,10 +264,14 @@ def to_location_req(
                 if city.get("lat") is None or city.get("lng") is None or city.get("bounding_box") is None:
                     raise ValueError(f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}")
                 
+                bounding_box = get_custom_bounding_box(city.get("bounding_box"))
+                if bounding_box is None:
+                    raise ValueError(f"Invalid bounding box for {req_dataset.city_name} in {req_dataset.country_name}")
+
                 city_data = ReqGeodata(
                     lat=float(city.get("lat")),
                     lng=float(city.get("lng")),
-                    bounding_box=city.get("bounding_box", []),
+                    bounding_box=bounding_box,
                 )
                 break
         else:
