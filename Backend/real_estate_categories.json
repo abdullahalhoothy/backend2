@@ -5,24 +5,14 @@
         "villa_for_rent",
         "shop_for_rent",
         "house_for_rent",
-        "rest_house_for_rent",
-        "commercial_office_for_rent",
-        "land_for_rent",
-        "building_for_rent",
-        "warehouse_for_rent",
-        "camp_for_rent",
-        "room_for_rent",
+        "furnished_apartment",
         "furnished_apartment_for_rent",
         "chalet_for_rent",
-        "floor_for_sale",
-        "shop_for_sale",
-        "farm_for_sale",
-        "house_for_sale",
+        "rooms_for_rent",
+        "floor_for_rent",
         "rest_house_for_sale",
-        "apartment_for_sale",
-        "building_for_sale",
-        "land_for_sale",
-        "villa_for_sale"
+        "rest_house_for_rent",
+        "others"
     ],
     "commercial": [
         "business_for_rent",
@@ -46,6 +36,7 @@
         "warehouse_for_rent",
         "shops_for_rent",
         "camp_for_rent",
+        "lands_for_rent",
         "others"
     ]
 }
