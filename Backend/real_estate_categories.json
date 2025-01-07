@@ -45,6 +45,7 @@
         "buildings_for_rent",
         "warehouse_for_rent",
         "shops_for_rent",
-        "camp_for_rent"
+        "camp_for_rent",
+        "lands_for_rent"
     ]
 }
