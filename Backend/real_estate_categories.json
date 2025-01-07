@@ -8,11 +8,15 @@
         "chalet_for_sale",
         "floor_for_sale",
         "house_for_rent",
+        "furnished_apartment",
         "furnished_apartment_for_rent",
         "istiraha_for_rent", 
         "chalet_for_rent",
         "rooms_for_rent",
-        "floor_for_rent"
+        "floor_for_rent",
+        "rest_house_for_sale",
+        "rest_house_for_rent",
+        "others"
     ],
     "commercial": [
         "business_for_rent",
@@ -35,6 +39,7 @@
         "buildings_for_rent",
         "warehouse_for_rent", 
         "shops_for_rent",
-        "camp_for_rent"
+        "camp_for_rent",
+        "others"
     ]
 }
