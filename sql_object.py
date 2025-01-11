@@ -34,7 +34,7 @@ class SqlObject:
         WHERE lower(property_type) LIKE '%' || lower($1) || '%'
             AND latitude BETWEEN $2 AND $3
             AND longitude BETWEEN $4 AND $5
-        LIMIT 20;
+        LIMIT $6 OFFSET $7;
     """
 
     saudi_real_estate_w_bounding_box_and_category: str = """
@@ -42,7 +42,7 @@ class SqlObject:
         WHERE "category" = ANY($1)
             AND latitude BETWEEN $2 AND $3
             AND longitude BETWEEN $4 AND $5
-        LIMIT 20;
+        LIMIT $6 OFFSET $7;
     """
     create_datasets_table: str = """
     CREATE SCHEMA IF NOT EXISTS "schema_marketplace";
