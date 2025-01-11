@@ -4,6 +4,7 @@ from storage import use_json
 import logging
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
+from boolean_query_processor import reduce_to_single_query
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,9 +40,9 @@ async def calculate_cost(req: ReqFetchDataset):
         for cat in categories_data
         for subcat, value in categories_data[cat].items()
     }
-
+    included_types, excluded_types = reduce_to_single_query(req.boolean_query)
     api_calls = estimate_api_calls(
-        flattened_categories, req.included_categories, req.excluded_categories
+        flattened_categories, included_types, excluded_types
     )
     cost = (api_calls / 1000) * COST_PER_1000_CALLS
 
