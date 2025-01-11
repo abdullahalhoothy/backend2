@@ -738,7 +738,8 @@ async def get_census_dataset_from_storage(
         )
 
     city_data = await Database.fetch(query, *request_location.bounding_box)
-    city_df = pd.DataFrame([dict(record) for record in city_data])
+    city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
+    # city_df = pd.DataFrame(city_data, dtype=object)
 
     if city_df.empty:
         raise HTTPException(
