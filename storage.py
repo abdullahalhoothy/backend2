@@ -756,7 +756,12 @@ async def get_census_dataset_from_storage(
         columns_to_drop = ["latitude", "longitude", "city"]
         if "country" in row:
             columns_to_drop.append("country")
+            
+        row = row.dropna()
         properties = row.drop(columns_to_drop).to_dict()
+
+        if len(properties) == 0:
+            continue
 
         feature = {
             "type": "Feature",
