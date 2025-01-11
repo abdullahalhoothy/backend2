@@ -54,6 +54,7 @@ CENSUS_FILE_MAPPING = {
     "economic": "Backend/census_data/Final_economic_all.csv",
 }
 
+DEFAULT_LIMIT = 20
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
@@ -708,8 +709,8 @@ async def load_dataset(dataset_id: str) -> Dict:
 
 
 async def get_census_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
-) -> tuple[dict, str]:
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+) -> tuple[dict, str, str]:
     """
     Retrieves census data from CSV files based on the data type requested.
     Returns data in GeoJSON format for consistency with other dataset types.
@@ -777,20 +778,27 @@ async def get_census_dataset_from_storage(
     if not filename:
         filename = f"census_{req.city_name.lower()}_{data_type}"
 
-    return geojson_data, filename
+    return geojson_data, filename, next_page_token
 
 
 async def get_commercial_properties_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
-) -> tuple[dict, str]:
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+) -> tuple[dict, str, str]:
     """
     Retrieves commercial properties data from database based on the data type requested.
     Returns data in GeoJSON format for consistency with other dataset types.
     """
     data_type = req.included_types[0]
+
+    page_number = 0
+    if next_page_token:
+        page_number = int(next_page_token)
+
+    offset = page_number * DEFAULT_LIMIT
+
     query = SqlObject.canada_commercial_w_bounding_box_and_property_type
 
-    city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box)
+    city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box, DEFAULT_LIMIT, offset)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -824,12 +832,17 @@ async def get_commercial_properties_dataset_from_storage(
     if not filename:
         filename = f"commercial_canada_{req.city_name.lower()}_{data_type}"
 
-    return geojson_data, filename
+    if len(features) < DEFAULT_LIMIT:
+        next_page_token = ""
+    else:
+        next_page_token = str(page_number + 1)
+
+    return geojson_data, filename, next_page_token
 
 
 async def get_real_estate_dataset_from_storage(
-    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation
-) -> tuple[dict, str]:
+    req: ReqCustomData, filename: str, action: str, request_location: ReqLocation, next_page_token: str
+) -> tuple[dict, str, str]:
     """
     Retrieves data from storage based on the location request.
     """
@@ -839,10 +852,15 @@ async def get_real_estate_dataset_from_storage(
     # filtered_categories = [item for item in realEstateData if item in req.included_types]
     # final_categories = [item for item in filtered_categories if item not in req.excludedTypes]
 
+    page_number = 0
+    if next_page_token:
+        page_number = int(next_page_token)
+
+    offset = page_number * DEFAULT_LIMIT
     
     query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
-    city_data = await Database.fetch(query, data_type, *request_location.bounding_box)
+    city_data = await Database.fetch(query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset)
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -876,7 +894,12 @@ async def get_real_estate_dataset_from_storage(
     if not filename:
         filename = f"saudi_real_estate_{req.city_name.lower()}_{data_type}"
 
-    return geojson_data, filename
+    if len(features) < DEFAULT_LIMIT:
+        next_page_token = ""
+    else:
+        next_page_token = str(page_number + 1)
+
+    return geojson_data, filename, next_page_token
 
 
 async def fetch_db_categories_by_lat_lng(bounding_box:list[float]) -> Dict:
