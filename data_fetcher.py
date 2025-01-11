@@ -280,7 +280,7 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         return None
 
 def to_location_req(
-    req_dataset: Union[ReqCustomData, ReqCustomData, ReqLocation, ReqCustomData]
+    req_dataset: Union[ReqLocation, ReqCustomData, ReqFetchDataset]
 ) -> ReqLocation:
     # If it's already a ReqLocation, return it directly
     if isinstance(req_dataset, ReqLocation):
@@ -748,7 +748,8 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             await fetch_census_realestate(req_dataset, req_create_lyr=req, data_type=data_type)
         )
     else:
-        city_data = get_req_geodata(req.country_name, req.city_name)
+
+        city_data = to_location_req(req)
 
         if city_data is None:
             raise HTTPException(
