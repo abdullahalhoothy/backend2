@@ -1,4 +1,4 @@
-from all_types.myapi_dtypes import ReqCostEstimate
+from all_types.myapi_dtypes import ReqFetchDataset
 from all_types.response_dtypes import ResCostEstimate
 from storage import use_json
 import logging
@@ -28,7 +28,7 @@ def estimate_api_calls(categories_data, included_categories, excluded_categories
     return int(max(min_calls, total_calls) * MAX_CALLS_PER_CITY_PER_CATEGORY)
 
 
-async def calculate_cost(req: ReqCostEstimate):
+async def calculate_cost(req: ReqFetchDataset):
     # Load city info from appropriate json file
     file_path = f"Backend/country_info/{req.country_name.lower().replace(' ', '_')}/city_info/{req.city_name.lower().replace(' ', '_')}/ggl_categories.json"
     categories_data = await use_json(file_path, "r")

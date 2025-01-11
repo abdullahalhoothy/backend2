@@ -560,10 +560,10 @@ async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Requ
 
 
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
-async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
+async def cost_calculator_endpoint(req: ReqModel[ReqFetchDataset], request: Request):
     response = await request_handling(
         req.request_body,
-        ReqCostEstimate,
+        ReqFetchDataset,
         ResModel[ResCostEstimate],
         calculate_cost,
         wrap_output=True,
