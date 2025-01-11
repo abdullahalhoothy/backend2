@@ -760,7 +760,7 @@ async def get_census_dataset_from_storage(
         row = row.dropna()
         properties = row.drop(columns_to_drop).to_dict()
 
-        if len(properties) == 0:
+        if len(row) == 0:
             continue
 
         feature = {
