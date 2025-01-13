@@ -35,8 +35,12 @@ from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
 from storage import (
     store_data_resp,
-    load_real_estate_categories,
-    load_census_categories,
+    GOOGLE_CATEGORIES,
+    REAL_ESTATE_CATEGORIES,
+    AREA_INTELLIGENCE_CATEGORIES,
+    GRADIENT_COLORS,
+    # load_real_estate_categories,
+    # load_area_intelligence_categories,
     get_real_estate_dataset_from_storage,
     get_census_dataset_from_storage,
     get_commercial_properties_dataset_from_storage,
@@ -53,13 +57,11 @@ from storage import (
     save_plan,
     get_plan,
     # create_real_estate_plan,
-    load_gradient_colors,
+    # load_gradient_colors,
     make_dataset_filename,
     fetch_db_categories_by_lat_lng,
-    generate_layer_id
-)
-from storage import (
-    load_google_categories,
+    generate_layer_id,
+    # load_google_categories,
     load_country_city,
     make_include_exclude_name,
     make_ggl_layer_filename,
@@ -73,10 +75,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-EXPANSION_DISTANCE_KM = 20.0  # for each side from the center of the bounding box
-GGL_CATEGORIES = load_google_categories()
+EXPANSION_DISTANCE_KM = 30.0  # for each side from the center of the bounding box
 # Global cache dictionary to store previously fetched locations
 _LOCATION_CACHE = {}
+
 
 def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
     """
@@ -239,45 +241,44 @@ def get_custom_bounding_box(
         return None
 
 
-
-
 def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
     # Create cache key
     cache_key = f"{city_name},{country_name}"
-    
+
     # Check if result exists in cache
     if cache_key in _LOCATION_CACHE:
         return _LOCATION_CACHE[cache_key]
-    
+
     try:
         geolocator = Nominatim(user_agent="city_country_search")
         location = geolocator.geocode(f"{city_name}, {country_name}", exactly_one=True)
-        
+
         if not location:
             logger.warning(f"No location found for {city_name}, {country_name}")
             _LOCATION_CACHE[cache_key] = None
             return None
-            
+
         bounding_box = get_custom_bounding_box(location.latitude, location.longitude)
         if bounding_box is None:
             logger.warning(f"No bounding box found for {city_name}, {country_name}")
             _LOCATION_CACHE[cache_key] = None
             return None
-            
+
         result = ReqGeodata(
             lat=float(location.latitude),
             lng=float(location.longitude),
             bounding_box=bounding_box,
         )
-        
+
         # Store in cache before returning
         _LOCATION_CACHE[cache_key] = result
         return result
-        
+
     except Exception as e:
         logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
         _LOCATION_CACHE[cache_key] = None
         return None
+
 
 def to_location_req(
     req_dataset: Union[ReqLocation, ReqCustomData, ReqFetchDataset]
@@ -336,16 +337,16 @@ def to_location_req(
 
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCustomData],
-    req_create_lyr: ReqFetchDataset,
-    data_type
+    req_dataset: Union[ReqCustomData], req_create_lyr: ReqFetchDataset, data_type
 ) -> Tuple[Any, str, str, str]:
     next_page_token = req_dataset.page_token
     plan_name = ""
     action = req_create_lyr.action
     bknd_dataset_id = ""
-    
-    req_dataset.included_types, req_dataset.excluded_types = reduce_to_single_query(req_dataset.boolean_query)
+
+    req_dataset.included_types, req_dataset.excluded_types = reduce_to_single_query(
+        req_dataset.boolean_query
+    )
 
     if action == "full data":
         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
@@ -358,9 +359,10 @@ async def fetch_census_realestate(
 
     if not dataset:
         if data_type == "real_estate" or (
-        data_type == "commercial" and req_dataset.country_name == "Saudi Arabia"):
+            data_type == "commercial" and req_dataset.country_name == "Saudi Arabia"
+        ):
             get_dataset_func = get_real_estate_dataset_from_storage
-        elif data_type in ["demographics", "economic", "housing", "social"]:
+        elif data_type in ["Population Area Intelligence"]:
             get_dataset_func = get_census_dataset_from_storage
         elif data_type == "commercial":
             get_dataset_func = get_commercial_properties_dataset_from_storage
@@ -690,9 +692,12 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
 
     # Extract just the terms
     terms = set(
-        term.strip() 
-        for term in boolean_query.replace('(', ' ').replace(')', ' ')
-        .replace('AND', ' ').replace('OR', ' ').replace('NOT', ' ')
+        term.strip()
+        for term in boolean_query.replace("(", " ")
+        .replace(")", " ")
+        .replace("AND", " ")
+        .replace("OR", " ")
+        .replace("NOT", " ")
         .split()
     )
 
@@ -701,12 +706,14 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
 
     # Check non-Google categories first
     for category, category_terms in categories.items():
-        if category not in GGL_CATEGORIES:
+        if category not in GOOGLE_CATEGORIES:
             matches = terms.intersection(set(category_terms))
             if matches:
                 # If we found any special category terms, ALL terms must belong to this category
                 if len(matches) != len(terms):
-                    raise ValueError("Cannot mix special category terms with other terms")
+                    raise ValueError(
+                        "Cannot mix special category terms with other terms"
+                    )
                 return category
 
     # If we get here, no special category matches were found
@@ -726,17 +733,18 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
 
     # Load all categories
 
-    categories = await city_categories(ReqCityCountry(
-        country_name=req.country_name,
-        city_name=req.city_name
-    ))
+    categories = await poi_categories(
+        ReqCityCountry(country_name=req.country_name, city_name=req.city_name)
+    )
 
     # Now using boolean_query instead of included_types
     data_type = determine_data_type(req.boolean_query, categories)
 
-    if (data_type == "real_estate" or 
-        data_type in ["demographics", "economic", "housing", "social"] or
-        (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))):
+    if (
+        data_type == "real_estate"
+        or data_type in list(AREA_INTELLIGENCE_CATEGORIES.keys())
+        or (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))
+    ):
 
         req_dataset = ReqCustomData(
             country_name=req.country_name,
@@ -745,7 +753,9 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             page_token=req.page_token,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req, data_type=data_type)
+            await fetch_census_realestate(
+                req_dataset, req_create_lyr=req, data_type=data_type
+            )
         )
     else:
 
@@ -1070,29 +1080,17 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
-# def create_feature(point: Dict[str, Any]) -> Feature:
-#     """
-#     Converts a point dictionary into a Feature object. This function is used
-#     to ensure that all points are in the correct format for geospatial operations.
-#     """
-#     try:
-#         return Feature(
-#             type=point["type"],
-#             properties=point["properties"],
-#             geometry=Geometry(
-#                 type="Point", coordinates=point["geometry"]["coordinates"]
-#             ),
-#         )
-#     except KeyError as e:
-#         raise ValueError(f"Invalid point data: missing key {str(e)}")
-#     except Exception as e:
-#         raise ValueError(f"Error creating feature: {str(e)}")
+async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
+    """
+    Loads and returns a dictionary of area intelligence categories.
+    """
+    return AREA_INTELLIGENCE_CATEGORIES
 
 
-async def city_categories(req:ReqCityCountry="" ) -> Dict:
+async def poi_categories(req: ReqCityCountry = "") -> Dict:
     """
     Provides a comprehensive list of place categories, including Google places,
-    real estate, census data, and other custom categories.
+    real estate, and other custom categories.
     """
     # google_categories = load_google_categories()
 
@@ -1101,10 +1099,8 @@ async def city_categories(req:ReqCityCountry="" ) -> Dict:
     # non_ggl_categories = fetch_db_categories_by_lat_lng(geo_data.bounding_box)
     # categories = {**google_categories, **non_ggl_categories}
 
-    real_estate_categories = await load_real_estate_categories()
-    census_categories = await load_census_categories()
     # combine all category types
-    categories = {**GGL_CATEGORIES, **real_estate_categories, **census_categories}
+    categories = {**GOOGLE_CATEGORIES, **REAL_ESTATE_CATEGORIES, **AREA_INTELLIGENCE_CATEGORIES}
 
     return categories
 
@@ -1145,9 +1141,7 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
 
 async def fetch_gradient_colors() -> List[List]:
     """ """
-
-    data = await load_gradient_colors()
-    return data
+    return GRADIENT_COLORS
 
 
 async def given_layer_fetch_dataset(layer_id: str):
@@ -1329,7 +1323,10 @@ def average_metric_of_surrounding_points(
 
         distance = geodesic(
             (lat, lon),
-            (point_2["geometry"]["coordinates"][1], point_2["geometry"]["coordinates"][0])
+            (
+                point_2["geometry"]["coordinates"][1],
+                point_2["geometry"]["coordinates"][0],
+            ),
         ).meters
 
         if distance <= radius:
@@ -1476,7 +1473,6 @@ async def process_color_based_on(
         return new_layers
     else:
 
-
         # Calculate influence scores for change_layer_dataset and store them
         influence_scores = []
         point_influence_map = {}
@@ -1492,18 +1488,20 @@ async def process_color_based_on(
                 influence_scores.append(surrounding_metric_avg)
                 point_influence_map[change_point["id"]] = surrounding_metric_avg
 
-
         # Create layers
         new_layers = []
-        
+
         # Calculate thresholds based on influence scores
         percentiles = [16.67, 33.33, 50, 66.67, 83.33]
-        
+
         # Initialize layer data
         if not influence_scores:
             # If no scores, create single layer of unallocated points
             layer_data = [[]] * (len(percentiles) + 1) + [
-                [assign_point_properties(point) for point in change_layer_dataset["features"]]
+                [
+                    assign_point_properties(point)
+                    for point in change_layer_dataset["features"]
+                ]
             ]
             thresholds = []  # Empty thresholds since we have no scores
         else:
@@ -1515,18 +1513,21 @@ async def process_color_based_on(
             for change_point in change_layer_dataset["features"]:
                 surrounding_metric_avg = point_influence_map.get(change_point["id"])
                 feature = assign_point_properties(change_point)
-                
+
                 if surrounding_metric_avg is None:
                     layer_index = -1  # Last layer (unallocated)
                     feature["properties"]["influence_score"] = None
                 else:
                     layer_index = next(
-                        (i for i, threshold in enumerate(thresholds) 
-                        if surrounding_metric_avg <= threshold),
-                        len(thresholds)
+                        (
+                            i
+                            for i, threshold in enumerate(thresholds)
+                            if surrounding_metric_avg <= threshold
+                        ),
+                        len(thresholds),
                     )
                     feature["properties"]["influence_score"] = surrounding_metric_avg
-                    
+
                 layer_data[layer_index].append(feature)
 
         # Create layers only for non-empty data

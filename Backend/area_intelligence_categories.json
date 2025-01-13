@@ -1,0 +1,40 @@
+{
+    "Population Area Intelligence": [
+        "TotalPopulation",
+        "PopulationDensity",
+        "MedianAgeMale",
+        "MedianAgeFemale",
+        "HouseholdAverageSize",
+        "HouseholdMedianSize",
+        "MalePopulation",
+        "FemalePopulation"
+    ],
+    "Income Area Intelligence": [
+        "income",
+        "employment",
+        "poverty_rate"
+    ],
+    "Housing Area Intelligence": [
+        "TotalDwellings",
+        "ResidentialDwellings",
+        "OwnedDwellings",
+        "RentedDwellings",
+        "ProvidedDwellings",
+        "OtherResidentialDwellings",
+        "Non-ResidentialDwellings",
+        "PublicHousing",
+        "WorkCamps",
+        "CommercialDwellings",
+        "OtherDwellings"
+    ],
+    "Weather Area Intelligence": [
+        "temperature",
+        "precipitation",
+        "humidity",
+        "wind_speed",
+        "cloud_cover",
+        "uv_index",
+        "air_quality",
+        "pollution"
+    ]
+}

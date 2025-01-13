@@ -14,7 +14,14 @@ from backend_common.database import Database
 import pandas as pd
 from backend_common.dtypes.auth_dtypes import ReqUserProfile
 from sql_object import SqlObject
-from all_types.myapi_dtypes import Dict, ReqCustomData, ReqLocation, ReqFetchDataset, ReqCustomData,ReqCustomData
+from all_types.myapi_dtypes import (
+    Dict,
+    ReqCustomData,
+    ReqLocation,
+    ReqFetchDataset,
+    ReqCustomData,
+    ReqCustomData,
+)
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
@@ -43,9 +50,10 @@ USERS_INFO_PATH = "Backend/users_info.json"
 RIYADH_VILLA_ALLROOMS = (
     "Backend/riyadh_villa_allrooms.json"  # to be change to real estate id needed
 )
+GOOGLE_CATEGORIES_PATH = "Backend/google_categories.json"
 REAL_ESTATE_CATEGORIES_PATH = "Backend/real_estate_categories.json"
 # Add a new constant for census categories path
-CENSUS_CATEGORIES_PATH = "Backend/census_categories.json"
+area_intelligence_categories_PATH = "Backend/area_intelligence_categories.json"
 # Map census types to their respective CSV files
 CENSUS_FILE_MAPPING = {
     "household": "Backend/census_data/Final_household_all.csv",
@@ -57,6 +65,16 @@ CENSUS_FILE_MAPPING = {
 DEFAULT_LIMIT = 20
 
 os.makedirs(STORAGE_DIR, exist_ok=True)
+
+
+with open(GOOGLE_CATEGORIES_PATH, "r") as f:
+    GOOGLE_CATEGORIES = json.load(f)
+with open(REAL_ESTATE_CATEGORIES_PATH, "r") as f:
+    REAL_ESTATE_CATEGORIES = json.load(f)
+with open(area_intelligence_categories_PATH, "r") as f:
+    AREA_INTELLIGENCE_CATEGORIES = json.load(f)
+with open(COLOR_PATH, "r") as f:
+    GRADIENT_COLORS = json.load(f)
 
 
 class FileLock:
@@ -72,6 +90,32 @@ class FileLock:
 
 
 file_lock_manager = FileLock()
+
+
+async def use_json(
+    file_path: str, mode: str, json_content: dict = None
+) -> Optional[dict]:
+    async with file_lock_manager.acquire(file_path):
+        if mode == "w":
+            try:
+                async with aiofiles.open(file_path, mode="w") as file:
+                    await file.write(json.dumps(json_content, indent=2))
+            except IOError as e:
+                raise Exception(f"Error reading data file: {str(e)}")
+
+        elif mode == "r":
+            try:
+                if os.path.exists(file_path):
+                    async with aiofiles.open(file_path, mode="r") as file:
+                        content = await file.read()
+                        return json.loads(content)
+                return None
+            except json.JSONDecodeError as e:
+                raise Exception(f"Error parsing data file: {str(e)}")
+            except IOError as e:
+                raise Exception(f"Error reading data file: {str(e)}")
+        else:
+            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
 
 def to_serializable(obj: Any) -> Any:
@@ -283,7 +327,7 @@ async def update_dataset_layer_matching(
 ):
     collection_name = "layer_matchings"
     document_id = "dataset_matching"
-    
+
     try:
         dataset_layer_matching = await db.get_document(collection_name, document_id)
     except HTTPException as e:
@@ -305,11 +349,13 @@ async def update_dataset_layer_matching(
 
     # Update cache immediately
     db._cache[collection_name][document_id] = dataset_layer_matching
-    
+
     async def _background_update():
-        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        doc_ref = (
+            db.get_async_client().collection(collection_name).document(document_id)
+        )
         await doc_ref.set(dataset_layer_matching)
-    
+
     get_background_tasks().add_task(_background_update)
     return dataset_layer_matching
 
@@ -327,7 +373,7 @@ async def load_user_layer_matching() -> Dict:
 async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
     collection_name = "layer_matchings"
     document_id = "user_matching"
-    
+
     try:
         user_layer_matching = await db.get_document(collection_name, document_id)
     except HTTPException as e:
@@ -340,13 +386,16 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
 
     # Update cache immediately
     db._cache[collection_name][document_id] = user_layer_matching
-    
+
     async def _background_update():
-        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        doc_ref = (
+            db.get_async_client().collection(collection_name).document(document_id)
+        )
         await doc_ref.set(user_layer_matching)
-    
+
     get_background_tasks().add_task(_background_update)
     return user_layer_matching
+
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
     try:
@@ -426,7 +475,7 @@ def load_country_city():
                 "name": "Dubai",
                 "lat": 25.2048,
                 "lng": 55.2708,
-                'bounding_box': [25.1053471, 25.4253471, 55.1324914, 55.4524914],
+                "bounding_box": [25.1053471, 25.4253471, 55.1324914, 55.4524914],
                 "borders": {
                     "northeast": {"lat": 25.3960, "lng": 55.5643},
                     "southwest": {"lat": 24.7921, "lng": 54.8911},
@@ -436,7 +485,7 @@ def load_country_city():
                 "name": "Abu Dhabi",
                 "lat": 24.4539,
                 "lng": 54.3773,
-                'bounding_box': [24.2810331, 24.6018540, 54.2971553, 54.7659108],
+                "bounding_box": [24.2810331, 24.6018540, 54.2971553, 54.7659108],
                 "borders": {
                     "northeast": {"lat": 24.5649, "lng": 54.5485},
                     "southwest": {"lat": 24.3294, "lng": 54.2783},
@@ -446,7 +495,7 @@ def load_country_city():
                 "name": "Sharjah",
                 "lat": 25.3573,
                 "lng": 55.4033,
-                'bounding_box': [24.7572612, 25.6989797, 53.9777051, 56.6024458],
+                "bounding_box": [24.7572612, 25.6989797, 53.9777051, 56.6024458],
                 "borders": {
                     "northeast": {"lat": 25.4283, "lng": 55.5843},
                     "southwest": {"lat": 25.2865, "lng": 55.2723},
@@ -458,7 +507,7 @@ def load_country_city():
                 "name": "Riyadh",
                 "lat": 24.7136,
                 "lng": 46.6753,
-                'bounding_box': [19.2083336, 27.7020999, 41.6811300, 48.2582000],
+                "bounding_box": [19.2083336, 27.7020999, 41.6811300, 48.2582000],
                 "borders": {
                     "northeast": {"lat": 24.9182, "lng": 46.8482},
                     "southwest": {"lat": 24.5634, "lng": 46.5023},
@@ -468,7 +517,7 @@ def load_country_city():
                 "name": "Jeddah",
                 "lat": 21.5433,
                 "lng": 39.1728,
-                'bounding_box': [21.3904432, 21.7104432, 39.0142363, 39.3342363],
+                "bounding_box": [21.3904432, 21.7104432, 39.0142363, 39.3342363],
                 "borders": {
                     "northeast": {"lat": 21.7432, "lng": 39.2745},
                     "southwest": {"lat": 21.3234, "lng": 39.0728},
@@ -478,7 +527,7 @@ def load_country_city():
                 "name": "Mecca",
                 "lat": 21.4225,
                 "lng": 39.8262,
-                'bounding_box': [21.1198192, 21.8480401, 39.5058552, 40.4756100],
+                "bounding_box": [21.1198192, 21.8480401, 39.5058552, 40.4756100],
                 "borders": {
                     "northeast": {"lat": 21.5432, "lng": 39.9283},
                     "southwest": {"lat": 21.3218, "lng": 39.7241},
@@ -490,7 +539,7 @@ def load_country_city():
                 "name": "Toronto",
                 "lat": 43.6532,
                 "lng": -79.3832,
-                'bounding_box': [43.5796082, 43.8554425, -79.6392832, -79.1132193],
+                "bounding_box": [43.5796082, 43.8554425, -79.6392832, -79.1132193],
                 "borders": {
                     "northeast": {"lat": 43.8554, "lng": -79.1168},
                     "southwest": {"lat": 43.5810, "lng": -79.6396},
@@ -500,7 +549,7 @@ def load_country_city():
                 "name": "Vancouver",
                 "lat": 49.2827,
                 "lng": -123.1207,
-                'bounding_box': [49.1989306, 49.3161714, -123.2249611, -123.0232419],
+                "bounding_box": [49.1989306, 49.3161714, -123.2249611, -123.0232419],
                 "borders": {
                     "northeast": {"lat": 49.3932, "lng": -122.9856},
                     "southwest": {"lat": 49.1986, "lng": -123.2642},
@@ -510,7 +559,7 @@ def load_country_city():
                 "name": "Montreal",
                 "lat": 45.5017,
                 "lng": -73.5673,
-                'bounding_box': [45.4100756, 45.7047897, -73.9741567, -73.4742952],
+                "bounding_box": [45.4100756, 45.7047897, -73.9741567, -73.4742952],
                 "borders": {
                     "northeast": {"lat": 45.7058, "lng": -73.4734},
                     "southwest": {"lat": 45.4139, "lng": -73.7089},
@@ -521,62 +570,8 @@ def load_country_city():
     return data
 
 
-def load_google_categories():
-    try:
-        with open("Backend/google_categories.json", "r") as f:
-            categories = json.load(f)
-        return categories
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Categories file not found"
-        )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing categories file",
-        )
-
-
-async def load_real_estate_categories() -> dict:
-    file_path = REAL_ESTATE_CATEGORIES_PATH
-    json_data = await use_json(file_path, "r")
-    return json_data
-
-
-async def load_census_categories() -> dict:
-    file_path = CENSUS_CATEGORIES_PATH
-    json_data = await use_json(file_path, "r")
-    return json_data
-
-
 def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
-
-
-async def use_json(
-    file_path: str, mode: str, json_content: dict = None
-) -> Optional[dict]:
-    async with file_lock_manager.acquire(file_path):
-        if mode == "w":
-            try:
-                async with aiofiles.open(file_path, mode="w") as file:
-                    await file.write(json.dumps(json_content, indent=2))
-            except IOError as e:
-                raise Exception(f"Error reading data file: {str(e)}")
-
-        elif mode == "r":
-            try:
-                if os.path.exists(file_path):
-                    async with aiofiles.open(file_path, mode="r") as file:
-                        content = await file.read()
-                        return json.loads(content)
-                return None
-            except json.JSONDecodeError as e:
-                raise Exception(f"Error parsing data file: {str(e)}")
-            except IOError as e:
-                raise Exception(f"Error reading data file: {str(e)}")
-        else:
-            raise ValueError("Invalid mode. Use 'r' for read or 'w' for write.")
 
 
 async def save_plan(plan_name, plan):
@@ -605,13 +600,7 @@ async def get_plan(plan_name):
 #     return files
 
 
-async def load_gradient_colors() -> Optional[List[List]]:
-    """ """
-    json_data = await use_json(COLOR_PATH, "r")
-    return json_data
-
-
-async def store_data_resp(req: ReqLocation, dataset: Dict, file_name:str) -> str:
+async def store_data_resp(req: ReqLocation, dataset: Dict, file_name: str) -> str:
     """
     Stores Google Maps data in the database, creating the table if needed.
 
@@ -640,21 +629,6 @@ async def store_data_resp(req: ReqLocation, dataset: Dict, file_name:str) -> str
         # If table doesn't exist, create it and retry
         await Database.execute(SqlObject.create_datasets_table)
         return await store_data_resp(req, dataset, file_name)
-
-
-# async def get_dataset_from_storage(
-#     req: ReqLocation,
-# ) -> tuple[Optional[Dict], Optional[str]]:
-#     """
-#     Retrieves data from storage based on the location request.
-#     """
-#     filename = make_ggl_dataset_filename(req)
-#     file_path = f"{STORAGE_DIR}/{filename}.json"
-
-#     json_data = await use_json(file_path, "r")
-#     if json_data is not None:
-#         return json_data, filename
-#     return None, None
 
 
 async def load_dataset(dataset_id: str) -> Dict:
@@ -704,7 +678,7 @@ async def load_dataset(dataset_id: str) -> Dict:
 
     if all_datasets:
         all_datasets = orjson.loads(all_datasets)
-    
+
     return all_datasets
 
 
@@ -757,7 +731,7 @@ async def get_census_dataset_from_storage(
         columns_to_drop = ["latitude", "longitude", "city"]
         if "country" in row:
             columns_to_drop.append("country")
-            
+
         row = row.dropna()
         properties = row.drop(columns_to_drop).to_dict()
 
@@ -857,10 +831,10 @@ async def get_real_estate_dataset_from_storage(
         page_number = int(next_page_token)
 
     offset = page_number * DEFAULT_LIMIT
-    
     query = SqlObject.saudi_real_estate_w_bounding_box_and_category
 
     city_data = await Database.fetch(query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset)
+    
     city_df = pd.DataFrame([dict(record) for record in city_data])
 
     if city_df.empty:
@@ -902,12 +876,9 @@ async def get_real_estate_dataset_from_storage(
     return geojson_data, filename, next_page_token
 
 
-async def fetch_db_categories_by_lat_lng(bounding_box:list[float]) -> Dict:
+async def fetch_db_categories_by_lat_lng(bounding_box: list[float]) -> Dict:
     # call db with bounding box
     pass
-
-
-
 
 
 # Apply the decorator to all functions in this module

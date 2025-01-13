@@ -92,13 +92,14 @@ from data_fetcher import (
     save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    city_categories,
+    poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
     process_color_based_on,
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
+    load_area_intelligence_categories
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -286,7 +287,23 @@ async def ep_city_categories(
         # req.request_body,
         # ReqCityCountry,
         ResModel[dict[str, list[str]]],
-        city_categories,
+        poi_categories,
+        wrap_output=True,
+    )
+    return response
+
+
+@app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
+async def ep_load_area_intelligence_categories(
+    # req: ReqModel[ReqCityCountry]
+    ):
+    response = await request_handling(
+        "",
+        "",
+        # req.request_body,
+        # ReqCityCountry,
+        ResModel[dict[str, list[str]]],
+        load_area_intelligence_categories,
         wrap_output=True,
     )
     return response
