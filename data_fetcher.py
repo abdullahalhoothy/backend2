@@ -348,11 +348,6 @@ async def fetch_census_realestate(
         req_dataset.boolean_query
     )
 
-    if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr)
-        )
-
     temp_req = to_location_req(req_dataset)
     bknd_dataset_id = make_dataset_filename(temp_req)
     dataset = await load_dataset(bknd_dataset_id)
@@ -476,10 +471,6 @@ async def process_req_plan(req_dataset, req_create_lyr):
     bknd_dataset_id = ""
 
     if req_dataset.page_token == "" and action == "full data":
-
-        if isinstance(req_dataset, ReqCustomData):
-            string_list_plan = await create_real_estate_plan(req_dataset)
-
         if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750:
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
