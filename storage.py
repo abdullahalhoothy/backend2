@@ -716,11 +716,6 @@ async def get_census_dataset_from_storage(
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
     # city_df = pd.DataFrame(city_data, dtype=object)
 
-    if city_df.empty:
-        raise HTTPException(
-            status_code=404, detail=f"No data found for {req.city_name}"
-        )
-
     # Convert to GeoJSON format
     features = []
     for _, row in city_df.iterrows():
@@ -774,11 +769,6 @@ async def get_commercial_properties_dataset_from_storage(
 
     city_data = await Database.fetch(query, data_type.replace("_", " "), *request_location.bounding_box, DEFAULT_LIMIT, offset)
     city_df = pd.DataFrame([dict(record) for record in city_data])
-
-    if city_df.empty:
-        raise HTTPException(
-            status_code=404, detail=f"No data found for {req.city_name}"
-        )
 
     # Convert to GeoJSON format
     features = []
@@ -836,11 +826,6 @@ async def get_real_estate_dataset_from_storage(
     city_data = await Database.fetch(query, data_type, *request_location.bounding_box, DEFAULT_LIMIT, offset)
     
     city_df = pd.DataFrame([dict(record) for record in city_data])
-
-    if city_df.empty:
-        raise HTTPException(
-            status_code=404, detail=f"No data found for {req.city_name}"
-        )
 
     # Convert to GeoJSON format
     features = []
