@@ -650,7 +650,7 @@ async def load_dataset(dataset_id: str) -> Dict:
         # Load the plan
         plan = await get_plan(plan_name)
         if not plan:
-            raise HTTPException(status_code=404, detail="Plan not found")
+            return {}
         # Initialize an empty list to store all datasets
         all_datasets = []
         # Load and concatenate all datasets up to the current page number

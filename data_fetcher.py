@@ -509,6 +509,13 @@ async def process_req_plan(req_dataset, req_create_lyr):
         current_plan_index = int(current_plan_index)
         plan = await get_plan(plan_name)
 
+        if (
+            plan is None
+            or current_plan_index is None
+            or len(plan) <= current_plan_index
+        ):
+            return req_dataset, plan_name, "", current_plan_index, bknd_dataset_id
+
         if isinstance(req_dataset, ReqLocation):
             search_info = plan[current_plan_index].split("_")
             req_dataset.lng, req_dataset.lat, req_dataset.radius = (
