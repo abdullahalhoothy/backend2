@@ -2,6 +2,8 @@ from all_types.google_dtypes import GglResponse
 from all_types.response_dtypes import MapData
 from fastapi import HTTPException
 
+from popularity_algo import RADIUS_ZOOM_MULTIPLIER, calculate_category_multiplier
+
 
 class MapBoxConnector:
 
@@ -26,7 +28,7 @@ class MapBoxConnector:
         }
 
     @classmethod
-    async def new_ggl_to_boxmap(cls, ggl_api_resp) -> MapData:
+    async def new_ggl_to_boxmap(cls, ggl_api_resp, radius) -> MapData:
         if not ggl_api_resp:  # This will handle None, empty string, or empty list
             return MapData(
                 type="FeatureCollection",
@@ -41,6 +43,11 @@ class MapBoxConnector:
         if features:
             # Extract all property keys from the first feature's properties
             feature_properties = list(features[0]["properties"].keys())
+
+        zoom_multiplier = RADIUS_ZOOM_MULTIPLIER.get(radius)
+
+        for idx, feature in enumerate(features):
+            feature["properties"]["popularity_score"] = calculate_category_multiplier(idx) * zoom_multiplier
         
         business_data = MapData(
             type="FeatureCollection",
