@@ -80,17 +80,6 @@ EXPANSION_DISTANCE_KM = 30.0  # for each side from the center of the bounding bo
 _LOCATION_CACHE = {}
 
 
-RADIUS_ZOOM_MULTIPLIER = {
-    30000: 1000, # 1
-    15000: 500, # 2
-    7500: 250, # 3
-    3750: 125, # 4
-    1875: 62.5, # 5
-    937.5: 31.25, # 6
-    468.75: 15.625 # 7
-}
-
-
 def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
     """
     Calculate the latitude and longitude of a point at a given distance and bearing from a start point.
@@ -411,15 +400,10 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
 
         # Store the fetched data in storage
-        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
-
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req_dataset.radius)
+        
         if ggl_api_resp:
             dataset = convert_strings_to_ints(dataset)
-
-            zoom_multiplier = RADIUS_ZOOM_MULTIPLIER.get(req_dataset.radius)
-
-            for idx, feature in enumerate(dataset["features"]):
-                feature["properties"]["popularity_score"] = calculate_category_multiplier(idx) * zoom_multiplier
 
             bknd_dataset_id = await store_data_resp(
                 req_dataset, dataset, bknd_dataset_id
@@ -438,17 +422,6 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
-def calculate_category_multiplier(index):
-    """Calculate category multiplier based on result position."""
-    if 0 <= index < 5:  # Category A
-        return 1.0
-    elif 5 <= index < 10:  # Category B
-        return 0.8
-    elif 10 <= index < 15:  # Category C
-        return 0.6
-    else:  # Category D
-        return 0.4
 
 async def rectify_plan(plan_name, current_plan_index):
     plan = await get_plan(plan_name)
