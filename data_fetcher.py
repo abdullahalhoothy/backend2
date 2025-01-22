@@ -392,21 +392,19 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
     # dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
 
-    if not dataset:
+    #if not dataset:
 
-        if "default" in search_type or "category_search" in search_type:
-            ggl_api_resp, _ = await fetch_from_google_maps_api(req_dataset)
-        elif "keyword_search" in search_type:
-            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
-
-        # Store the fetched data in storage
-        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
-
-        if ggl_api_resp:
-            dataset = convert_strings_to_ints(dataset)
-            bknd_dataset_id = await store_data_resp(
-                req_dataset, dataset, bknd_dataset_id
-            )
+    if "default" in search_type or "category_search" in search_type:
+        ggl_api_resp, _ = await fetch_from_google_maps_api(req_dataset)
+    elif "keyword_search" in search_type:
+        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
+    # Store the fetched data in storage
+    dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
+    # if ggl_api_resp:
+    #     dataset = convert_strings_to_ints(dataset)
+    #     bknd_dataset_id = await store_data_resp(
+    #         req_dataset, dataset, bknd_dataset_id
+    #     )
 
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan

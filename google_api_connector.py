@@ -19,6 +19,7 @@ from all_types.response_dtypes import (
     RouteInfo,
 )
 from boolean_query_processor import optimize_query_sequence
+from storage import load_dataset, load_dataset_exclusion, make_dataset_filename_2, store_data_resp
 
 logging.basicConfig(
     level=logging.INFO,
@@ -78,36 +79,67 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
 
         optimized_queries = optimize_query_sequence(query, POPULARITY_DATA)
 
+        datasets = {}
+        missing_queries = []
+        seen_places = set() 
+
+        for included_types, excluded_types in optimized_queries:
+            full_dataset_id = make_dataset_filename_2(req, included_types, excluded_types)
+
+            base_dataset_id = make_dataset_filename_2(req, included_types, [])
+            stored_data = await load_dataset_exclusion(base_dataset_id)
+
+            if stored_data:
+                datasets[base_dataset_id] = stored_data
+                for place in stored_data:
+                    place_id = place.get("place_id")  
+                    if place_id:
+                        seen_places.add(place_id)
+            else:
+                missing_queries.append((full_dataset_id, included_types, excluded_types))
+
+        if not missing_queries:
+            all_results = [
+                place for dataset in datasets.values() if isinstance(dataset, list) for place in dataset
+            ]
+            return all_results, "Fetched from DB"
+
+        logger.info(f"Fetching {len(missing_queries)} queries from Google Maps API.")
         query_tasks = [
             execute_single_query(req, included_types, excluded_types)
-            for included_types, excluded_types in optimized_queries
+            for _, included_types, excluded_types in missing_queries
         ]
 
-        logger.info(f"Executing {len(optimized_queries)} parallel queries")
         all_query_results = await asyncio.gather(*query_tasks)
 
-        seen_places = set()
+        for (dataset_id, included, excluded), query_results in zip(missing_queries, all_query_results):
+            if query_results:
+                new_results = [place for place in query_results if place.get("place_id") not in seen_places]
+
+                if new_results:  
+                    await store_data_resp(req, new_results, dataset_id)
+                    datasets[dataset_id] = new_results
+                    for place in new_results:
+                        seen_places.add(place.get("place_id"))
+
         all_results = []
+        for dataset in datasets.values():
+            if isinstance(dataset, list):
+                for place in dataset:
+                    if isinstance(place, dict):
+                        all_results.append(place)
 
-        # Log results for each query
-        for i, (results, (included, excluded)) in enumerate(
-            zip(all_query_results, optimized_queries)
-        ):
-            new_results = [r for r in results if r["id"] not in seen_places]
-            logger.info(f"Query {i} results - Include: {included}, Exclude: {excluded}")
-            logger.info(
-                f"  Found {len(results)} total places, {len(new_results)} new places"
-            )
-            seen_places.update(r["id"] for r in new_results)
-            all_results.extend(new_results)
-
-        logger.info(f"Total unique places found: {len(all_results)}")
-        return all_results, ""
+        if all_results:
+            logger.info(f"Fetched {len(all_results)} places from Google Maps API and DB.")
+            return all_results, "Fetched from API and DB"
+        else:
+            logger.warning("No valid results returned from Google Maps API or DB.")
+            return [], "No valid results from API or DB"
 
     except Exception as e:
-        # TODO this doesn't reraise the error, not sure what to do about it
         logger.error(f"Error in fetch_from_google_maps_api: {str(e)}")
         return [], str(e)
+
 
 
 async def execute_single_query(
