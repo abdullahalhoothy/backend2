@@ -18,9 +18,9 @@ from all_types.response_dtypes import (
     TrafficCondition,
     RouteInfo,
 )
-from boolean_query_processor import optimize_query_sequence
-from storage import load_dataset, load_dataset_exclusion, make_dataset_filename_2, store_data_resp
 
+from storage import load_dataset, load_dataset_exclusion, make_dataset_filename_2, store_data_resp
+from boolean_query_processor import optimize_query_sequence,test_optimized_queries
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -70,14 +70,7 @@ for category in raw_popularity_data.values():
 
 async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, Any]], str]:
     try:
-        query = (
-            req.boolean_query.lower()
-            .replace(" and ", " & ")
-            .replace(" or ", " | ")
-            .replace(" not ", " ~ ")
-        )
-
-        optimized_queries = optimize_query_sequence(query, POPULARITY_DATA)
+        optimized_queries = optimize_query_sequence(req.boolean_query, POPULARITY_DATA)
 
         datasets = {}
         missing_queries = []

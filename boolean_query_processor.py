@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 from sympy import parse_expr
 from sympy.logic.boolalg import to_dnf
 from typing import Dict, List, Tuple
@@ -14,6 +15,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def replace_boolean_operators(query: str) -> str:
+    """
+    Replaces boolean operators in a query string with their textual equivalents.
+    """
+    return (
+        query.lower()
+        .replace(" and ", " & ")
+        .replace(" or ", " | ")
+        .replace(" not ", " ~ ")
+    )
 
 def map_boolean_words(
     query: str, reverse: bool = False, mapping: Dict[str, str] = None
@@ -35,10 +47,10 @@ def map_boolean_words(
     query = query.lower()
 
     if reverse:
-        # Replace letters with original words
+        # Replace letters with original words all at once using a single regex
         result = query
-        for letter, word in mapping.items():
-            result = result.replace(letter, word)
+        pattern = '|'.join(re.escape(letter) for letter in mapping.keys())
+        result = re.sub(pattern, lambda m: mapping[m.group()], result)
         return result, mapping
     else:
         # Create new mapping of words to letters
@@ -85,23 +97,24 @@ def map_boolean_words(
 
 
 def optimize_query_sequence(
-    query, popularity_data: Dict[str, float]
+    boolean_query, popularity_data: Dict[str, float]
 ) -> List[Tuple[List[str], List[str]]]:
     """
     Optimize the query sequence based on set theory and popularity data
     Returns: List of (included_types, excluded_types) tuples
     """
-
+    # Convert to sympy syntax
+    query = replace_boolean_operators(boolean_query)
     logger.info(f"Processing query: {query}")
 
     # First map words to letters
     mapped_query, mapping = map_boolean_words(query)
-    logger.debug(f"Mapped query: {mapped_query}")
+    logger.info(f"Mapped query: {mapped_query}")
 
-    # Convert query to sympy syntax and parse
-    query = mapped_query.replace("and", "&").replace("or", "|").replace("not", "~")
-    expr = parse_expr(query)
+    # Parse and convert to DNF
+    expr = parse_expr(mapped_query)
     dnf_expr = to_dnf(expr)
+    logger.info(f"DNF Expression: {dnf_expr}")
     # Map back to original terms
     original_expr, _ = map_boolean_words(str(dnf_expr), reverse=True, mapping=mapping)
     logger.info(f"DNF Expression: {original_expr}")
@@ -181,7 +194,12 @@ def reduce_to_single_query(boolean_query: str) -> Tuple[List[str], List[str]]:
         logger.debug(f"Mapped query: {mapped_query}")
 
         # Convert query to sympy syntax and parse
-        query = mapped_query.replace("and", "&").replace("or", "|").replace("not", "~")
+        query = (
+        mapped_query
+        .replace(" and ", " & ")
+        .replace(" or ", " | ")
+        .replace(" not ", " ~ ")
+    )
         expr = parse_expr(query)
         dnf_expr = to_dnf(expr)
 
@@ -238,14 +256,8 @@ def test_optimized_queries():
 
     for i, query in enumerate(test_cases, 1):
         try:
-            # Convert to sympy syntax
-            query = (
-                query.lower().replace("and", "&").replace("or", "|").replace("not", "~")
-            )
+            print(f"\nTest Case {i}:")
 
-            # Parse and convert to DNF
-            expr = parse_expr(query)
-            dnf_expr = to_dnf(expr)
 
             # Get optimized query sequence using global POPULARITY_DATA
             # Load and flatten the popularity data
@@ -259,11 +271,7 @@ def test_optimized_queries():
 
             optimized_queries = optimize_query_sequence(query, POPULARITY_DATA)
 
-            print(f"\nTest Case {i}:")
-            print(f"Input Query: {query}")
-            print(f"\nDNF Expression:")
-            print(dnf_expr)
-            print("\nOptimized API Calls (in order):")
+
             for j, (included, excluded) in enumerate(optimized_queries, 1):
                 print(f"\nCall {j}:")
                 print(f"  Include: {included}")
