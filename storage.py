@@ -196,7 +196,13 @@ def make_dataset_filename(req) -> str:
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
 
-
+def make_dataset_filename_2(req: ReqLocation, included_types: List[str], excluded_types: List[str]) -> str:
+    """ Generate unique dataset ID based on query terms. """
+    cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
+    include_str = "_".join(sorted(included_types))
+    exclude_str = "_".join(sorted(excluded_types))
+    type_string = f"{include_str}_excluding_{exclude_str}" if exclude_str else include_str
+    return f"{cord_string}_{type_string}"
 async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
     """
     Searches the metastore for a given string and returns the corresponding data if found.
@@ -598,7 +604,75 @@ async def get_plan(plan_name):
 #     files = os.listdir(folder_path)
 #     files = [file.split(".json")[0] for file in files]
 #     return files
+async def load_dataset_exclusion(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
+    """
+    Loads a dataset from storage. If exact match is unavailable, tries to find a broader match.
+    """
+    if "plan" in dataset_id and fetch_full_plan_datasets:
+        # Handle dataset plans (unchanged logic)
+        plan_name, page_number = dataset_id.split("@#$")
+        dataset_prefix, plan_name = plan_name.split("page_token=")
+        page_number = int(page_number)
 
+        plan = await get_plan(plan_name)
+        if not plan:
+            return {}
+
+        new_plan = []
+        for i, item in enumerate(plan):
+            if item == "end of search plan":
+                continue
+
+            first_parts = item.split('_', 3)
+            lat, lon, value, rest = first_parts
+            category = rest.split('_circle=')[0].replace(" ", "_")
+
+            if i == 0:
+                new_item = f"{lat}_{lon}_{value}_{category}_token="
+            else:
+                new_item = f"{lat}_{lon}_{value}_{category}_token=page_token={plan_name}@#${i}"
+
+            new_plan.append(new_item)
+
+        # Load and merge plan datasets
+        all_features = []
+        feat_collec = {"type": "FeatureCollection", "features": []}
+        for i in range(page_number):
+            dataset_id = new_plan[i]  
+            json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            if json_content:
+                dataset = orjson.loads(json_content["response_data"])
+                all_features.extend(dataset["features"])             
+
+        if all_features:
+            feat_collec["features"] = all_features
+
+    else:
+        # Try exact match first
+        try:
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            if feat_collec:
+                return orjson.loads(feat_collec["response_data"])
+        except asyncpg.exceptions.UndefinedTableError:
+            await Database.execute(SqlObject.create_datasets_table)
+
+        # **New: Try finding a dataset without exclusions**
+        base_dataset_id = remove_exclusions_from_id(dataset_id)
+        if base_dataset_id != dataset_id:
+            try:
+                feat_collec = await Database.fetchrow(SqlObject.load_dataset, base_dataset_id)
+                if feat_collec:
+                    return orjson.loads(feat_collec["response_data"])
+            except asyncpg.exceptions.UndefinedTableError:
+                pass  # If no broader dataset is found, it will return {}
+
+    return {}
+
+def remove_exclusions_from_id(dataset_id: str) -> str:
+    """ Removes 'excluding_*' from the dataset ID to find a broader match. """
+    parts = dataset_id.split("_")
+    filtered_parts = [p for p in parts if not p.startswith("excluding")]
+    return "_".join(filtered_parts)
 
 async def store_data_resp(req: ReqLocation, dataset: Dict, file_name: str) -> str:
     """
