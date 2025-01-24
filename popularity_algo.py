@@ -68,8 +68,14 @@ def add_popularity_score_category(features):
     return features
 
 
-async def main():
-    plan_content = await get_plan("plan_parking_Saudi Arabia_Jeddah")
+async def process_plan_popularity(plan_name: str):
+    """
+    Process a plan by its name, updating the database with popularity scores and popularity score categories.
+    
+    Args:
+        plan_name (str): Name of the plan to process (e.g. 'plan_parking_Saudi Arabia_Jeddah')
+    """
+    plan_content = await get_plan(plan_name)
     if not plan_content:
         print("No plan content found")
         return
@@ -98,7 +104,7 @@ async def main():
         
         # Collect all features from all response_data
         all_features = []
-        result_features_map = {}  # Map to keep track of features for each result
+        feature_map = {}  # Map to keep track of features by (address, coordinates)
         
         for result in results:
             try:
@@ -108,8 +114,13 @@ async def main():
                     print(f"No features found in dataset: {result['filename']}")
                     continue
                     
-                all_features.extend(features)
-                result_features_map[result['filename']] = features
+                for feature in features:
+                    address = feature["properties"].get("address")
+                    coordinates = tuple(feature["geometry"].get("coordinates", []))
+                    if address and coordinates:
+                        key = (address, coordinates)
+                        feature_map[key] = feature
+                        all_features.append(feature)
             except (json.JSONDecodeError, KeyError) as e:
                 print(f"Error processing result {result.get('filename', 'unknown')}: {e}")
                 continue
@@ -118,35 +129,39 @@ async def main():
             print("No features found in any dataset")
             return
             
+        # Sort all features globally based on popularity_score
         all_features.sort(key=lambda x: x["properties"].get("popularity_score", 0), reverse=True)
         all_features = add_popularity_score_category(all_features)
         
-        # Distribute features across datasets in chunks of 20
-        chunk_size = 20
+        sorted_feature_map = {}
+        for feature in all_features:
+            address = feature["properties"].get("address")
+            coordinates = tuple(feature["geometry"].get("coordinates", []))
+            sorted_feature_map[(address, coordinates)] = feature
+        
         success_count = 0
         
-        for idx, result in enumerate(results):
+        for result in results:
             try:
                 response_data = json.loads(result['response_data'])
-                start_idx = idx * chunk_size
-                end_idx = start_idx + chunk_size
-                dataset_features = all_features[start_idx:end_idx]
+                features = response_data.get('features', [])
                 
-                update_query = """
-                    UPDATE schema_marketplace.datasets 
-                    SET response_data = $1
-                    WHERE filename = $2
-                """
+                updated_features = []
+                for feature in features:
+                    address = feature["properties"].get("address")
+                    coordinates = tuple(feature["geometry"].get("coordinates", []))
+                    key = (address, coordinates)
+                    if key in sorted_feature_map:
+                        updated_feature = sorted_feature_map[key]
+                        updated_features.append(updated_feature)
+                    else:
+                        updated_features.append(feature)
 
-                if not dataset_features:
-                    print(f"No features left for dataset: {result['filename']}")
-                    await Database.execute(update_query, '', result['filename'])
-                    success_count += 1
-                    continue
-
+                updated_features.sort(key=lambda x: x["properties"].get("popularity_score", 0), reverse=True)
+                
                 new_response_data = {
                     "type": "FeatureCollection",
-                    "features": dataset_features,
+                    "features": updated_features,
                     "properties": response_data.get("properties", [])
                 }
                 
@@ -156,9 +171,15 @@ async def main():
                 if "popularity_score_category" not in new_response_data["properties"]:
                     new_response_data["properties"].append("popularity_score_category")
                 
+                update_query = """
+                    UPDATE schema_marketplace.datasets 
+                    SET response_data = $1
+                    WHERE filename = $2
+                """
+                
                 await Database.execute(update_query, json.dumps(new_response_data), result['filename'])
                 success_count += 1
-                print(f"Updated database entry for {result['filename']} - {len(dataset_features)} features added")
+                print(f"Updated database entry for {result['filename']} - {len(updated_features)} features updated")
                 
             except (json.JSONDecodeError, KeyError) as e:
                 print(f"Error updating database entry {result.get('filename', 'unknown')}: {e}")
@@ -168,6 +189,10 @@ async def main():
         
     except Exception as e:
         print(f"An error occurred during execution: {e}")
+
+
+async def main():
+    await process_plan("plan_parking_Saudi Arabia_Jeddah")
 
 
 if __name__ == "__main__":
