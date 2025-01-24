@@ -67,6 +67,7 @@ from storage import (
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
+from popularity_algo import process_plan_popularity
 
 logging.basicConfig(
     level=logging.INFO,
@@ -527,23 +528,30 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 float(search_info[1]),
                 float(search_info[2]),
             )
+
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
 
         if isinstance(req_dataset, ReqCustomData):
-
             next_plan_index = current_plan_index + 1
             bknd_dataset_id = plan[current_plan_index]
+                
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = (
                     req_dataset.page_token.split("@#$")[0]
                     + "@#$"
                     + str(next_plan_index)
                 )
+
+        # TODO: Remove this after testing Process plan at index 5
+        if current_plan_index == 5:
+            await process_plan_popularity(plan_name)
 
     return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
