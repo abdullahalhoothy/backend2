@@ -115,6 +115,8 @@ from backend_common.dtypes.stripe_dtypes import (
     PaymentMethodUpdateReq,
     PaymentMethodRes,
     PaymentMethodAttachReq,
+    TopUpWalletReq,
+    DeductWalletReq
 )
 from backend_common.database import Database
 from backend_common.logging_wrapper import log_and_validate
@@ -696,14 +698,11 @@ async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
     tags=["stripe wallet"],
     response_model=ResModel[dict],
 )
-async def top_up_wallet_endpoint(user_id: str, amount):
-    response = await top_up_wallet(user_id, amount)
-
-    return ResModel(
-        data=response,
-        message="Wallet topped up successfully",
-        request_id=str(uuid.uuid4()),
+async def top_up_wallet_endpoint(req: ReqModel[TopUpWalletReq]):
+    response = await request_handling(
+        req.request_body, TopUpWalletReq, ResModel[dict], top_up_wallet, wrap_output=True
     )
+    return response
 
 
 @app.get(
@@ -727,14 +726,11 @@ async def fetch_wallet_endpoint(user_id: str):
     tags=["stripe wallet"],
     response_model=ResModel[dict],
 )
-async def deduct_from_wallet_endpoint(user_id: str, amount: int):
-    response = await deduct_from_wallet(user_id, amount)
-    
-    return ResModel(
-        data=response,
-        message="Amount deducted from wallet successfully",
-        request_id=str(uuid.uuid4()),
+async def deduct_from_wallet_endpoint(req: ReqModel[DeductWalletReq]):
+    response = await request_handling(
+        req.request_body, DeductWalletReq, ResModel[dict], deduct_from_wallet, wrap_output=True
     )
+    return response
 
 # Stripe Subscriptions
 @app.post(
@@ -981,10 +977,10 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
     response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())]
 )
-async def update_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
+async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     response = await request_handling(
         req.request_body,
-        ReqCreateUserProfile,
+        UserProfileSettings,
         ResModel[dict[str, Any]],
         update_profile,
         wrap_output=True,
