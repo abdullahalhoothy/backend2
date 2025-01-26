@@ -69,6 +69,12 @@ for category in raw_popularity_data.values():
 
 async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, Any]], str]:
     try:
+
+        combined_dataset_id = make_dataset_filename(req)
+        existing_combined_data = await load_dataset_exclusion(combined_dataset_id)
+        if existing_combined_data:
+            logger.info(f"Returning existing combined dataset: {combined_dataset_id}")
+            return existing_combined_data, "Fetched from combined dataset"
         optimized_queries = optimize_query_sequence(req.boolean_query, POPULARITY_DATA)
 
         datasets = {}
@@ -77,12 +83,10 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
 
         for included_types, excluded_types in optimized_queries:
             full_dataset_id = make_dataset_filename_part(req, included_types, excluded_types)
-
-            base_dataset_id = make_dataset_filename_part(req, included_types, [])
-            stored_data = await load_dataset_exclusion(base_dataset_id)
+            stored_data = await load_dataset(full_dataset_id)
 
             if stored_data:
-                datasets[base_dataset_id] = stored_data
+                datasets[full_dataset_id] = stored_data
                 for place in stored_data:
                     place_id = place.get("place_id")  
                     if place_id:
