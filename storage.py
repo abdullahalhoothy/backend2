@@ -196,7 +196,7 @@ def make_dataset_filename(req) -> str:
     except AttributeError as e:
         raise ValueError(f"Invalid location request object: {str(e)}")
 
-def make_dataset_filename_2(req: ReqLocation, included_types: List[str], excluded_types: List[str]) -> str:
+def make_dataset_filename_part(req: ReqLocation, included_types: List[str], excluded_types: List[str]) -> str:
     """ Generate unique dataset ID based on query terms. """
     cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
     include_str = "_".join(sorted(included_types))

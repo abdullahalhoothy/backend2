@@ -19,7 +19,7 @@ from all_types.response_dtypes import (
     RouteInfo,
 )
 from boolean_query_processor import optimize_query_sequence,test_optimized_queries
-from storage import load_dataset, load_dataset_exclusion, make_dataset_filename_2, store_data_resp
+from storage import load_dataset, load_dataset_exclusion, make_dataset_filename, make_dataset_filename_part, store_data_resp
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -76,9 +76,9 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
         seen_places = set() 
 
         for included_types, excluded_types in optimized_queries:
-            full_dataset_id = make_dataset_filename_2(req, included_types, excluded_types)
+            full_dataset_id = make_dataset_filename_part(req, included_types, excluded_types)
 
-            base_dataset_id = make_dataset_filename_2(req, included_types, [])
+            base_dataset_id = make_dataset_filename_part(req, included_types, [])
             stored_data = await load_dataset_exclusion(base_dataset_id)
 
             if stored_data:
@@ -122,6 +122,13 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
                         all_results.append(place)
 
         if all_results:
+            combined_dataset_id = make_dataset_filename(req)
+            existing_combined_data = await load_dataset_exclusion(combined_dataset_id)
+            if not existing_combined_data:
+                await store_data_resp(req, all_results, combined_dataset_id)
+                logger.info(f"Stored combined dataset: {combined_dataset_id}")
+            else:
+                logger.info(f"Combined dataset already exists: {combined_dataset_id}, skipping storage.")
             logger.info(f"Fetched {len(all_results)} places from Google Maps API and DB.")
             return all_results, "Fetched from API and DB"
         else:
