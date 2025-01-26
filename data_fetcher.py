@@ -67,6 +67,7 @@ from storage import (
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
+from popularity_algo import process_plan_popularity
 
 logging.basicConfig(
     level=logging.INFO,
@@ -392,7 +393,6 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
     # dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
 
-
     #if not dataset:
 
     if "default" in search_type or "category_search" in search_type:
@@ -419,7 +419,6 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
 
 async def rectify_plan(plan_name, current_plan_index):
     plan = await get_plan(plan_name)
@@ -527,21 +526,26 @@ async def process_req_plan(req_dataset, req_create_lyr):
             )
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
 
         if isinstance(req_dataset, ReqCustomData):
-
             next_plan_index = current_plan_index + 1
             bknd_dataset_id = plan[current_plan_index]
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = (
                     req_dataset.page_token.split("@#$")[0]
                     + "@#$"
                     + str(next_plan_index)
                 )
+
+        # TODO: Remove this after testing Process plan at index 5
+        if current_plan_index == 5:
+            await process_plan_popularity(plan_name)
 
     return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
