@@ -74,3 +74,13 @@ class SqlObject:
     FROM "schema_marketplace"."datasets" 
     WHERE filename = $1;
     """
+    load_dataset_with_timestamp: str = """
+    SELECT response_data, created_at
+    FROM "schema_marketplace"."datasets"
+    WHERE filename = $1;
+    """
+
+    delete_dataset: str = """
+    DELETE FROM "schema_marketplace"."datasets"
+    WHERE filename = $1;
+    """

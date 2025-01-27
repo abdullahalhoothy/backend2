@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from typing import Any, Dict, Tuple, Optional, Union, List
 import json
 import os
@@ -653,6 +653,21 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     # using the page number and the plan , load and concatenate all datasets from the plan that have page number equal to that number or less
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
+    three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)    
+    try:
+        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+    except asyncpg.exceptions.UndefinedTableError:
+            # If table doesn't exist, create it and retry
+        await Database.execute(SqlObject.create_datasets_table)
+        feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+    if not feat_collec:
+        return None
+    created_at = feat_collec["created_at"]
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    if created_at and created_at < three_months_ago:
+        await Database.execute(SqlObject.delete_dataset, dataset_id)
+        return None
     if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
         plan_name, page_number = dataset_id.split("@#$")
@@ -685,7 +700,7 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         feat_collec = {"type": "FeatureCollection", "features": []}
         for i in range(page_number):
             dataset_id = new_plan[i]  # Get the formatted item for this page
-            json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
             if json_content:
                 dataset = orjson.loads(json_content["response_data"])
                 # Extract features from each FeatureCollection
@@ -695,11 +710,11 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             feat_collec["features"] = all_features
     else:
         try:
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
         except asyncpg.exceptions.UndefinedTableError:
             # If table doesn't exist, create it and retry
             await Database.execute(SqlObject.create_datasets_table)
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
+            feat_collec = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
 
         if feat_collec:
             feat_collec = feat_collec["response_data"]

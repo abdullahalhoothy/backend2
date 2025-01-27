@@ -11,6 +11,7 @@ import requests
 from sympy import Symbol
 from typing import Dict, Set, List
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
+from backend_common.utils.utils import convert_strings_to_ints
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 from all_types.response_dtypes import (
@@ -19,6 +20,7 @@ from all_types.response_dtypes import (
     RouteInfo,
 )
 from boolean_query_processor import optimize_query_sequence,test_optimized_queries
+from mapbox_connector import MapBoxConnector
 from storage import load_dataset, make_dataset_filename, make_dataset_filename_part, store_data_resp
 logging.basicConfig(
     level=logging.INFO,
@@ -71,10 +73,11 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
     try:
 
         combined_dataset_id = make_dataset_filename(req)
-        existing_combined_data = await load_dataset(combined_dataset_id,True)
+        existing_combined_data = await load_dataset(combined_dataset_id)
+        
         if existing_combined_data:
             logger.info(f"Returning existing combined dataset: {combined_dataset_id}")
-            return existing_combined_data, "Fetched from combined dataset"
+            return existing_combined_data
         optimized_queries = optimize_query_sequence(req.boolean_query, POPULARITY_DATA)
 
         datasets = {}
@@ -94,7 +97,7 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
             all_results = [
                 place for dataset in datasets.values() if isinstance(dataset, list) for place in dataset
             ]
-            return all_results, "Fetched from DB"
+            return all_results
 
         logger.info(f"Fetching {len(missing_queries)} queries from Google Maps API.")
         query_tasks = [
@@ -109,7 +112,9 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
                 new_results = [place for place in query_results if place.get("place_id","") not in seen_places]
                 
                 if new_results:  
-                    await store_data_resp(req, new_results, dataset_id)
+                    dataset = await MapBoxConnector.new_ggl_to_boxmap(new_results,req.radius)
+                    dataset = convert_strings_to_ints(dataset)
+                    await store_data_resp(req, dataset, dataset_id)
                     datasets[dataset_id] = new_results
                     for place in new_results:
                         seen_places.add(place.get("place_id"))
@@ -122,10 +127,12 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
                         all_results.append(place)
 
         if all_results:
-            await store_data_resp(req, all_results, combined_dataset_id)
+            dataset = await MapBoxConnector.new_ggl_to_boxmap(all_results,req.radius)
+            dataset = convert_strings_to_ints(dataset)
+            await store_data_resp(req, dataset, combined_dataset_id)
             logger.info(f"Stored combined dataset: {combined_dataset_id}")
-            logger.info(f"Fetched {len(all_results)} places from Google Maps API and DB.")
-            return all_results, "Fetched from API and DB"
+            logger.info(f"Fetched {len(dataset)} places from Google Maps API and DB.")
+            return dataset
         else:
             logger.warning("No valid results returned from Google Maps API or DB.")
             return [], "No valid results from API or DB"
