@@ -103,6 +103,7 @@ async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, A
         query_tasks = [
             execute_single_query(req, included_types, excluded_types)
             for _, included_types, excluded_types in missing_queries
+            for _, included_types, excluded_types in missing_queries
         ]
 
         all_query_results = await asyncio.gather(*query_tasks)
