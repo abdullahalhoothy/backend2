@@ -401,7 +401,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     elif "keyword_search" in search_type:
         ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
     # Store the fetched data in storage
-    dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
+    dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req_dataset.radius)
     if ggl_api_resp:
         dataset = convert_strings_to_ints(dataset)
     #     bknd_dataset_id = await store_data_resp(
@@ -778,7 +778,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             lat=city_data.lat,
             lng=city_data.lng,
             bounding_box=city_data.bounding_box,
-            radius=30000,
+            radius=30000.0,
             boolean_query=req.boolean_query,
             page_token=req.page_token,
             text_search=req.text_search,
