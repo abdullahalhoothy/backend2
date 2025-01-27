@@ -604,69 +604,6 @@ async def get_plan(plan_name):
 #     files = os.listdir(folder_path)
 #     files = [file.split(".json")[0] for file in files]
 #     return files
-async def load_dataset_exclusion(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
-    """
-    Loads a dataset from storage. If exact match is unavailable, tries to find a broader match.
-    """
-    if "plan" in dataset_id and fetch_full_plan_datasets:
-        # Handle dataset plans (unchanged logic)
-        plan_name, page_number = dataset_id.split("@#$")
-        dataset_prefix, plan_name = plan_name.split("page_token=")
-        page_number = int(page_number)
-
-        plan = await get_plan(plan_name)
-        if not plan:
-            return {}
-
-        new_plan = []
-        for i, item in enumerate(plan):
-            if item == "end of search plan":
-                continue
-
-            first_parts = item.split('_', 3)
-            lat, lon, value, rest = first_parts
-            category = rest.split('_circle=')[0].replace(" ", "_")
-
-            if i == 0:
-                new_item = f"{lat}_{lon}_{value}_{category}_token="
-            else:
-                new_item = f"{lat}_{lon}_{value}_{category}_token=page_token={plan_name}@#${i}"
-
-            new_plan.append(new_item)
-
-        # Load and merge plan datasets
-        all_features = []
-        feat_collec = {"type": "FeatureCollection", "features": []}
-        for i in range(page_number):
-            dataset_id = new_plan[i]  
-            json_content = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
-            if json_content:
-                dataset = orjson.loads(json_content["response_data"])
-                all_features.extend(dataset["features"])             
-
-        if all_features:
-            feat_collec["features"] = all_features
-
-    else:
-        # Try exact match first
-        try:
-            feat_collec = await Database.fetchrow(SqlObject.load_dataset, dataset_id)
-            if feat_collec:
-                return orjson.loads(feat_collec["response_data"])
-        except asyncpg.exceptions.UndefinedTableError:
-            await Database.execute(SqlObject.create_datasets_table)
-
-        # **New: Try finding a dataset without exclusions**
-        base_dataset_id = remove_exclusions_from_id(dataset_id)
-        if base_dataset_id != dataset_id:
-            try:
-                feat_collec = await Database.fetchrow(SqlObject.load_dataset, base_dataset_id)
-                if feat_collec:
-                    return orjson.loads(feat_collec["response_data"])
-            except asyncpg.exceptions.UndefinedTableError:
-                pass  # If no broader dataset is found, it will return {}
-
-    return {}
 
 def remove_exclusions_from_id(dataset_id: str) -> str:
     """ Removes 'excluding_*' from the dataset ID to find a broader match. """
