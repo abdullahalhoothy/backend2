@@ -366,6 +366,52 @@ async def update_dataset_layer_matching(
     return dataset_layer_matching
 
 
+
+async def delete_dataset_layer_matching(
+    prdcer_lyr_id: str, bknd_dataset_id: str, records_count: int = 9191919
+):
+    collection_name = "layer_matchings"
+    document_id = "dataset_matching"
+
+    try:
+        dataset_layer_matching = await db.get_document(collection_name, document_id)
+    except HTTPException as e:
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            dataset_layer_matching = {}
+        else:
+            raise e
+
+    if bknd_dataset_id not in dataset_layer_matching:
+        dataset_layer_matching[bknd_dataset_id] = {
+            "records_count": records_count,
+            "prdcer_lyrs": [],
+        }
+
+    # Check if the producer layer exists in the dataset
+    if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Layer {prdcer_lyr_id} not found in dataset {bknd_dataset_id}"
+        )
+
+    # Remove the layer ID from the dataset's 'prdcer_lyrs' list
+    dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].remove(prdcer_lyr_id)
+
+    # Update cache immediately
+    db._cache[collection_name][document_id] = dataset_layer_matching
+
+    async def _background_update():
+        # Update the dataset layer matching document in the database
+        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        await doc_ref.set(dataset_layer_matching)
+
+    # Run background task to persist the changes in the database
+    get_background_tasks().add_task(_background_update)
+
+    return {"message": f"Layer {prdcer_lyr_id} removed from dataset {bknd_dataset_id} successfully"}
+
+
+
 async def load_user_layer_matching() -> Dict:
     """Load user layer matching from Firestore"""
     try:
@@ -401,6 +447,46 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
 
     get_background_tasks().add_task(_background_update)
     return user_layer_matching
+
+
+async def delete_user_layer_matching(layer_id: str):
+    collection_name = "layer_matchings"
+    document_id = "user_matching"
+
+    try:
+        # Fetch the current layer matching data
+        user_layer_matching = await db.get_document(collection_name, document_id)
+    except HTTPException as e:
+        # Handle cases where the document is not found
+        if e.status_code == status.HTTP_404_NOT_FOUND:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User layer matching document not found"
+            )
+        else:
+            raise e
+
+    # Check if the layer_id exists in the mapping
+    if layer_id not in user_layer_matching:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Layer {layer_id} not found in the user layer matching."
+        )
+
+    # Remove the layer from the user_layer_matching
+    del user_layer_matching[layer_id]
+
+    # Update cache immediately
+    db._cache[collection_name][document_id] = user_layer_matching
+
+    # Background update to persist the change in the database
+    async def _background_update():
+        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        await doc_ref.set(user_layer_matching)
+
+    get_background_tasks().add_task(_background_update)
+    return {"message": f"Layer {layer_id} removed successfully."}
+
 
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:

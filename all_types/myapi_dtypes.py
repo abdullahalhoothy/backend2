@@ -66,6 +66,10 @@ class ReqSavePrdcerLyer(ReqPrdcerLyrMapData):
     layer_description: str
     city_name: str
 
+class ReqDeletePrdcerLayer(BaseModel):
+    user_id: str
+    prdcer_lyr_id: str
+    bknd_dataset_id: str
 
 class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData):
     boolean_query: Optional[str] = ""

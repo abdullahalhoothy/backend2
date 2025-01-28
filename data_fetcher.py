@@ -49,6 +49,8 @@ from storage import (
     fetch_layer_owner,
     update_dataset_layer_matching,
     update_user_layer_matching,
+    delete_dataset_layer_matching,
+    delete_user_layer_matching,
     fetch_user_catalogs,
     load_user_layer_matching,
     fetch_user_layers,
@@ -511,7 +513,14 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
+
         current_plan_index = int(current_plan_index)
+        
+        #limit to 30 calls per plan
+        if current_plan_index>30:
+            raise HTTPException(
+                status_code=488, detail="temporarely disabled for more than 30 searches"
+            )
         if current_plan_index>30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
@@ -811,10 +820,21 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     return geojson_dataset
 
 
+
+
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     user_data = await load_user_profile(req.user_id)
-
+    
     try:
+        # Check for duplicate prdcer_layer_name
+        new_layer_name = req.model_dump(exclude={"user_id"})["prdcer_layer_name"]
+        for layer in user_data["prdcer"]["prdcer_lyrs"].values():
+            if layer["prdcer_layer_name"] == new_layer_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Layer name '{new_layer_name}' already exists. Layer names must be unique.",
+                )
+        
         # Add the new layer to user profile
         user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.model_dump(
             exclude={"user_id"}
@@ -832,6 +852,53 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         ) from ke
 
     return "Producer layer created successfully"
+
+
+
+async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
+    """
+    Deletes a layer based on its id.
+    Args:
+        req (ReqDeletePrdcerLayer): The request data containing `user_id` and `prdcer_lyr_id`.
+
+    Returns:
+        str: Success message if the layer is deleted.
+    """
+    user_data = await load_user_profile(req.user_id)
+    
+    try:
+        # Find the layer to delete based on its id
+        layers = user_data["prdcer"]["prdcer_lyrs"]
+        layer_to_delete = None
+        
+        for layer_id, layer in layers.items():
+            if layer["prdcer_lyr_id"] == req.prdcer_lyr_id:
+                layer_to_delete = layer_id
+                break
+        
+        if not layer_to_delete:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Layer id '{req.prdcer_lyr_ide}' not found.",
+            )
+        
+        # Delete the layer
+        del user_data["prdcer"]["prdcer_lyrs"][layer_to_delete]
+
+        # Save updated user data
+        await update_user_profile(req.user_id, user_data)
+        await delete_dataset_layer_matching(layer_to_delete, req.bknd_dataset_id)
+        await delete_user_layer_matching(layer_to_delete)
+    
+    except KeyError as ke:
+        logger.error(f"Invalid user data structure for user_id: {req.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user data structure",
+        ) from ke
+
+    return f"Layer '{req.prdcer_lyr_id}' deleted successfully."
+
 
 
 @preserve_validate_decorator
