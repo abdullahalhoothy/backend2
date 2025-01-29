@@ -1,5 +1,6 @@
 import logging
 import math
+import geopy.distance
 import uuid
 from typing import List, Dict, Any, Union, Tuple
 import json
@@ -69,6 +70,7 @@ from storage import (
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -514,7 +516,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
         _, plan_name = plan_name.split("page_token=")
 
         current_plan_index = int(current_plan_index)
-        
+
         #limit to 30 calls per plan
         if current_plan_index>30:
             raise HTTPException(
@@ -1408,6 +1410,17 @@ def average_metric_of_surrounding_points(
         return None
 
 
+def calculate_distance(coord1, coord2):
+    """
+    Calculate the distance between two points (latitude and longitude) in meters.
+    """
+    return geopy.distance.distance(
+        (coord1["latitude"], coord1["longitude"]),
+        (coord2["latitude"], coord2["longitude"]),
+    ).meters
+
+
+
 async def process_color_based_on(
     req: ReqGradientColorBasedOnZone,
 ) -> List[ResGradientColorBasedOnZone]:
@@ -1435,6 +1448,7 @@ async def process_color_based_on(
     if (
         req.coverage_property == "drive_time"
     ):  # currently drive does not take into account ANY based on property
+        
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
         nearest_locations = await filter_for_nearest_points(
@@ -1539,6 +1553,84 @@ async def process_color_based_on(
                         is_zone_lyr="true",
                     )
                 )
+
+        return new_layers
+   
+    if req.color_based_on == "name":
+        matched_features = []
+        unmatched_features = []
+
+        for change_point in change_layer_dataset["features"]:
+            change_point_name = change_point["properties"].get("name", "").lower()
+            change_point_coordinates = {
+                "latitude": change_point["geometry"]["coordinates"][1],
+                "longitude": change_point["geometry"]["coordinates"][0],
+            }
+
+            is_matched = False
+
+            for based_on_point in based_on_layer_dataset["features"]:
+                based_on_point_name = based_on_point["properties"].get("name", "").lower()
+                based_on_point_coordinates = {
+                    "latitude": based_on_point["geometry"]["coordinates"][1],
+                    "longitude": based_on_point["geometry"]["coordinates"][0],
+                }
+
+                # Check if names match and if the points are within the radius
+                if (
+                    change_point_name == based_on_point_name
+                    and calculate_distance(
+                        change_point_coordinates, based_on_point_coordinates
+                    )
+                    <= req.coverage_value
+                ):
+                    matched_features.append(assign_point_properties(change_point))
+                    is_matched = True
+                    break  # Stop searching further once a match is found
+
+            if not is_matched:
+                unmatched_features.append(assign_point_properties(change_point))
+
+        # Create layers for matched and unmatched points
+        new_layers = []
+
+        if matched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=matched_features,
+                    properties=list(matched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Matched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_matched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color=req.color_grid_choice[0],
+                    layer_legend="Matched points based on name and radius",
+                    layer_description="Points with matching names within the specified radius",
+                    records_count=len(matched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
+                )
+            )
+
+        if unmatched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=unmatched_features,
+                    properties=list(unmatched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Unmatched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_unmatched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color="#FFFFFF",
+                    layer_legend="Unmatched points based on name",
+                    layer_description="Points with no matching names within the specified radius",
+                    records_count=len(unmatched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
+                )
+            )
 
         return new_layers
     else:
