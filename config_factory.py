@@ -31,6 +31,7 @@ class ApiConfig(CommonApiConfig):
     prdcer_lyr_map_data: str = backend_base_uri + "prdcer_lyr_map_data"
     nearest_lyr_map_data: str = backend_base_uri + "nearest_lyr_map_data"
     save_producer_catalog: str = backend_base_uri + "save_producer_catalog"
+    delete_producer_catalog: str = backend_base_uri + "delete_producer_catalog"
     user_catalogs: str = backend_base_uri + "user_catalogs"
     fetch_ctlg_lyrs: str = backend_base_uri + "fetch_ctlg_lyrs"
     apply_zone_layers: str = backend_base_uri + "apply_zone_layers"

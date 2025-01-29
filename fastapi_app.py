@@ -44,6 +44,7 @@ from all_types.myapi_dtypes import (
     # ReqNearestRoute,
     ReqCostEstimate,
     ReqSavePrdcerCtlg,
+    ReqDeletePrdcerCtlg,
     ReqGradientColorBasedOnZone,
     ReqStreeViewCheck,
     ReqSavePrdcerLyer,
@@ -93,6 +94,7 @@ from data_fetcher import (
     aquire_user_lyrs,
     fetch_lyr_map_data,
     save_prdcer_ctlg,
+    delete_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
     poi_categories,
@@ -427,6 +429,18 @@ async def ep_save_producer_catalog(
         wrap_output=True,
     )
     return response
+
+@app.delete(
+    CONF.delete_producer_catalog,  
+    response_model=ResModel[str],
+    dependencies=[Depends(JWTBearer())]
+)
+async def ep_delete_producer_catalog(req: ReqModel[ReqDeletePrdcerCtlg], request: Request):
+    response = await request_handling(
+        req.request_body, ReqDeletePrdcerCtlg, ResModel[str], delete_prdcer_ctlg, wrap_output=True
+    )
+    return response
+
 
 
 @app.post(CONF.user_catalogs, response_model=ResModel[list[UserCatalogInfo]])

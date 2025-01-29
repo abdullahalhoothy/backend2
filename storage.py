@@ -227,9 +227,7 @@ async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
 
 async def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
     """
-    Searches for the dataset ID associated with a given layer ID. This function
-    reads the dataset-layer matching file and iterates through it to find the
-    corresponding dataset for a given layer.
+    Searches for the dataset ID associated with a given layer ID. 
     """
     dataset_layer_matching = await load_dataset_layer_matching()
 
