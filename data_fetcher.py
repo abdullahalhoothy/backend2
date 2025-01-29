@@ -1,5 +1,6 @@
 import logging
 import math
+import geopy.distance
 import uuid
 from typing import List, Dict, Any, Union, Tuple
 import json
@@ -33,11 +34,14 @@ from backend_common.logging_wrapper import (
 )
 from backend_common.logging_wrapper import log_and_validate
 from mapbox_connector import MapBoxConnector
-from storage import generate_layer_id
 from storage import (
     store_data_resp,
-    load_real_estate_categories,
-    load_census_categories,
+    GOOGLE_CATEGORIES,
+    REAL_ESTATE_CATEGORIES,
+    AREA_INTELLIGENCE_CATEGORIES,
+    GRADIENT_COLORS,
+    # load_real_estate_categories,
+    # load_area_intelligence_categories,
     get_real_estate_dataset_from_storage,
     get_census_dataset_from_storage,
     get_commercial_properties_dataset_from_storage,
@@ -46,6 +50,8 @@ from storage import (
     fetch_layer_owner,
     update_dataset_layer_matching,
     update_user_layer_matching,
+    delete_dataset_layer_matching,
+    delete_user_layer_matching,
     fetch_user_catalogs,
     load_user_layer_matching,
     fetch_user_layers,
@@ -53,16 +59,18 @@ from storage import (
     convert_to_serializable,
     save_plan,
     get_plan,
-    create_real_estate_plan,
-    load_gradient_colors,
+    # create_real_estate_plan,
+    # load_gradient_colors,
     make_dataset_filename,
-)
-from storage import (
-    load_google_categories,
+    fetch_db_categories_by_lat_lng,
+    generate_layer_id,
+    # load_google_categories,
     load_country_city,
     make_include_exclude_name,
     make_ggl_layer_filename,
 )
+from boolean_query_processor import reduce_to_single_query
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,7 +79,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-EXPANSION_DISTANCE_KM = 10.0 # for each side from the center of the bounding box
+EXPANSION_DISTANCE_KM = 30.0  # for each side from the center of the bounding box
+# Global cache dictionary to store previously fetched locations
+_LOCATION_CACHE = {}
+
 
 def get_point_at_distance(start_point: tuple, bearing: float, distance: float):
     """
@@ -200,48 +211,81 @@ def create_string_list(
 
     return result
 
-def get_custom_bounding_box(lat: float, lon: float, expansion_distance_km: float = EXPANSION_DISTANCE_KM) -> list:
+
+def get_custom_bounding_box(
+    lat: float, lon: float, expansion_distance_km: float = EXPANSION_DISTANCE_KM
+) -> list:
     try:
         center_point = (lat, lon)
-        
+
         # Calculate the distance in degrees
-        north_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 0)  # North
-        south_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 180)  # South
-        east_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 90)  # East
-        west_expansion = geodesic(kilometers=expansion_distance_km).destination(center_point, 270)  # West
-        
+        north_expansion = geodesic(kilometers=expansion_distance_km).destination(
+            center_point, 0
+        )  # North
+        south_expansion = geodesic(kilometers=expansion_distance_km).destination(
+            center_point, 180
+        )  # South
+        east_expansion = geodesic(kilometers=expansion_distance_km).destination(
+            center_point, 90
+        )  # East
+        west_expansion = geodesic(kilometers=expansion_distance_km).destination(
+            center_point, 270
+        )  # West
+
         expanded_bbox = [
             south_expansion[0],
             north_expansion[0],
             west_expansion[1],
-            east_expansion[1]   
+            east_expansion[1],
         ]
-        
+
         return expanded_bbox
     except Exception as e:
         logger.error(f"Error expanding bounding box: {str(e)}")
         return None
 
+
 def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
+    # Create cache key
+    cache_key = f"{city_name},{country_name}"
+
+    # Check if result exists in cache
+    if cache_key in _LOCATION_CACHE:
+        return _LOCATION_CACHE[cache_key]
+
     try:
         geolocator = Nominatim(user_agent="city_country_search")
         location = geolocator.geocode(f"{city_name}, {country_name}", exactly_one=True)
+
         if not location:
             logger.warning(f"No location found for {city_name}, {country_name}")
+            _LOCATION_CACHE[cache_key] = None
             return None
-        
+
         bounding_box = get_custom_bounding_box(location.latitude, location.longitude)
         if bounding_box is None:
             logger.warning(f"No bounding box found for {city_name}, {country_name}")
+            _LOCATION_CACHE[cache_key] = None
             return None
 
-        return ReqGeodata(lat=float(location.latitude), lng=float(location.longitude), bounding_box=bounding_box)
+        result = ReqGeodata(
+            lat=float(location.latitude),
+            lng=float(location.longitude),
+            bounding_box=bounding_box,
+        )
+
+        # Store in cache before returning
+        _LOCATION_CACHE[cache_key] = result
+        return result
+
     except Exception as e:
         logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
+        _LOCATION_CACHE[cache_key] = None
         return None
 
+
 def to_location_req(
-    req_dataset: Union[ReqCensus, ReqRealEstate, ReqLocation, ReqCommercial]
+    req_dataset: Union[ReqLocation, ReqCustomData, ReqFetchDataset]
 ) -> ReqLocation:
     # If it's already a ReqLocation, return it directly
     if isinstance(req_dataset, ReqLocation):
@@ -255,12 +299,20 @@ def to_location_req(
     if req_dataset.country_name in country_city_data:
         for city in country_city_data[req_dataset.country_name]:
             if city["name"] == req_dataset.city_name:
-                if city.get("lat") is None or city.get("lng") is None or city.get("bounding_box") is None:
-                    raise ValueError(f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}")
-                
+                if (
+                    city.get("lat") is None
+                    or city.get("lng") is None
+                    or city.get("bounding_box") is None
+                ):
+                    raise ValueError(
+                        f"Invalid city data for {req_dataset.city_name} in {req_dataset.country_name}"
+                    )
+
                 bounding_box = get_custom_bounding_box(city.get("lat"), city.get("lng"))
                 if bounding_box is None:
-                    raise ValueError(f"Invalid bounding box for {req_dataset.city_name} in {req_dataset.country_name}")
+                    raise ValueError(
+                        f"Invalid bounding box for {req_dataset.city_name} in {req_dataset.country_name}"
+                    )
 
                 city_data = ReqGeodata(
                     lat=float(city.get("lat")),
@@ -271,7 +323,6 @@ def to_location_req(
         else:
             # if city not found in country_city_data, use geocoding to get city_data
             city_data = get_req_geodata(req_dataset.city_name, req_dataset.country_name)
-
 
     if not city_data:
         raise ValueError(
@@ -284,39 +335,42 @@ def to_location_req(
         lng=city_data.lng,
         bounding_box=city_data.bounding_box,
         radius=5000,  # Default radius
-        includedTypes=req_dataset.includedTypes,
-        excludedTypes=[],  # Default empty list for excludedTypes
+        boolean_query=req_dataset.boolean_query,
         page_token=req_dataset.page_token or "",
     )
 
 
 async def fetch_census_realestate(
-    req_dataset: Union[ReqCensus, ReqRealEstate, ReqCommercial], req_create_lyr: ReqFetchDataset
+    req_dataset: Union[ReqCustomData], req_create_lyr: ReqFetchDataset, data_type
 ) -> Tuple[Any, str, str, str]:
     next_page_token = req_dataset.page_token
     plan_name = ""
     action = req_create_lyr.action
     bknd_dataset_id = ""
+    dataset =  None
 
-    if action == "full data":
-        req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req_dataset, req_create_lyr)
-        )
+    req_dataset.included_types, req_dataset.excluded_types = reduce_to_single_query(
+        req_dataset.boolean_query
+    )
 
     temp_req = to_location_req(req_dataset)
     bknd_dataset_id = make_dataset_filename(temp_req)
-    dataset = await load_dataset(bknd_dataset_id)
+    # TODO remove redundent code
+    # dataset = await load_dataset(bknd_dataset_id)
 
     if not dataset:
-        if isinstance(req_dataset, ReqCensus):
-            get_dataset_func = get_census_dataset_from_storage
-        elif isinstance(req_dataset, ReqRealEstate):
+        if data_type == "real_estate" or (
+            data_type == "commercial" and req_dataset.country_name == "Saudi Arabia"
+        ):
             get_dataset_func = get_real_estate_dataset_from_storage
-        elif isinstance(req_dataset, ReqCommercial):
+        elif data_type in ["Population Area Intelligence"]:
+            get_dataset_func = get_census_dataset_from_storage
+        elif data_type == "commercial":
             get_dataset_func = get_commercial_properties_dataset_from_storage
 
-        dataset, bknd_dataset_id = await get_dataset_func(
-            req_dataset, bknd_dataset_id, action, request_location=temp_req
+        dataset, bknd_dataset_id, next_page_token = await get_dataset_func(
+            req_dataset, bknd_dataset_id, action, 
+            request_location=temp_req, next_page_token=next_page_token, data_type=data_type
         )
         if dataset:
             dataset = convert_strings_to_ints(dataset)
@@ -325,59 +379,6 @@ async def fetch_census_realestate(
             )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-# async def fetch_census_data(req_dataset: ReqCensus, req_create_lyr: ReqFetchDataset):
-#     next_page_token = req_dataset.page_token
-#     plan_name = ""
-#     action = req_create_lyr.action
-#     bknd_dataset_id = ""
-
-#     if action == "full data":
-#         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-#             await process_req_plan(req_dataset, req_create_lyr)
-#         )
-
-#     temp_req = to_location_req(req_dataset)
-#     bknd_dataset_id = make_dataset_filename(temp_req)
-#     dataset = await load_dataset(bknd_dataset_id)
-#     if not dataset:
-#         dataset, bknd_dataset_id = await get_census_dataset_from_storage(
-#             req_dataset, bknd_dataset_id, action
-#         )
-#         if dataset:
-#             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
-#     else:
-#         dataset = orjson.loads(dataset)
-
-#     return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-# async def fetch_real_estate_nearby(
-#     req_dataset: ReqRealEstate, req_create_lyr: ReqFetchDataset
-# ):
-#     next_page_token = req_dataset.page_token
-#     plan_name = ""
-#     action = req_create_lyr.action
-#     bknd_dataset_id = ""
-
-#     if action == "full data":
-#         req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-#             await process_req_plan(req_dataset, req_create_lyr)
-#         )
-#     temp_req = to_location_req(req_dataset)
-#     bknd_dataset_id = make_dataset_filename(temp_req)
-#     dataset = await load_dataset(bknd_dataset_id)
-#     if not dataset:
-#         dataset, bknd_dataset_id = await get_real_estate_dataset_from_storage(
-#             req_dataset, bknd_dataset_id, action
-#         )
-#         if dataset:
-#             bknd_dataset_id = await store_data_resp(req_dataset, dataset, bknd_dataset_id)
-#     else:
-#         dataset = orjson.loads(dataset)
-
-#     return dataset, bknd_dataset_id, next_page_token, plan_name
 
 
 async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDataset):
@@ -398,13 +399,14 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     if not dataset:
 
         if "default" in search_type or "category_search" in search_type:
-            dataset, _ = await fetch_from_google_maps_api(req_dataset)
+            ggl_api_resp, _ = await fetch_from_google_maps_api(req_dataset)
         elif "keyword_search" in search_type:
-            dataset, _ = await text_fetch_from_google_maps_api(req_dataset)
+            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
 
-        if dataset:
-            # Store the fetched data in storage
-            dataset = await MapBoxConnector.new_ggl_to_boxmap(dataset)
+        # Store the fetched data in storage
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
+
+        if ggl_api_resp:
             dataset = convert_strings_to_ints(dataset)
             bknd_dataset_id = await store_data_resp(
                 req_dataset, dataset, bknd_dataset_id
@@ -413,7 +415,7 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
-    if len(dataset["features"]) < 20 and req_create_lyr.action == "full data":
+    if len(dataset.get("features","")) < 20 and req_create_lyr.action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
             next_page_token = ""
@@ -477,19 +479,13 @@ async def process_req_plan(req_dataset, req_create_lyr):
     bknd_dataset_id = ""
 
     if req_dataset.page_token == "" and action == "full data":
-
-        if isinstance(req_dataset, ReqRealEstate):
-            string_list_plan = await create_real_estate_plan(req_dataset)
-
         if isinstance(req_dataset, ReqLocation) and req_dataset.radius > 750:
             circle_hierarchy = cover_circle_with_seven_circles(
                 (req_dataset.lng, req_dataset.lat), req_dataset.radius / 1000
             )
-            type_string = make_include_exclude_name(
-                req_dataset.includedTypes, req_dataset.excludedTypes
-            )
+
             string_list_plan = create_string_list(
-                circle_hierarchy, type_string, req_dataset.text_search
+                circle_hierarchy, req_dataset.boolean_query, req_dataset.text_search
             )
 
         string_list_plan.append("end of search plan")
@@ -510,7 +506,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
                 float(first_search[1]),
                 float(first_search[2]),
             )
-        if isinstance(req_dataset, ReqRealEstate):
+        if isinstance(req_dataset, ReqCustomData):
             bknd_dataset_id = plan[current_plan_index]
         next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
 
@@ -518,8 +514,22 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
         plan_name, current_plan_index = req_dataset.page_token.split("@#$")
         _, plan_name = plan_name.split("page_token=")
+
         current_plan_index = int(current_plan_index)
+
+        #limit to 30 calls per plan
+        if current_plan_index>30:
+            raise HTTPException(
+                status_code=488, detail="temporarely disabled for more than 30 searches"
+            )
         plan = await get_plan(plan_name)
+
+        if (
+            plan is None
+            or current_plan_index is None
+            or len(plan) <= current_plan_index
+        ):
+            return req_dataset, plan_name, "", current_plan_index, bknd_dataset_id
 
         if isinstance(req_dataset, ReqLocation):
             search_info = plan[current_plan_index].split("_")
@@ -533,7 +543,7 @@ async def process_req_plan(req_dataset, req_create_lyr):
             else:
                 next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
 
-        if isinstance(req_dataset, ReqRealEstate):
+        if isinstance(req_dataset, ReqCustomData):
 
             next_plan_index = current_plan_index + 1
             bknd_dataset_id = plan[current_plan_index]
@@ -658,92 +668,114 @@ async def validate_city_data(country, city):
     )
 
 
-def determine_data_type(included_types: List[str], categories: Dict) -> Optional[str]:
+# def determine_data_type(included_types: List[str], categories: Dict) -> Optional[str]:
+#     """
+#     Determines the data type based on included types by checking against all category types
+#     """
+#     if not included_types:
+#         return None
+
+#     for category_type, type_list in categories.items():
+#         # Handle both direct lists and nested dictionaries
+#         if isinstance(type_list, list):
+#             if set(included_types).intersection(set(type_list)):
+#                 return category_type
+#         elif isinstance(type_list, dict):
+#             # Flatten nested categories for comparison
+#             all_subcategories = []
+#             for subcategories in type_list.values():
+#                 if isinstance(subcategories, list):
+#                     all_subcategories.extend(subcategories)
+#             if set(included_types).intersection(set(all_subcategories)):
+#                 return category_type
+
+#     return None
+
+
+def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     """
-    Determines the data type based on included types by checking against all category types
+    Determines the data type based on boolean query.
+    Returns:
+    - Special category if ALL terms belong to that category
+    - "google_categories" if ANY terms are Google or custom terms
+    - Raises error if mixing Google/custom with special categories
     """
-    if not included_types:
+    if not boolean_query:
         return None
 
-    for category_type, type_list in categories.items():
-        # Handle both direct lists and nested dictionaries
-        if isinstance(type_list, list):
-            if set(included_types).intersection(set(type_list)):
-                return category_type
-        elif isinstance(type_list, dict):
-            # Flatten nested categories for comparison
-            all_subcategories = []
-            for subcategories in type_list.values():
-                if isinstance(subcategories, list):
-                    all_subcategories.extend(subcategories)
-            if set(included_types).intersection(set(all_subcategories)):
-                return category_type
+    # Extract just the terms
+    terms = set(
+        term.strip()
+        for term in boolean_query.replace("(", " ")
+        .replace(")", " ")
+        .replace("AND", " ")
+        .replace("OR", " ")
+        .replace("NOT", " ")
+        .split()
+    )
 
-    return None
+    if not terms:
+        return None
 
+    # Check non-Google categories first
+    for category, category_terms in categories.items():
+        if category not in GOOGLE_CATEGORIES:
+            matches = terms.intersection(set(category_terms))
+            if matches:
+                # If we found any special category terms, ALL terms must belong to this category
+                if len(matches) != len(terms):
+                    raise ValueError(
+                        "Cannot mix special category terms with other terms"
+                    )
+                return category
 
-def prepare_response(dataset, bknd_dataset_id, next_page_token):
-    """Prepares the final response"""
-    return {
-        "bknd_dataset_id": bknd_dataset_id,
-        "records_count": len(dataset["features"]),
-        "prdcer_lyr_id": generate_layer_id(),
-        "next_page_token": next_page_token,
-        **dataset,
-    }
+    # If we get here, no special category matches were found
+    # So we can safely return google_categories for either Google terms or custom terms
+    return "google_categories"
 
 
 async def fetch_country_city_category_map_data(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
     request parameters. If the layer exists, it loads the data, transforms it,
-    and returns it. If the layer doesn't exist, it creates a new layer by
-    fetching data from Google Maps API.
+    and returns it. If the layer doesn't exist, it creates a new layer
     """
     next_page_token = None
+    new_layer_id = req.prdcer_lyr_id
+    if req.page_token != "" or req.page_token != "0":
+        new_layer_id = generate_layer_id()
 
     geojson_dataset = []
 
     # Load all categories
-    categories = await fetch_nearby_categories()
 
-    # Determine the data type based on included types
-    data_type = determine_data_type(req.includedTypes, categories)
+    categories = await poi_categories(
+        ReqCityCountry(country_name=req.country_name, city_name=req.city_name)
+    )
 
-    if data_type == "real_estate" or (data_type == "commercial" and req.dataset_country == "Saudi Arabia"):
-        req_dataset = ReqRealEstate(
-            country_name=req.dataset_country,
-            city_name=req.dataset_city,
-            excludedTypes=req.excludedTypes,
-            includedTypes=req.includedTypes,
+    # Now using boolean_query instead of included_types
+    data_type = determine_data_type(req.boolean_query, categories)
+
+    if (data_type == "real_estate"
+        or data_type in list(AREA_INTELLIGENCE_CATEGORIES.keys())
+        or (data_type == "commercial" and (req.country_name == "Saudi Arabia" or True))
+    ):
+
+        req_dataset = ReqCustomData(
+            country_name=req.country_name,
+            city_name=req.city_name,
+            boolean_query=req.boolean_query,
             page_token=req.page_token,
-            text_search=req.text_search,
+            zoom_level=req.zoom_level,
         )
         geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req)
-        )
-    elif data_type in ["demographics", "economic", "housing", "social"]:
-        req_dataset = ReqCensus(
-            country_name=req.dataset_country,
-            city_name=req.dataset_city,
-            includedTypes=req.includedTypes,
-            page_token=req.page_token,
-        )
-        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req)
-        )
-    elif data_type == "commercial":
-        req_dataset = ReqCommercial(
-            country_name=req.dataset_country,
-            city_name=req.dataset_city,
-            includedTypes=req.includedTypes,
-            page_token=req.page_token,
-        )
-        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
-            await fetch_census_realestate(req_dataset, req_create_lyr=req)
+            await fetch_census_realestate(
+                req_dataset, req_create_lyr=req, data_type=data_type
+            )
         )
     else:
-        city_data = get_req_geodata(req.dataset_country, req.dataset_city)
+
+        city_data = to_location_req(req)
 
         if city_data is None:
             raise HTTPException(
@@ -755,8 +787,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             lng=city_data.lng,
             bounding_box=city_data.bounding_box,
             radius=30000,
-            excludedTypes=req.excludedTypes,
-            includedTypes=req.includedTypes,
+            boolean_query=req.boolean_query,
             page_token=req.page_token,
             text_search=req.text_search,
         )
@@ -775,16 +806,27 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
-    geojson_dataset["records_count"] = len(geojson_dataset["features"])
-    geojson_dataset["prdcer_lyr_id"] = generate_layer_id()
+    geojson_dataset["records_count"] = len(geojson_dataset.get("features",""))
+    geojson_dataset["prdcer_lyr_id"] = new_layer_id
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
 
 
+
+
 async def save_lyr(req: ReqSavePrdcerLyer) -> str:
     user_data = await load_user_profile(req.user_id)
-
+    
     try:
+        # Check for duplicate prdcer_layer_name
+        new_layer_name = req.model_dump(exclude={"user_id"})["prdcer_layer_name"]
+        for layer in user_data["prdcer"]["prdcer_lyrs"].values():
+            if layer["prdcer_layer_name"] == new_layer_name:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Layer name '{new_layer_name}' already exists. Layer names must be unique.",
+                )
+        
         # Add the new layer to user profile
         user_data["prdcer"]["prdcer_lyrs"][req.prdcer_lyr_id] = req.model_dump(
             exclude={"user_id"}
@@ -802,6 +844,53 @@ async def save_lyr(req: ReqSavePrdcerLyer) -> str:
         ) from ke
 
     return "Producer layer created successfully"
+
+
+
+async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
+    """
+    Deletes a layer based on its id.
+    Args:
+        req (ReqDeletePrdcerLayer): The request data containing `user_id` and `prdcer_lyr_id`.
+
+    Returns:
+        str: Success message if the layer is deleted.
+    """
+    user_data = await load_user_profile(req.user_id)
+    
+    try:
+        # Find the layer to delete based on its id
+        layers = user_data["prdcer"]["prdcer_lyrs"]
+        layer_to_delete = None
+        
+        for layer_id, layer in layers.items():
+            if layer["prdcer_lyr_id"] == req.prdcer_lyr_id:
+                layer_to_delete = layer_id
+                break
+        
+        if not layer_to_delete:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Layer id '{req.prdcer_lyr_ide}' not found.",
+            )
+        
+        # Delete the layer
+        del user_data["prdcer"]["prdcer_lyrs"][layer_to_delete]
+
+        # Save updated user data
+        await update_user_profile(req.user_id, user_data)
+        await delete_dataset_layer_matching(layer_to_delete, req.bknd_dataset_id)
+        await delete_user_layer_matching(layer_to_delete)
+    
+    except KeyError as ke:
+        logger.error(f"Invalid user data structure for user_id: {req.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user data structure",
+        ) from ke
+
+    return f"Layer '{req.prdcer_lyr_id}' deleted successfully."
+
 
 
 @preserve_validate_decorator
@@ -851,145 +940,44 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
     """
     Fetches detailed map data for a specific producer layer.
     """
+    dataset = {}
+    user_layer_matching = await load_user_layer_matching()
+    layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
+    layer_owner_data = await load_user_profile(layer_owner_id)
+
     try:
-        dataset = {}
-        user_layer_matching = await load_user_layer_matching()
-        layer_owner_id = user_layer_matching.get(req.prdcer_lyr_id)
-        layer_owner_data = await load_user_profile(layer_owner_id)
-
-        try:
-            layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
-                req.prdcer_lyr_id
-            ]
-        except KeyError as ke:
-            raise HTTPException(
-                status_code=404, detail="Producer layer not found for this user"
-            ) from ke
-
-        dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-        dataset = await load_dataset(dataset_id)
-
-        # Extract properties from first feature if available
-        properties = []
-        if dataset.get("features") and len(dataset["features"]) > 0:
-            first_feature = dataset["features"][0]
-            properties = list(first_feature.get("properties", {}).keys())
-
-        return ResLyrMapData(
-            type="FeatureCollection",
-            features=dataset["features"],
-            properties=properties,  # Add the properties list here
-            prdcer_layer_name=layer_metadata["prdcer_layer_name"],
-            prdcer_lyr_id=req.prdcer_lyr_id,
-            bknd_dataset_id=dataset_id,
-            points_color=layer_metadata["points_color"],
-            layer_legend=layer_metadata["layer_legend"],
-            layer_description=layer_metadata["layer_description"],
-            city_name=layer_metadata["city_name"],
-            records_count=dataset_info["records_count"],
-            is_zone_lyr="false",
-        )
-    except HTTPException:
-        raise
-
-
-async def fetch_nearest_points_Gmap(
-    req: ReqNearestRoute,
-) -> List[NearestPointRouteResponse]:
-    """
-    Fetches detailed map data for a specific producer layer.
-    """
-    try:
-        dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
-        all_datasets = await load_dataset(dataset_id)
-        coordinates_list = [
-            {
-                "latitude": item["location"]["latitude"],
-                "longitude": item["location"]["longitude"],
-            }
-            for item in all_datasets
+        layer_metadata = layer_owner_data["prdcer"]["prdcer_lyrs"][
+            req.prdcer_lyr_id
         ]
-
-        business_target_coordinates = [
-            {"latitude": point.latitude, "longitude": point.longitude}
-            for point in req.points
-        ]
-
-        nearest_points = await calculate_nearest_points(
-            coordinates_list, business_target_coordinates
-        )
-
-        Gmap_response = await calculate_nearest_points_Gmap(nearest_points)
-        return Gmap_response
-    except HTTPException:
-        raise
-    except Exception as e:
+    except KeyError as ke:
         raise HTTPException(
-            status_code=400, detail=f"An error occurred: {str(e)}"
-        ) from e
+            status_code=404, detail="Producer layer not found for this user"
+        ) from ke
 
+    dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
+    dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
 
-async def calculate_nearest_points(
-    category_coordinates: List[Dict[str, float]],
-    bussiness_target_coordinates: List[Dict[str, float]],
-    num_points_per_target=3,
-) -> List[Dict[str, Any]]:
-    nearest_locations = []
-    for target in bussiness_target_coordinates:
-        distances = []
-        for loc in category_coordinates:
-            dist = calculate_distance_km(
-                (target["longitude"], target["latitude"]),
-                (loc["longitude"], loc["latitude"]),
-            )
-            distances.append(
-                {
-                    "latitude": loc["latitude"],
-                    "longitude": loc["longitude"],
-                    "distance": dist,
-                }
-            )
+    # Extract properties from first feature if available
+    properties = []
+    if dataset.get("features") and len(dataset.get("features", [])) > 0:
+        first_feature = dataset.get("features", [])[0]
+        properties = list(first_feature.get("properties", {}).keys())
+        
+    return ResLyrMapData(
+        type="FeatureCollection",
+        features=dataset.get("features", []),
+        properties=properties,  # Add the properties list here
+        prdcer_layer_name=layer_metadata.get("prdcer_layer_name"),
+        prdcer_lyr_id=req.prdcer_lyr_id,
+        bknd_dataset_id=dataset_id,
+        points_color=layer_metadata.get("points_color"),
+        layer_legend=layer_metadata.get("layer_legend"),
+        layer_description=layer_metadata.get("layer_description"),
+        city_name=layer_metadata.get("city_name"),
+        records_count=dataset_info.get("records_count"),
+        is_zone_lyr="false",
+    )
 
-        # Sort distances and get the nearest 3
-        nearest = sorted(distances, key=lambda x: x["distance"])[:num_points_per_target]
-        nearest_locations.append(
-            {
-                "target": target,
-                "nearest_coordinates": [
-                    (loc["latitude"], loc["longitude"]) for loc in nearest
-                ],
-            }
-        )
-
-    return nearest_locations
-
-
-async def calculate_nearest_points_Gmap(
-    nearest_locations: List[Dict[str, Any]]
-) -> List[NearestPointRouteResponse]:
-    results = []
-    for item in nearest_locations:
-        target = item["target"]
-        target_routes = NearestPointRouteResponse(target=target, routes=[])
-
-        for nearest in item["nearest_coordinates"]:
-            origin = f"{target['latitude']},{target['longitude']}"
-            destination = f"{nearest[0]},{nearest[1]}"
-
-            try:
-                # Fetch route information between target and nearest location
-                route_info = await calculate_distance_traffic_route(origin, destination)
-                target_routes.routes.append(route_info)
-            except HTTPException as e:
-                # Handle HTTP exceptions during the route fetching
-                target_routes.routes.append({"error": str(e.detail)})
-            except Exception as e:
-                # Handle any other exceptions
-                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
-
-        results.append(target_routes)
-
-    return results
 
 
 async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
@@ -1095,7 +1083,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
         for lyr_info in ctlg["lyrs"]:
             lyr_id = lyr_info["layer_id"]
             dataset_id, dataset_info = await fetch_dataset_id(lyr_id)
-            trans_dataset = await load_dataset(dataset_id)
+            trans_dataset = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
             # trans_dataset = await MapBoxConnector.new_ggl_to_boxmap(trans_dataset)
 
             # Extract properties from first feature if available
@@ -1164,35 +1152,28 @@ def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
         raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
-# def create_feature(point: Dict[str, Any]) -> Feature:
-#     """
-#     Converts a point dictionary into a Feature object. This function is used
-#     to ensure that all points are in the correct format for geospatial operations.
-#     """
-#     try:
-#         return Feature(
-#             type=point["type"],
-#             properties=point["properties"],
-#             geometry=Geometry(
-#                 type="Point", coordinates=point["geometry"]["coordinates"]
-#             ),
-#         )
-#     except KeyError as e:
-#         raise ValueError(f"Invalid point data: missing key {str(e)}")
-#     except Exception as e:
-#         raise ValueError(f"Error creating feature: {str(e)}")
+async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
+    """
+    Loads and returns a dictionary of area intelligence categories.
+    """
+    return AREA_INTELLIGENCE_CATEGORIES
 
 
-async def fetch_nearby_categories() -> Dict:
+async def poi_categories(req: ReqCityCountry = "") -> Dict:
     """
     Provides a comprehensive list of place categories, including Google places,
-    real estate, census data, and other custom categories.
+    real estate, and other custom categories.
     """
-    google_categories = load_google_categories()
-    real_estate_categories = await load_real_estate_categories()
-    census_categories = await load_census_categories()
+    # google_categories = load_google_categories()
+
+    # get city lat and long
+    # geo_data = get_req_geodata(req.city_name, req.country_name)
+    # non_ggl_categories = fetch_db_categories_by_lat_lng(geo_data.bounding_box)
+    # categories = {**google_categories, **non_ggl_categories}
+
     # combine all category types
-    categories = {**google_categories, **real_estate_categories, **census_categories}
+    categories = {**GOOGLE_CATEGORIES, **REAL_ESTATE_CATEGORIES, **AREA_INTELLIGENCE_CATEGORIES}
+
     return categories
 
 
@@ -1232,9 +1213,7 @@ async def save_draft_catalog(req: ReqSavePrdcerLyer) -> str:
 
 async def fetch_gradient_colors() -> List[List]:
     """ """
-
-    data = await load_gradient_colors()
-    return data
+    return GRADIENT_COLORS
 
 
 async def given_layer_fetch_dataset(layer_id: str):
@@ -1250,7 +1229,7 @@ async def given_layer_fetch_dataset(layer_id: str):
         ) from ke
 
     dataset_id, dataset_info = await fetch_dataset_id(layer_id)
-    all_datasets = await load_dataset(dataset_id)
+    all_datasets = await load_dataset(dataset_id,fetch_full_plan_datasets=True)
 
     return all_datasets, layer_metadata
 
@@ -1261,6 +1240,185 @@ def assign_point_properties(point):
         "geometry": point["geometry"],
         "properties": point.get("properties", {}),
     }
+
+
+# async def fetch_nearest_points_Gmap(
+#     req: ReqNearestRoute,
+# ) -> List[NearestPointRouteResponse]:
+#     """
+#     Fetches detailed map data for a specific producer layer.
+#     """
+#     try:
+#         dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
+#         all_datasets = await load_dataset(dataset_id)
+#         coordinates_list = [
+#             {
+#                 "latitude": item["location"]["latitude"],
+#                 "longitude": item["location"]["longitude"],
+#             }
+#             for item in all_datasets
+#         ]
+
+#         business_target_coordinates = [
+#             {"latitude": point.latitude, "longitude": point.longitude}
+#             for point in req.points
+#         ]
+
+#         nearest_points = await calculate_nearest_points(
+#             coordinates_list, business_target_coordinates
+#         )
+
+#         Gmap_response = await calculate_nearest_points_drive_time(nearest_points)
+#         return Gmap_response
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=400, detail=f"An error occurred: {str(e)}"
+#         ) from e
+
+
+async def filter_for_nearest_points(
+    category_coordinates: List[Dict[str, float]],
+    bussiness_target_coordinates: List[Dict[str, float]],
+    num_points_per_target=3,
+) -> List[Dict[str, Any]]:
+    nearest_locations = []
+    for target in bussiness_target_coordinates:
+        distances = []
+        for loc in category_coordinates:
+            dist = calculate_distance_km(
+                (target["longitude"], target["latitude"]),
+                (loc["longitude"], loc["latitude"]),
+            )
+            distances.append(
+                {
+                    "latitude": loc["latitude"],
+                    "longitude": loc["longitude"],
+                    "distance": dist,
+                }
+            )
+
+        # Sort distances and get the nearest 3
+        nearest = sorted(distances, key=lambda x: x["distance"])[:num_points_per_target]
+        nearest_locations.append(
+            {
+                "target": target,
+                "nearest_coordinates": [
+                    (loc["latitude"], loc["longitude"]) for loc in nearest
+                ],
+            }
+        )
+
+    return nearest_locations
+
+
+async def calculate_nearest_points_drive_time(
+    nearest_locations: List[Dict[str, Any]]
+) -> List[NearestPointRouteResponse]:
+    results = []
+    for item in nearest_locations:
+        target = item["target"]
+        target_routes = NearestPointRouteResponse(target=target, routes=[])
+
+        for nearest in item["nearest_coordinates"]:
+            origin = f"{target['latitude']},{target['longitude']}"
+            destination = f"{nearest[0]},{nearest[1]}"
+
+            try:
+                # Fetch route information between target and nearest location
+                route_info = await calculate_distance_traffic_route(origin, destination)
+                target_routes.routes.append(route_info)
+            except HTTPException as e:
+                # Handle HTTP exceptions during the route fetching
+                target_routes.routes.append({"error": str(e.detail)})
+            except Exception as e:
+                # Handle any other exceptions
+                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
+
+        results.append(target_routes)
+
+    return results
+
+
+def filter_locations_by_drive_time(
+    nearest_locations: List[Dict[str, Any]], coverage_minutes: float
+) -> List[Dict[str, Any]]:
+    """
+    Filter coordinates near target locations based on estimated driving distance.
+
+    Args:
+        nearest_locations: List of dicts containing targets and their nearest coordinates
+        coverage_minutes: Desired drive time in minutes
+
+    Returns:
+        List of filtered locations with coordinates within estimated driving distance
+    """
+    AVERAGE_SPEED_MPS = 11.11  # Average urban speed of 40 km/h = 11.11 m/s
+    desired_time_seconds = coverage_minutes * 60  # Convert minutes to seconds
+    estimated_distance_meters = AVERAGE_SPEED_MPS * desired_time_seconds
+
+    filtered_nearest_locations: List[Dict[str, Any]] = []
+    for location in nearest_locations:
+        target = location["target"]
+        filtered_coords: List[Tuple[float, float]] = []
+        for nearest_coord in location["nearest_coordinates"]:
+            actual_distance = geodesic(
+                (target["latitude"], target["longitude"]), nearest_coord
+            ).meters
+            if actual_distance <= estimated_distance_meters:
+                filtered_coords.append(nearest_coord)
+
+        filtered_nearest_locations.append(
+            {
+                "target": target,
+                "nearest_coordinates": filtered_coords,  # This might be empty
+            }
+        )
+
+    return filtered_nearest_locations
+
+
+def average_metric_of_surrounding_points(
+    color_based_on, point, based_on_dataset, radius
+):
+    lat, lon = (
+        point["geometry"]["coordinates"][1],
+        point["geometry"]["coordinates"][0],
+    )
+
+    nearby_metric_value = []
+
+    for point_2 in based_on_dataset["features"]:
+        if color_based_on not in point_2["properties"]:
+            continue
+
+        distance = geodesic(
+            (lat, lon),
+            (
+                point_2["geometry"]["coordinates"][1],
+                point_2["geometry"]["coordinates"][0],
+            ),
+        ).meters
+
+        if distance <= radius:
+            nearby_metric_value.append(point_2["properties"][color_based_on])
+
+    if nearby_metric_value:
+        return np.mean(nearby_metric_value)
+    else:
+        return None
+
+
+def calculate_distance(coord1, coord2):
+    """
+    Calculate the distance between two points (latitude and longitude) in meters.
+    """
+    return geopy.distance.distance(
+        (coord1["latitude"], coord1["longitude"]),
+        (coord2["latitude"], coord2["longitude"]),
+    ).meters
+
 
 
 async def process_color_based_on(
@@ -1287,43 +1445,24 @@ async def process_color_based_on(
         }
         for point in change_layer_dataset["features"]
     ]
-    if req.coverage_property == "drive_time": # currently drive does not take into account ANY based on property
+    if (
+        req.coverage_property == "drive_time"
+    ):  # currently drive does not take into account ANY based on property
+        
         # Get nearest points
         # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
-        nearest_locations = await calculate_nearest_points(
+        nearest_locations = await filter_for_nearest_points(
             based_on_coordinates, to_be_changed_coordinates, num_points_per_target=2
         )
 
-        # Convert desired drive time (assumed to be in minutes) to estimated distance in meters
-        # Assuming average urban speed of 40 km/h = 11.11 m/s
-        AVERAGE_SPEED_MPS = 11.11
-        desired_time_seconds = req.coverage_value * 60  # Convert minutes to seconds
-        estimated_distance_meters = AVERAGE_SPEED_MPS * desired_time_seconds
-
-        # Filter nearest locations but keep all targets
-        filtered_nearest_locations = []
-        for location in nearest_locations:
-            target = location["target"]
-            filtered_coords = []
-
-            for nearest_coord in location["nearest_coordinates"]:
-                actual_distance = geodesic(
-                    (target["latitude"], target["longitude"]), nearest_coord
-                ).meters
-
-                if actual_distance <= estimated_distance_meters:
-                    filtered_coords.append(nearest_coord)
-
-            # Always add the target, even if no points are within range
-            filtered_nearest_locations.append(
-                {
-                    "target": target,
-                    "nearest_coordinates": filtered_coords,  # This might be empty
-                }
-            )
+        filtered_nearest_locations = filter_locations_by_drive_time(
+            nearest_locations, req.coverage_value
+        )
 
         # Calculate routes with Google Maps
-        route_results = await calculate_nearest_points_Gmap(filtered_nearest_locations)
+        route_results = await calculate_nearest_points_drive_time(
+            filtered_nearest_locations
+        )
 
         # Main function
         within_time_features = []
@@ -1416,82 +1555,142 @@ async def process_color_based_on(
                 )
 
         return new_layers
-    else:
+   
+    if req.color_based_on == "name":
+        matched_features = []
+        unmatched_features = []
 
-        def calculate_distance(lat1, lon1, lat2, lon2):
-            return geodesic((lat1, lon1), (lat2, lon2)).meters
+        for change_point in change_layer_dataset["features"]:
+            change_point_name = change_point["properties"].get("name", "").lower()
+            change_point_coordinates = {
+                "latitude": change_point["geometry"]["coordinates"][1],
+                "longitude": change_point["geometry"]["coordinates"][0],
+            }
 
-        def average_metric_of_surrounding_points(color_based_on, point, based_on_dataset, radius):
-            lat, lon = (
-                point["geometry"]["coordinates"][1],
-                point["geometry"]["coordinates"][0],
-            )
-            
-            nearby_metric_value = []
-            
-            for point_2 in based_on_dataset["features"]:
-                if color_based_on not in point_2["properties"]:
-                    continue
-                    
-                distance = calculate_distance(
-                    lat,
-                    lon,
-                    point_2["geometry"]["coordinates"][1],
-                    point_2["geometry"]["coordinates"][0],
+            is_matched = False
+
+            for based_on_point in based_on_layer_dataset["features"]:
+                based_on_point_name = based_on_point["properties"].get("name", "").lower()
+                based_on_point_coordinates = {
+                    "latitude": based_on_point["geometry"]["coordinates"][1],
+                    "longitude": based_on_point["geometry"]["coordinates"][0],
+                }
+
+                # Check if names match and if the points are within the radius
+                if (
+                    change_point_name == based_on_point_name
+                    and calculate_distance(
+                        change_point_coordinates, based_on_point_coordinates
+                    )
+                    <= req.coverage_value
+                ):
+                    matched_features.append(assign_point_properties(change_point))
+                    is_matched = True
+                    break  # Stop searching further once a match is found
+
+            if not is_matched:
+                unmatched_features.append(assign_point_properties(change_point))
+
+        # Create layers for matched and unmatched points
+        new_layers = []
+
+        if matched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=matched_features,
+                    properties=list(matched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Matched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_matched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color=req.color_grid_choice[0],
+                    layer_legend="Matched points based on name and radius",
+                    layer_description="Points with matching names within the specified radius",
+                    records_count=len(matched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
                 )
-                
-                if distance <= radius:
-                    nearby_metric_value.append(point_2['properties'][color_based_on])
-            
-            
-            if nearby_metric_value:
-                return np.mean(nearby_metric_value) 
-            else: 
-                return None
+            )
 
+        if unmatched_features:
+            new_layers.append(
+                ResGradientColorBasedOnZone(
+                    type="FeatureCollection",
+                    features=unmatched_features,
+                    properties=list(unmatched_features[0].get("properties", {}).keys()),
+                    prdcer_layer_name=f"{req.change_lyr_name} - Unmatched Points",
+                    prdcer_lyr_id=str(uuid.uuid4()),
+                    sub_lyr_id=f"{req.change_lyr_id}_unmatched",
+                    bknd_dataset_id=req.change_lyr_id,
+                    points_color="#FFFFFF",
+                    layer_legend="Unmatched points based on name",
+                    layer_description="Points with no matching names within the specified radius",
+                    records_count=len(unmatched_features),
+                    city_name=change_layer_metadata.get("city_name", ""),
+                    is_zone_lyr="true",
+                )
+            )
+
+        return new_layers
+    else:
 
         # Calculate influence scores for change_layer_dataset and store them
         influence_scores = []
         point_influence_map = {}
-        for change_point in change_layer_dataset['features']:
+        for change_point in change_layer_dataset["features"]:
             change_point["id"] = str(uuid.uuid4())
             surrounding_metric_avg = average_metric_of_surrounding_points(
-                req.color_based_on, change_point, based_on_layer_dataset, req.coverage_value
+                req.color_based_on,
+                change_point,
+                based_on_layer_dataset,
+                req.coverage_value,
             )
             if surrounding_metric_avg is not None:
                 influence_scores.append(surrounding_metric_avg)
                 point_influence_map[change_point["id"]] = surrounding_metric_avg
 
-        # Calculate thresholds based on influence scores
-        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
-        thresholds = np.percentile(influence_scores, percentiles)
-
         # Create layers
         new_layers = []
-        layer_data = [
-            [] for _ in range(len(thresholds) + 2)
-        ]  # +1 for above highest threshold, +1 for unallocated
 
-        # Assign points to layers
-        for change_point in change_layer_dataset['features']:
-            surrounding_metric_avg = point_influence_map.get(change_point["id"])
-            feature = assign_point_properties(change_point)
+        # Calculate thresholds based on influence scores
+        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
 
-            if surrounding_metric_avg is None:
-                layer_index = -1  # Last layer (unallocated)
-                feature["properties"]["influence_score"] = None
-            else:
-                layer_index = next(
-                    (
-                        i
-                        for i, threshold in enumerate(thresholds)
-                        if surrounding_metric_avg <= threshold
-                    ),
-                    len(thresholds),
-                )
-                feature["properties"]["influence_score"] = surrounding_metric_avg
+        # Initialize layer data
+        if not influence_scores:
+            # If no scores, create single layer of unallocated points
+            layer_data = [[]] * (len(percentiles) + 1) + [
+                [
+                    assign_point_properties(point)
+                    for point in change_layer_dataset["features"]
+                ]
+            ]
+            thresholds = []  # Empty thresholds since we have no scores
+        else:
+            # Calculate thresholds if we have influence scores
+            thresholds = np.percentile(influence_scores, percentiles)
+            layer_data = [[] for _ in range(len(thresholds) + 2)]
 
-            layer_data[layer_index].append(feature)
+            # Assign points to layers
+            for change_point in change_layer_dataset["features"]:
+                surrounding_metric_avg = point_influence_map.get(change_point["id"])
+                feature = assign_point_properties(change_point)
+
+                if surrounding_metric_avg is None:
+                    layer_index = -1  # Last layer (unallocated)
+                    feature["properties"]["influence_score"] = None
+                else:
+                    layer_index = next(
+                        (
+                            i
+                            for i, threshold in enumerate(thresholds)
+                            if surrounding_metric_avg <= threshold
+                        ),
+                        len(thresholds),
+                    )
+                    feature["properties"]["influence_score"] = surrounding_metric_avg
+
+                layer_data[layer_index].append(feature)
 
         # Create layers only for non-empty data
         for i, data in enumerate(layer_data):
@@ -1546,6 +1745,8 @@ async def process_color_based_on(
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
+async def update_profile(req):
+    return await update_user_profile(req.user_id, req.model_dump())
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

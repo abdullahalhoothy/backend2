@@ -26,6 +26,7 @@ class ApiConfig(CommonApiConfig):
     fetch_dataset_full_data: str = backend_base_uri + "fetch_dataset/full_data"
     fetch_dataset: str = backend_base_uri + "fetch_dataset"
     save_layer: str = backend_base_uri + "save_layer"
+    delete_layer: str = backend_base_uri + "delete_layer"
     user_layers: str = backend_base_uri + "user_layers"
     prdcer_lyr_map_data: str = backend_base_uri + "prdcer_lyr_map_data"
     nearest_lyr_map_data: str = backend_base_uri + "nearest_lyr_map_data"

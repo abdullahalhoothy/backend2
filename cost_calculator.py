@@ -1,9 +1,10 @@
-from all_types.myapi_dtypes import ReqCostEstimate
+from all_types.myapi_dtypes import ReqFetchDataset
 from all_types.response_dtypes import ResCostEstimate
 from storage import use_json
 import logging
 from backend_common.logging_wrapper import apply_decorator_to_module, preserve_validate_decorator
 from backend_common.logging_wrapper import log_and_validate
+from boolean_query_processor import reduce_to_single_query
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,9 +29,9 @@ def estimate_api_calls(categories_data, included_categories, excluded_categories
     return int(max(min_calls, total_calls) * MAX_CALLS_PER_CITY_PER_CATEGORY)
 
 
-async def calculate_cost(req: ReqCostEstimate):
+async def calculate_cost(req: ReqFetchDataset):
     # Load city info from appropriate json file
-    file_path = f"Backend/country_info/{req.country.lower().replace(' ', '_')}/city_info/{req.city_name.lower().replace(' ', '_')}/ggl_categories.json"
+    file_path = f"Backend/country_info/{req.country_name.lower().replace(' ', '_')}/city_info/{req.city_name.lower().replace(' ', '_')}/ggl_categories.json"
     categories_data = await use_json(file_path, "r")
 
     # Flatten the nested dictionary
@@ -39,9 +40,9 @@ async def calculate_cost(req: ReqCostEstimate):
         for cat in categories_data
         for subcat, value in categories_data[cat].items()
     }
-
+    included_types, excluded_types = reduce_to_single_query(req.boolean_query)
     api_calls = estimate_api_calls(
-        flattened_categories, req.included_categories, req.excluded_categories
+        flattened_categories, included_types, excluded_types
     )
     cost = (api_calls / 1000) * COST_PER_1000_CALLS
 

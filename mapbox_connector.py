@@ -27,8 +27,12 @@ class MapBoxConnector:
 
     @classmethod
     async def new_ggl_to_boxmap(cls, ggl_api_resp) -> MapData:
-        if ggl_api_resp is None:
-            raise HTTPException(status_code=404, detail="no data")
+        if not ggl_api_resp:  # This will handle None, empty string, or empty list
+            return MapData(
+                type="FeatureCollection",
+                features=[],
+                properties=[]
+            ).model_dump()
         
         features = [cls.assign_point_properties(place) for place in ggl_api_resp]
         
@@ -39,8 +43,8 @@ class MapBoxConnector:
             feature_properties = list(features[0]["properties"].keys())
         
         business_data = MapData(
-            type="FeatureCollection", 
-            features=features, 
+            type="FeatureCollection",
+            features=features,
             properties=feature_properties
         )
         return business_data.model_dump()

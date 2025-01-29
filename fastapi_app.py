@@ -34,19 +34,22 @@ from backend_common.dtypes.auth_dtypes import (
     ReqUserProfile,
     ReqRefreshToken,
     ReqCreateUserProfile,
+    UserProfileSettings
 )
 
 from all_types.myapi_dtypes import (
     ReqModel,
     ReqFetchDataset,
     ReqPrdcerLyrMapData,
-    ReqNearestRoute,
+    # ReqNearestRoute,
     ReqCostEstimate,
     ReqSavePrdcerCtlg,
     ReqGradientColorBasedOnZone,
     ReqStreeViewCheck,
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
+    ReqCityCountry,
+    ReqDeletePrdcerLayer
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -60,7 +63,7 @@ from backend_common.auth import (
     change_email,
     db,
     JWTBearer,
-    create_user_profile,
+    create_user_profile
 )
 
 from all_types.response_dtypes import (
@@ -86,18 +89,22 @@ from data_fetcher import (
     fetch_catlog_collection,
     fetch_layer_collection,
     save_lyr,
+    delete_layer,
     aquire_user_lyrs,
     fetch_lyr_map_data,
     save_prdcer_ctlg,
     fetch_prdcer_ctlgs,
     fetch_ctlg_lyrs,
-    fetch_nearby_categories,
+    poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
     process_color_based_on,
     get_user_profile,
-    fetch_nearest_points_Gmap,
+    # fetch_nearest_points_Gmap,
     fetch_country_city_category_map_data,
+    load_area_intelligence_categories,
+    update_profile
+    
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -111,6 +118,8 @@ from backend_common.dtypes.stripe_dtypes import (
     PaymentMethodUpdateReq,
     PaymentMethodRes,
     PaymentMethodAttachReq,
+    TopUpWalletReq,
+    DeductWalletReq
 )
 from backend_common.database import Database
 from backend_common.logging_wrapper import log_and_validate
@@ -133,13 +142,14 @@ from backend_common.stripe_backend import (
     list_payment_methods,
     set_default_payment_method,
     testing_create_card_payment_source,
-    charge_wallet,
+    top_up_wallet,
     fetch_wallet,
+    deduct_from_wallet
 )
 
 # TODO: Add stripe secret key
 
-stripe.api_key = "sk_test_51PligvRtvvmhTtnG3d0Ub16a0KCxdNGxp09t7d83ZQylOK2JZ2JXTAQviqVgilklQ2zDFIkhqyjV6NNnNmKO8CVH00Iox4mOog"  # Add your secret key from
+stripe.api_key = CONF.stripe_api_key
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
@@ -276,12 +286,32 @@ async def country_city():
 
 
 @app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
-async def nearby_categories():
+async def ep_city_categories(
+    # req: ReqModel[ReqCityCountry]
+):
     response = await request_handling(
-        None,
-        None,
+        "",
+        "",
+        # req.request_body,
+        # ReqCityCountry,
         ResModel[dict[str, list[str]]],
-        fetch_nearby_categories,
+        poi_categories,
+        wrap_output=True,
+    )
+    return response
+
+
+@app.get(CONF.nearby_categories, response_model=ResModel[dict[str, list[str]]])
+async def ep_load_area_intelligence_categories(
+    # req: ReqModel[ReqCityCountry]
+):
+    response = await request_handling(
+        "",
+        "",
+        # req.request_body,
+        # ReqCityCountry,
+        ResModel[dict[str, list[str]]],
+        load_area_intelligence_categories,
         wrap_output=True,
     )
     return response
@@ -313,6 +343,19 @@ async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     return response
 
 
+@app.delete(
+    CONF.delete_layer,  
+    response_model=ResModel[str],
+    dependencies=[Depends(JWTBearer())]
+)
+async def delete_layer_ep(req: ReqModel[ReqDeletePrdcerLayer], request: Request):
+    response = await request_handling(
+        req.request_body, ReqDeletePrdcerLayer, ResModel[str], delete_layer, wrap_output=True
+    )
+    return response
+
+
+
 @app.post(CONF.user_layers, response_model=ResModel[list[LayerInfo]])
 async def user_layers(req: ReqModel[ReqUserId]):
     response = await request_handling(
@@ -337,20 +380,20 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     return response
 
 
-@app.post(
-    CONF.nearest_lyr_map_data,
-    description="Get Nearest Point",
-    response_model=ResModel[list[NearestPointRouteResponse]],
-)
-async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
-    response = await request_handling(
-        req.request_body,
-        ReqNearestRoute,
-        ResModel[list[NearestPointRouteResponse]],
-        fetch_nearest_points_Gmap,
-        wrap_output=True,
-    )
-    return response
+# @app.post(
+#     CONF.nearest_lyr_map_data,
+#     description="Get Nearest Point",
+#     response_model=ResModel[list[NearestPointRouteResponse]],
+# )
+# async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
+#     response = await request_handling(
+#         req.request_body,
+#         ReqNearestRoute,
+#         ResModel[list[NearestPointRouteResponse]],
+#         fetch_nearest_points_Gmap,
+#         wrap_output=True,
+#     )
+#     return response
 
 
 @app.post(
@@ -555,10 +598,10 @@ async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Requ
 
 
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
-async def cost_calculator_endpoint(req: ReqModel[ReqCostEstimate], request: Request):
+async def cost_calculator_endpoint(req: ReqModel[ReqFetchDataset], request: Request):
     response = await request_handling(
         req.request_body,
-        ReqCostEstimate,
+        ReqFetchDataset,
         ResModel[ResCostEstimate],
         calculate_cost,
         wrap_output=True,
@@ -609,7 +652,11 @@ async def ep_process_color_based_on(
     return response
 
 
-@app.post(CONF.check_street_view, response_model=ResModel[dict[str, bool]])
+@app.post(
+    CONF.check_street_view,
+    response_model=ResModel[dict[str, bool]],
+    dependencies=[Depends(JWTBearer())],
+)
 async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     response = await request_handling(
         req.request_body,
@@ -662,19 +709,16 @@ async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
 
 # Stripe Wallet
 @app.post(
-    CONF.charge_wallet,
-    description="Charge a customer's wallet in stripe",
+    CONF.top_up_wallet,
+    description="top_up a customer's wallet in stripe",
     tags=["stripe wallet"],
     response_model=ResModel[dict],
 )
-async def charge_wallet_endpoint(user_id: str, amount):
-    response = await charge_wallet(user_id, amount)
-
-    return ResModel(
-        data=response,
-        message="Wallet charged successfully",
-        request_id=str(uuid.uuid4()),
+async def top_up_wallet_endpoint(req: ReqModel[TopUpWalletReq]):
+    response = await request_handling(
+        req.request_body, TopUpWalletReq, ResModel[dict], top_up_wallet, wrap_output=True
     )
+    return response
 
 
 @app.get(
@@ -692,6 +736,17 @@ async def fetch_wallet_endpoint(user_id: str):
     )
     return response
 
+@app.post(
+    CONF.deduct_wallet,
+    description="Deduct amount from customer's wallet in stripe",
+    tags=["stripe wallet"],
+    response_model=ResModel[dict],
+)
+async def deduct_from_wallet_endpoint(req: ReqModel[DeductWalletReq]):
+    response = await request_handling(
+        req.request_body, DeductWalletReq, ResModel[dict], deduct_from_wallet, wrap_output=True
+    )
+    return response
 
 # Stripe Subscriptions
 @app.post(
@@ -897,7 +952,7 @@ async def list_stripe_products_endpoint():
 
 
 @app.post("/fastapi/create_user_profile", response_model=list[dict[Any, Any]])
-async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
+async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 
     response_1 = await request_handling(
         req.request_body,
@@ -930,6 +985,22 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateFirebaseUser]):
         wrap_output=True,
     )
     response = [response_1, response_2, response_3]
+    return response
+
+
+@app.post(
+    "/fastapi/update_user_profile",
+    response_model=ResModel[dict[str, Any]],
+    dependencies=[Depends(JWTBearer())]
+)
+async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
+    response = await request_handling(
+        req.request_body,
+        UserProfileSettings,
+        ResModel[dict[str, Any]],
+        update_profile,
+        wrap_output=True,
+    )
     return response
 
 
