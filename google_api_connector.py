@@ -11,6 +11,7 @@ import requests
 from sympy import Symbol
 from typing import Dict, Set, List
 from all_types.myapi_dtypes import ReqLocation, ReqStreeViewCheck
+from backend_common.utils.utils import convert_strings_to_ints
 from config_factory import CONF
 from backend_common.logging_wrapper import apply_decorator_to_module
 from all_types.response_dtypes import (
@@ -19,7 +20,8 @@ from all_types.response_dtypes import (
     RouteInfo,
 )
 from boolean_query_processor import optimize_query_sequence,test_optimized_queries
-
+from mapbox_connector import MapBoxConnector
+from storage import load_dataset, make_dataset_filename, make_dataset_filename_part, store_data_resp
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
@@ -69,38 +71,86 @@ for category in raw_popularity_data.values():
 
 async def fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[str, Any]], str]:
     try:
+
+        combined_dataset_id = make_dataset_filename(req)
+        existing_combined_data = await load_dataset(combined_dataset_id)
+        
+        if existing_combined_data:
+            logger.info(f"Returning existing combined dataset: {combined_dataset_id}")
+            return existing_combined_data
         optimized_queries = optimize_query_sequence(req.boolean_query, POPULARITY_DATA)
 
-        query_tasks = [
-            execute_single_query(req, included_types, excluded_types)
-            for included_types, excluded_types in optimized_queries
-        ]
+        datasets = {}
+        missing_queries = []
+        
 
-        logger.info(f"Executing {len(optimized_queries)} parallel queries")
-        all_query_results = await asyncio.gather(*query_tasks)
+        for included_types, excluded_types in optimized_queries:
+            full_dataset_id = make_dataset_filename_part(req, included_types, excluded_types)
+            stored_data = await load_dataset(full_dataset_id)
 
-        seen_places = set()
-        all_results = []
+            if stored_data:
+                datasets[full_dataset_id] = stored_data
+            else:
+                missing_queries.append((full_dataset_id, included_types, excluded_types))
 
-        # Log results for each query
-        for i, (results, (included, excluded)) in enumerate(
-            zip(all_query_results, optimized_queries)
-        ):
-            new_results = [r for r in results if r["id"] not in seen_places]
-            logger.info(f"Query {i} results - Include: {included}, Exclude: {excluded}")
-            logger.info(
-                f"  Found {len(results)} total places, {len(new_results)} new places"
-            )
-            seen_places.update(r["id"] for r in new_results)
-            all_results.extend(new_results)
+        if missing_queries:
+            logger.info(f"Fetching {len(missing_queries)} queries from Google Maps API.")
+            query_tasks = [
+                execute_single_query(req, included_types, excluded_types)
+                for _, included_types, excluded_types in missing_queries
+            ]
 
-        logger.info(f"Total unique places found: {len(all_results)}")
-        return all_results, ""
+            all_query_results = await asyncio.gather(*query_tasks)
+
+            for (dataset_id, included, excluded), query_results in zip(missing_queries, all_query_results):
+                    
+                if query_results:  
+                    dataset = await MapBoxConnector.new_ggl_to_boxmap(query_results,req.radius)
+                    dataset = convert_strings_to_ints(dataset)
+                    await store_data_resp(req, dataset, dataset_id)
+                    datasets[dataset_id] = dataset
+
+        # Initialize the combined dictionary
+        combined = {
+            'type': 'FeatureCollection',
+            'features': [],
+            'properties': set()
+        }
+
+        # Initialize a set to keep track of unique IDs
+        seen_ids = set()
+
+        # Iterate through each dataset
+        for dataset in datasets.values():
+            # Add properties to the combined set
+            combined['properties'].update(dataset.get('properties', []))
+            features = dataset.get('features', [])
+            
+            # Iterate through each feature in the dataset
+            for feature in features:
+                feature_id = feature.get('properties', {}).get('id')
+                if feature_id is not None and feature_id not in seen_ids:
+                    combined['features'].append(feature)
+                    seen_ids.add(feature_id)
+
+        # Convert the properties set back to a list (if needed)
+        combined['properties'] = list(combined['properties'])
+
+        if combined:
+            await store_data_resp(req, combined, combined_dataset_id)
+            for feature in combined['features']:
+                if 'properties' in feature and 'id' in feature['properties']:
+                    del feature['properties']['id']
+            logger.info(f"Stored combined dataset: {combined_dataset_id}")
+            logger.info(f"Fetched {len(dataset)} places from Google Maps API and DB.")
+            return combined
+        else:
+            logger.warning("No valid results returned from Google Maps API or DB.")
+            return combined
 
     except Exception as e:
-        # TODO this doesn't reraise the error, not sure what to do about it
         logger.error(f"Error in fetch_from_google_maps_api: {str(e)}")
-        return [], str(e)
+        return str(e)
 
 
 async def execute_single_query(
@@ -157,7 +207,7 @@ async def text_fetch_from_google_maps_api(req: ReqLocation) -> Tuple[List[Dict[s
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": CONF.api_key,
-        "X-Goog-FieldMask": CONF.google_fields,
+        "X-Goog-FieldMask": CONF.google_fields+",nextPageToken",
     }
     data = {
         "textQuery": req.text_search,

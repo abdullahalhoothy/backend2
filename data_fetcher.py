@@ -11,7 +11,7 @@ import numpy as np
 from fastapi import HTTPException
 from fastapi import status
 import requests
-from backend_common.auth import load_user_profile, update_user_profile
+from backend_common.auth import load_user_profile, update_user_profile,update_user_profile_settings
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import upload_file_to_google_cloud_bucket
 from config_factory import CONF
@@ -70,6 +70,7 @@ from storage import (
     make_ggl_layer_filename,
 )
 from boolean_query_processor import reduce_to_single_query
+from popularity_algo import process_plan_popularity
 
 
 logging.basicConfig(
@@ -327,6 +328,9 @@ def to_location_req(
     if not city_data:
         raise ValueError(
             f"City {req_dataset.city_name} not found in {req_dataset.country_name}"
+          
+          
+          
         )
 
     # Create ReqLocation object
@@ -396,22 +400,23 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
 
     # dataset, bknd_dataset_id = await get_dataset_from_storage(req_dataset)
 
-    if not dataset:
 
-        if "default" in search_type or "category_search" in search_type:
-            ggl_api_resp, _ = await fetch_from_google_maps_api(req_dataset)
-        elif "keyword_search" in search_type:
-            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
+    #if not dataset:
 
-        # Store the fetched data in storage
-        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp)
-
+    if "default" in search_type or "category_search" in search_type:
+        dataset = await fetch_from_google_maps_api(req_dataset)
+    elif "keyword_search" in search_type:
+        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req_dataset)
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req_dataset.radius)
         if ggl_api_resp:
-            dataset = convert_strings_to_ints(dataset)
-            bknd_dataset_id = await store_data_resp(
-                req_dataset, dataset, bknd_dataset_id
-            )
-
+           dataset = convert_strings_to_ints(dataset)
+    # Store the fetched data in storage
+    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req_dataset.radius)
+    # if ggl_api_resp:
+    #     dataset = convert_strings_to_ints(dataset)
+    #     bknd_dataset_id = await store_data_resp(
+    #         req_dataset, dataset, bknd_dataset_id
+    #     )
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
@@ -425,7 +430,6 @@ async def fetch_ggl_nearby(req_dataset: ReqLocation, req_create_lyr: ReqFetchDat
             )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
 
 async def rectify_plan(plan_name, current_plan_index):
     plan = await get_plan(plan_name)
@@ -517,7 +521,6 @@ async def process_req_plan(req_dataset, req_create_lyr):
 
         current_plan_index = int(current_plan_index)
 
-        #limit to 30 calls per plan
         if current_plan_index>30:
             raise HTTPException(
                 status_code=488, detail="temporarely disabled for more than 30 searches"
@@ -540,21 +543,26 @@ async def process_req_plan(req_dataset, req_create_lyr):
             )
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = f"page_token={plan_name}@#${current_plan_index + 1}"
 
         if isinstance(req_dataset, ReqCustomData):
-
             next_plan_index = current_plan_index + 1
             bknd_dataset_id = plan[current_plan_index]
             if plan[current_plan_index + 1] == "end of search plan":
                 next_page_token = ""  # End of search plan
+                await process_plan_popularity(plan_name)
             else:
                 next_page_token = (
                     req_dataset.page_token.split("@#$")[0]
                     + "@#$"
                     + str(next_plan_index)
                 )
+
+        # TODO: Remove this after testing Process plan at index 5
+        if current_plan_index == 5:
+            await process_plan_popularity(plan_name)
 
     return req_dataset, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
@@ -786,7 +794,7 @@ async def fetch_country_city_category_map_data(req: ReqFetchDataset):
             lat=city_data.lat,
             lng=city_data.lng,
             bounding_box=city_data.bounding_box,
-            radius=30000,
+            radius=30000.0,
             boolean_query=req.boolean_query,
             page_token=req.page_token,
             text_search=req.text_search,
@@ -1746,7 +1754,7 @@ async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
 async def update_profile(req):
-    return await update_user_profile(req.user_id, req.model_dump())
+    return await update_user_profile_settings(req)
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

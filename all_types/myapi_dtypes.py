@@ -105,7 +105,7 @@ class ReqGeodata(Coordinate):
 
 
 class ReqLocation(Coordinate):
-    radius: int
+    radius: float
     bounding_box: list[float]
     page_token: Optional[str] = ""
     text_search: Optional[str] = ""
