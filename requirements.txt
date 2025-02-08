@@ -19,3 +19,4 @@ stripe
 pandas
 orjson
 sympy
+rich
