@@ -188,11 +188,20 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
 
 
 def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
+    # If lat and lng are provided directly, use them
+    if req.lat is not None and req.lng is not None:
+        req._bounding_box = expand_bounding_box(req.lat, req.lng)
+        return req
+
     # Load country/city data
     country_city_data = load_country_city()
 
     # Find the city coordinates
     city_data = None
+    
+    if not req.city_name:
+        raise ValueError("Either city_name or lat/lng coordinates must be provided")
+
     if req.country_name in country_city_data:
         for city in country_city_data[req.country_name]:
             if city["name"] == req.city_name:

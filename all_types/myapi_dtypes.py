@@ -23,7 +23,7 @@ class ReqModel(BaseModel, Generic[U]):
 
 
 class ReqCityCountry(BaseModel):
-    city_name: str
+    city_name: Optional[str] = None
     country_name: str
 
 
