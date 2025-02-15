@@ -272,27 +272,42 @@ async def fetch_census_realestate(
 
 async def fetch_ggl_nearby(req: ReqFetchDataset):
     search_type = req.search_type
-    next_page_token = req.page_token
     action = req.action
     plan_name = ""
 
-    if req.action == "full data":
-        req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-            await process_req_plan(req)
-        )
-    else:
-        req = fetch_lat_lng_bounding_box(req)
+    # try 30 times to get non empty dataset
+    for _ in range(30):
+        next_page_token = req.page_token
 
-    bknd_dataset_id = make_dataset_filename(req)
+        if req.action == "full data":
+            req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+                await process_req_plan(req)
+            )
+        else:
+            req = fetch_lat_lng_bounding_box(req)
 
-    if "default" in search_type or "category_search" in search_type:
-        dataset = await fetch_from_google_maps_api(req)
-    elif "keyword_search" in search_type:
-        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
-        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
-        if ggl_api_resp:
-            dataset = convert_strings_to_ints(dataset)
+        bknd_dataset_id = make_dataset_filename(req)
 
+        if "default" in search_type or "category_search" in search_type:
+            dataset = await fetch_from_google_maps_api(req)
+        elif "keyword_search" in search_type:
+            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
+            dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
+            if ggl_api_resp:
+                dataset = convert_strings_to_ints(dataset)
+
+        if req.action == "full data" and len(dataset.get("features", "")) == 0:
+            new_page_index = await rectify_plan(plan_name, current_plan_index)
+            if new_page_index == "":
+                break
+            else:
+                req.page_token = (
+                    req.page_token.split("@#$")[0] + "@#$" + str(new_page_index)
+                )
+        else:
+            # continue as usual
+            break
+        
     # if dataset is less than 20 or none and action is full data
     if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
