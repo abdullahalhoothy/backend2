@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
 )
+from llm_functions import process_llm_query_ep
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,7 +51,8 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
     ReqCityCountry,
-    ReqDeletePrdcerLayer
+    ReqDeletePrdcerLayer,
+    LLMFetchDataset
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -335,6 +337,23 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     return response
 
 
+
+@app.post(
+    CONF.process_llm_query,
+    response_model=ResModel[LLMFetchDataset],
+    dependencies=[Depends(JWTBearer())],
+)
+async def process_llm_query_ep(req: ReqModel[LLMFetchDataset], request: Request):
+    response = await request_handling(
+        req.request_body,
+        LLMFetchDataset,
+        ResModel[LLMFetchDataset],
+        process_llm_query,
+        wrap_output=True,
+    )
+    return response
+
+
 @app.post(
     CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
 )
@@ -368,6 +387,9 @@ async def user_layers(req: ReqModel[ReqUserId]):
         wrap_output=True,
     )
     return response
+
+
+
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
