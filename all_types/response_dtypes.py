@@ -124,6 +124,17 @@ class NearestPointRouteResponse(BaseModel):
 class ResGradientColorBasedOnZone(ResLyrMapData):
     sub_lyr_id: str  # This is the additional property
 
+class ResGradientColorBasedOnZoneLLM(BaseModel):
+    layers: List[ResGradientColorBasedOnZone]
+    explanation: str  # This is the additional property
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    
+class ResProcessColorBasedOnLLM(ResGradientColorBasedOnZoneLLM):
+    validation_result:ValidationResult
 
 class ResAddPaymentMethod(BaseModel):
     payment_method_id: str

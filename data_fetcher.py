@@ -27,6 +27,7 @@ from all_types.response_dtypes import (
     LayerInfo,
     UserCatalogInfo,
     NearestPointRouteResponse,
+    ResProcessColorBasedOnLLM
 )
 from google_api_connector import (
     calculate_distance_traffic_route,
@@ -68,6 +69,8 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
+from backend_common.llm_backend.agents import (ExplanationAgent,ReqGradientColorBasedOnZoneAgent,PromptValidationAgent,OutputValidationAgent)
+
 
 
 logging.basicConfig(
@@ -188,11 +191,20 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
 
 
 def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
+    # If lat and lng are provided directly, use them
+    if req.lat is not None and req.lng is not None:
+        req._bounding_box = expand_bounding_box(req.lat, req.lng)
+        return req
+
     # Load country/city data
     country_city_data = load_country_city()
 
     # Find the city coordinates
     city_data = None
+    
+    if not req.city_name:
+        raise ValueError("Either city_name or lat/lng coordinates must be provided")
+
     if req.country_name in country_city_data:
         for city in country_city_data[req.country_name]:
             if city["name"] == req.city_name:
@@ -275,11 +287,6 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         req = fetch_lat_lng_bounding_box(req)
 
     bknd_dataset_id = make_dataset_filename(req)
-    # dataset = await load_dataset(bknd_dataset_id)
-
-    # dataset, bknd_dataset_id = await get_dataset_from_storage(req)
-
-    # if not dataset:
 
     if "default" in search_type or "category_search" in search_type:
         dataset = await fetch_from_google_maps_api(req)
@@ -288,16 +295,8 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
         if ggl_api_resp:
             dataset = convert_strings_to_ints(dataset)
-    # Store the fetched data in storage
-    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req.radius)
-    # if ggl_api_resp:
-    #     dataset = convert_strings_to_ints(dataset)
-    #     bknd_dataset_id = await store_data_resp(
-    #         req, dataset, bknd_dataset_id
-    #     )
+
     # if dataset is less than 20 or none and action is full data
-    #     call function rectify plan
-    #     replace next_page_token with next non-skip page token
     if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
@@ -1220,16 +1219,11 @@ async def calculate_nearest_points_drive_time(
             origin = f"{target['latitude']},{target['longitude']}"
             destination = f"{nearest[0]},{nearest[1]}"
 
-            try:
-                # Fetch route information between target and nearest location
+            # Fetch route information between target and nearest location
+            if origin != destination:
                 route_info = await calculate_distance_traffic_route(origin, destination)
                 target_routes.routes.append(route_info)
-            except HTTPException as e:
-                # Handle HTTP exceptions during the route fetching
-                target_routes.routes.append({"error": str(e.detail)})
-            except Exception as e:
-                # Handle any other exceptions
-                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
+
 
         results.append(target_routes)
 
@@ -1370,9 +1364,13 @@ async def process_color_based_on(
 
             # Get minimum static drive time from routes
             for route in target_routes.routes:
-                if route.route and route.route[0].static_duration:
-                    static_time = int(route.route[0].static_duration.replace("s", ""))
-                    min_static_time = min(min_static_time, static_time)
+                try:
+                    if route.route and route.route[0].static_duration:
+                        static_time = int(route.route[0].static_duration.replace("s", ""))
+                        min_static_time = min(min_static_time, static_time)
+                except:
+                    pause=1
+            
 
             # Find the point with matching coordinates
             for change_point in change_layer_dataset["features"]:
@@ -1632,6 +1630,36 @@ async def process_color_based_on(
         return new_layers
 
 
+
+async def process_color_based_on_llm(req:ReqPrompt)-> ResProcessColorBasedOnLLM:
+    prompt=req.prompt
+    user_id=req.user_id
+    user_layers=await fetch_user_layers(user_id)
+    # validate the prompt
+    validation_agent=PromptValidationAgent()
+    validation_result=validation_agent(prompt,user_layers)
+    response=ResProcessColorBasedOnLLM(layers=[],explanation="",validation_result=validation_result)
+    if validation_result.is_valid:
+        agent=ReqGradientColorBasedOnZoneAgent()
+        output_validation_agent=OutputValidationAgent()
+        #explanation_agent=ExplanationAgent()
+        output=agent(prompt,user_layers)
+        validation_output_result=output_validation_agent(prompt,output,user_layers)
+        if validation_output_result.is_valid:
+            try:
+                new_layers=await process_color_based_on(output)
+                #response=explanation_agent(prompt,new_layers)
+                response.layers=new_layers
+                #response.explanation=response
+            except Exception as e:
+                #response=explanation_agent(prompt,str(e))
+                #final_output.layers=[]
+                #final_output.explanation=response
+                pass
+        else:
+            response.validation_result=validation_output_result
+    return response
+
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
@@ -1639,6 +1667,55 @@ async def get_user_profile(req):
 async def update_profile(req):
     return await update_user_profile_settings(req)
 
+
+
+# Filter Functions 
+# filter by name
+async def filter_by_name(layer_data:List[dict],name:str)->List[dict]:
+    return [point for point in layer_data if point["properties"]["name"]==name]
+
+# filter by property
+async def filter_by_property(layer_data:List[dict],property_name:str,property_value:str)->List[dict]:
+    filtred_point=[]
+    for point in layer_data:
+        if point["properties"].get("property_name",0)>=property_value:
+            filtred_point.append(point)
+    return filtred_point
+
+# filter by drive time 
+async def filter_by_drive_time(layer_data:List[dict],target:dict,drive_time:int):
+    nearest_locations={"target":target,"nearest_coordinates":[]}
+    for point in layer_data:
+        coordinates={
+            "latitude":point["geometry"]["coordinates"][1],
+            "longitude":point["geometry"]["coordinates"][0]
+        }
+        nearest_locations["nearest_coordinates"].append(coordinates)
+    filtred_points=filter_locations_by_drive_time(nearest_locations,drive_time)
+    filtred_layer=[]
+    for point in layer_data:
+        cordoonates={
+            "latitude":point["geometry"]["coordinates"][1],
+            "longitude":point["geometry"]["coordinates"][0]
+        }
+        if cordoonates in filtred_points["nearest_coordinates"]:
+            filtred_layer.append(point)
+            
+    return filtred_layer
+
+# filter by distance 
+async def filter_by_distance(layer_data:List[dict],target:dict,distance:int):
+    filtred_layer=[]
+
+    for point in layer_data:
+        coordinates={
+            "latitude":point["geometry"]["coordinates"][1],
+            "longitude":point["geometry"]["coordinates"][0]
+        }
+        if calculate_distance(coordinates,target)<=distance:
+               filtred_layer.append(point)
+    
+    return filtred_layer
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

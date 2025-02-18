@@ -145,3 +145,7 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
+
+class ReqPrompt(BaseModel):
+    user_id: str
+    prompt: str
