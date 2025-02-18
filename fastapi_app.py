@@ -15,7 +15,7 @@ from fastapi import (
     File,
     Form,
 )
-from llm_functions import process_llm_query_ep
+from fetch_dataset_llm import process_llm_query_ep
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,7 +52,7 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-    LLMFetchDataset
+    ReqLLMDataset
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -82,6 +82,7 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
+    ResLLMDataset
 )
 
 from google_api_connector import check_street_view_availability
@@ -340,15 +341,15 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
 
 @app.post(
     CONF.process_llm_query,
-    response_model=ResModel[LLMFetchDataset],
+    response_model=ResModel[ReqLLMDataset],
     dependencies=[Depends(JWTBearer())],
 )
-async def process_llm_query_ep(req: ReqModel[LLMFetchDataset], request: Request):
+async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
     response = await request_handling(
         req.request_body,
-        LLMFetchDataset,
-        ResModel[LLMFetchDataset],
-        process_llm_query,
+        ReqLLMDataset,
+        ResModel[ResLLMDataset],
+        process_llm_query_ep,
         wrap_output=True,
     )
     return response

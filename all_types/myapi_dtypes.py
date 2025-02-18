@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Optional
+from typing import Dict, List, TypeVar, Generic, Optional, Literal
 
 from pydantic import BaseModel, Field
 
@@ -145,7 +145,7 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
-class LLMFetchDataset(BaseModel):
+class ReqLLMDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
     query: str = Field(
