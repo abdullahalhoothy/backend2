@@ -15,7 +15,7 @@ from fastapi import (
     File,
     Form,
 )
-from fetch_dataset_llm import process_llm_query_ep
+from fetch_dataset_llm import process_llm_query
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -341,7 +341,7 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
 
 @app.post(
     CONF.process_llm_query,
-    response_model=ResModel[ReqLLMDataset],
+    response_model=ResModel[ResLLMDataset],
     dependencies=[Depends(JWTBearer())],
 )
 async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
@@ -349,7 +349,7 @@ async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
         req.request_body,
         ReqLLMDataset,
         ResModel[ResLLMDataset],
-        process_llm_query_ep,
+        process_llm_query,
         wrap_output=True,
     )
     return response
