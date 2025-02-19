@@ -144,7 +144,7 @@ def extract_location_info(Request: ReqLLMDataset) -> ReqLLMDataset:
     return response
 
 
-def process_llm_query_ep(Request: ReqLLMDataset):
+def process_llm_query(Request: ReqLLMDataset):
     query = Request.query
     text = "User Query = "+Request.query + "\n" + " ReqLLMDataset = " + Request.json() 
     system_message = """
