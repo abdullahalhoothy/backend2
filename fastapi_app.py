@@ -50,7 +50,8 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
     ReqCityCountry,
-    ReqDeletePrdcerLayer
+    ReqDeletePrdcerLayer,
+    ReqPrompt
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -80,6 +81,7 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
+    ResProcessColorBasedOnLLM
 )
 
 from google_api_connector import check_street_view_availability
@@ -105,7 +107,8 @@ from data_fetcher import (
     # fetch_nearest_points_Gmap,
     fetch_dataset,
     load_area_intelligence_categories,
-    update_profile
+    update_profile,
+    process_color_based_on_llm
     
 )
 from backend_common.dtypes.stripe_dtypes import (
@@ -1001,6 +1004,20 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     )
     return response
 
+@app.post(
+        CONF.gradient_color_based_on_zone+"_llm",
+        response_model=ResModel[ResProcessColorBasedOnLLM],   
+)
+async def ep_process_color_based_on_llm(
+    req:ReqModel[ReqPrompt], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqPrompt,
+        ResModel[ResProcessColorBasedOnLLM],
+        process_color_based_on_llm,
+        wrap_output=True,
+    )
+    return response
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
 

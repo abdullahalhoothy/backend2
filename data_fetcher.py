@@ -26,7 +26,10 @@ from all_types.response_dtypes import (
     ResLyrMapData,
     LayerInfo,
     UserCatalogInfo,
-    NearestPointRouteResponse
+    NearestPointRouteResponse,
+    ResProcessColorBasedOnLLM,
+    
+
 )
 from google_api_connector import (
     calculate_distance_traffic_route,
@@ -68,7 +71,7 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
-
+from agents import (ExplanationAgent,PromptValidationAgent,OutputValidationAgent,ReqGradientColorBasedOnZoneAgent)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1672,6 +1675,41 @@ async def get_user_profile(req):
 
 async def update_profile(req):
     return await update_user_profile_settings(req)
+
+
+# llm agent call
+
+async def process_color_based_on_llm(req:ReqPrompt)-> ResProcessColorBasedOnLLM:
+    prompt=req.prompt
+    user_id=req.user_id
+    user_layers=req.layers
+    if not user_layers:
+        user_layers=await fetch_user_layers(user_id)
+    # validate the prompt
+    validation_agent=PromptValidationAgent()
+    validation_result=validation_agent(prompt,user_layers)
+    response=ResProcessColorBasedOnLLM(layers=[],explanation="",validation_result=validation_result)
+    if validation_result.is_valid:
+        agent=ReqGradientColorBasedOnZoneAgent()
+        output_validation_agent=OutputValidationAgent()
+        #explanation_agent=ExplanationAgent()
+        output=agent(prompt,user_layers)
+        validation_output_result=output_validation_agent(prompt,output,user_layers)
+        if validation_output_result.is_valid:
+            try:
+                new_layers=await process_color_based_on(output)
+                #response=explanation_agent(prompt,new_layers)
+                response.layers=new_layers
+                #response.explanation=response
+            except Exception as e:
+                #response=explanation_agent(prompt,str(e))
+                #final_output.layers=[]
+                #final_output.explanation=response
+                pass
+        else:
+            response.validation_result=validation_output_result
+    return response
+
 
 
 # Apply the decorator to all functions in this module

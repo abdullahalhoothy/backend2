@@ -20,3 +20,5 @@ pandas
 orjson
 sympy
 rich
+langchain
+langchain-openai
