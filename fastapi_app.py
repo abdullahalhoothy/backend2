@@ -102,15 +102,15 @@ from data_fetcher import (
     poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    process_color_based_on,
+    
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_dataset,
     load_area_intelligence_categories,
-    update_profile,
-    process_color_based_on_llm
+    update_profile
     
 )
+from recoler_filter import (process_color_based_on,process_color_based_on_agent)
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
     ProductRes,
@@ -1008,13 +1008,13 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
         CONF.gradient_color_based_on_zone+"_llm",
         response_model=ResModel[ResProcessColorBasedOnLLM],   
 )
-async def ep_process_color_based_on_llm(
+async def ep_process_color_based_on_agent(
     req:ReqModel[ReqPrompt], request: Request):
     response = await request_handling(
         req.request_body,
         ReqPrompt,
         ResModel[ResProcessColorBasedOnLLM],
-        process_color_based_on_llm,
+        process_color_based_on_agent,
         wrap_output=True,
     )
     return response
