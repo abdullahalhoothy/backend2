@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
 )
+from fetch_dataset_llm import process_llm_query
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +52,11 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
+<<<<<<< Updated upstream
     ReqPrompt
+=======
+    ReqLLMDataset
+>>>>>>> Stashed changes
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -81,7 +86,11 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
+<<<<<<< Updated upstream
     ResProcessColorBasedOnLLM
+=======
+    ResLLMDataset
+>>>>>>> Stashed changes
 )
 
 from google_api_connector import check_street_view_availability
@@ -338,6 +347,23 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     return response
 
 
+
+@app.post(
+    CONF.process_llm_query,
+    response_model=ResModel[ResLLMDataset],
+    dependencies=[Depends(JWTBearer())],
+)
+async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqLLMDataset,
+        ResModel[ResLLMDataset],
+        process_llm_query,
+        wrap_output=True,
+    )
+    return response
+
+
 @app.post(
     CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
 )
@@ -371,6 +397,9 @@ async def user_layers(req: ReqModel[ReqUserId]):
         wrap_output=True,
     )
     return response
+
+
+
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
