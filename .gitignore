@@ -1,7 +1,6 @@
 **/__pycache__/
 **/*desktop.ini
 **secrets*
-**plan_*
 **/venv
 **/.venv
 pc_venv/
@@ -20,3 +19,7 @@ all_types/__pycache__/**
 
 # user files
 docker-compose.yml
+
+# test ipynb
+*.csv
+saudi_supermarkets_20250218_121912.json
