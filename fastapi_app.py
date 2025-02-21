@@ -52,11 +52,8 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-<<<<<<< Updated upstream
     ReqPrompt
-=======
     ReqLLMDataset
->>>>>>> Stashed changes
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -86,11 +83,8 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
-<<<<<<< Updated upstream
     ResProcessColorBasedOnLLM
-=======
     ResLLMDataset
->>>>>>> Stashed changes
 )
 
 from google_api_connector import check_street_view_availability

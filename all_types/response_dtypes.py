@@ -139,7 +139,6 @@ class PaymentMethod(BaseModel):
 class ResGetPaymentMethods(BaseModel):
     payment_methods: List[PaymentMethod]
 
-<<<<<<< Updated upstream
 # types for llm agents
 class ResGradientColorBasedOnZoneLLM(BaseModel):
     layers: List[ResGradientColorBasedOnZone]
@@ -152,7 +151,6 @@ class ValidationResult(BaseModel):
 
 class ResProcessColorBasedOnLLM(ResGradientColorBasedOnZoneLLM):
     validation_result:ValidationResult
-=======
 
 class ResLLMDataset(BaseModel):
     """Extract Location Based Information from the Query"""
@@ -181,4 +179,3 @@ class ResLLMDataset(BaseModel):
         default = '',
         description = "The cost value returned by calculate_cost_tool"
     )
->>>>>>> Stashed changes

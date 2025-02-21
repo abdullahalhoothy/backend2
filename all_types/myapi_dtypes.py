@@ -145,13 +145,11 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
-<<<<<<< Updated upstream
 # User prompt -> llm
 class ReqPrompt(BaseModel):
     user_id: str
     layers: List[Dict[str, Any]]
     prompt: str
-=======
 class ReqLLMDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
@@ -179,4 +177,3 @@ class ReqLLMDataset(BaseModel):
         default = '',
         description = "The cost value returned by calculate_cost_tool"
     )
->>>>>>> Stashed changes
