@@ -1,12 +1,10 @@
 import logging
-import math
-import geopy.distance
 from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Tuple, Optional
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
-import numpy as np
+
 from fastapi import HTTPException
 from fastapi import status
 from backend_common.auth import (
@@ -22,17 +20,11 @@ from backend_common.gbucket import (
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
-    ResGradientColorBasedOnZone,
     ResLyrMapData,
     LayerInfo,
-    UserCatalogInfo,
-    NearestPointRouteResponse,
-    ResProcessColorBasedOnLLM,
-    
-
+    UserCatalogInfo
 )
 from google_api_connector import (
-    calculate_distance_traffic_route,
     fetch_from_google_maps_api,
     text_fetch_from_google_maps_api,
 )
@@ -71,7 +63,6 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
-from agents import (ExplanationAgent,PromptValidationAgent,OutputValidationAgent,ReqGradientColorBasedOnZoneAgent)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1059,28 +1050,6 @@ def calculate_thresholds(values: List[float]) -> List[float]:
     except Exception as e:
         raise ValueError(f"Error in calculate_thresholds: {str(e)}")
 
-
-def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
-    """
-    Calculates the distance between two points in kilometers using the Haversine formula.
-    """
-    try:
-        R = 6371
-        lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
-        lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = (
-            math.sin(dlat / 2) ** 2
-            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-        )
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = R * c
-        return distance
-    except Exception as e:
-        raise ValueError(f"Error in calculate_distance_km: {str(e)}")
-
-
 async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
     """
     Loads and returns a dictionary of area intelligence categories.
@@ -1167,12 +1136,6 @@ async def given_layer_fetch_dataset(layer_id: str):
     return all_datasets, layer_metadata
 
 
-def assign_point_properties(point):
-    return {
-        "type": "Feature",
-        "geometry": point["geometry"],
-        "properties": point.get("properties", {}),
-    }
 
 
 # async def fetch_nearest_points_Gmap(
@@ -1210,465 +1173,6 @@ def assign_point_properties(point):
 #             status_code=400, detail=f"An error occurred: {str(e)}"
 #         ) from e
 
-
-async def filter_for_nearest_points(
-    category_coordinates: List[Dict[str, float]],
-    bussiness_target_coordinates: List[Dict[str, float]],
-    num_points_per_target=3,
-) -> List[Dict[str, Any]]:
-    nearest_locations = []
-    for target in bussiness_target_coordinates:
-        distances = []
-        for loc in category_coordinates:
-            dist = calculate_distance_km(
-                (target["longitude"], target["latitude"]),
-                (loc["longitude"], loc["latitude"]),
-            )
-            distances.append(
-                {
-                    "latitude": loc["latitude"],
-                    "longitude": loc["longitude"],
-                    "distance": dist,
-                }
-            )
-
-        # Sort distances and get the nearest 3
-        nearest = sorted(distances, key=lambda x: x["distance"])[:num_points_per_target]
-        nearest_locations.append(
-            {
-                "target": target,
-                "nearest_coordinates": [
-                    (loc["latitude"], loc["longitude"]) for loc in nearest
-                ],
-            }
-        )
-
-    return nearest_locations
-
-
-async def calculate_nearest_points_drive_time(
-    nearest_locations: List[Dict[str, Any]]
-) -> List[NearestPointRouteResponse]:
-    results = []
-    for item in nearest_locations:
-        target = item["target"]
-        target_routes = NearestPointRouteResponse(target=target, routes=[])
-
-        for nearest in item["nearest_coordinates"]:
-            origin = f"{target['latitude']},{target['longitude']}"
-            destination = f"{nearest[0]},{nearest[1]}"
-
-            # Fetch route information between target and nearest location
-            if origin != destination:
-                route_info = await calculate_distance_traffic_route(origin, destination)
-                target_routes.routes.append(route_info)
-
-
-        results.append(target_routes)
-
-    return results
-
-
-def filter_locations_by_drive_time(
-    nearest_locations: List[Dict[str, Any]], coverage_minutes: float
-) -> List[Dict[str, Any]]:
-    """
-    Filter coordinates near target locations based on estimated driving distance.
-
-    Args:
-        nearest_locations: List of dicts containing targets and their nearest coordinates
-        coverage_minutes: Desired drive time in minutes
-
-    Returns:
-        List of filtered locations with coordinates within estimated driving distance
-    """
-    AVERAGE_SPEED_MPS = 11.11  # Average urban speed of 40 km/h = 11.11 m/s
-    desired_time_seconds = coverage_minutes * 60  # Convert minutes to seconds
-    estimated_distance_meters = AVERAGE_SPEED_MPS * desired_time_seconds
-
-    filtered_nearest_locations: List[Dict[str, Any]] = []
-    for location in nearest_locations:
-        target = location["target"]
-        filtered_coords: List[Tuple[float, float]] = []
-        for nearest_coord in location["nearest_coordinates"]:
-            actual_distance = geodesic(
-                (target["latitude"], target["longitude"]), nearest_coord
-            ).meters
-            if actual_distance <= estimated_distance_meters:
-                filtered_coords.append(nearest_coord)
-
-        filtered_nearest_locations.append(
-            {
-                "target": target,
-                "nearest_coordinates": filtered_coords,  # This might be empty
-            }
-        )
-
-    return filtered_nearest_locations
-
-
-def average_metric_of_surrounding_points(
-    color_based_on, point, based_on_dataset, radius
-):
-    lat, lon = (
-        point["geometry"]["coordinates"][1],
-        point["geometry"]["coordinates"][0],
-    )
-
-    nearby_metric_value = []
-
-    for point_2 in based_on_dataset["features"]:
-        if color_based_on not in point_2["properties"]:
-            continue
-
-        distance = geodesic(
-            (lat, lon),
-            (
-                point_2["geometry"]["coordinates"][1],
-                point_2["geometry"]["coordinates"][0],
-            ),
-        ).meters
-
-        if distance <= radius:
-            nearby_metric_value.append(point_2["properties"][color_based_on])
-
-    if nearby_metric_value:
-        cleaned_list = [float(x) for x in nearby_metric_value 
-                        if str(x).strip() and not isinstance(x, bool)]
-        return np.mean(cleaned_list)
-    else:
-        return None
-
-
-def calculate_distance(coord1, coord2):
-    """
-    Calculate the distance between two points (latitude and longitude) in meters.
-    """
-    return geopy.distance.distance(
-        (coord1["latitude"], coord1["longitude"]),
-        (coord2["latitude"], coord2["longitude"]),
-    ).meters
-
-
-async def process_color_based_on(
-    req: ReqGradientColorBasedOnZone,
-) -> List[ResGradientColorBasedOnZone]:
-    change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(
-        req.change_lyr_id
-    )
-    based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(
-        req.based_on_lyr_id
-    )
-    based_on_coordinates = [
-        {
-            "latitude": point["geometry"]["coordinates"][1],
-            "longitude": point["geometry"]["coordinates"][0],
-        }
-        for point in based_on_layer_dataset["features"]
-    ]
-
-    to_be_changed_coordinates = [
-        {
-            "latitude": point["geometry"]["coordinates"][1],
-            "longitude": point["geometry"]["coordinates"][0],
-        }
-        for point in change_layer_dataset["features"]
-    ]
-    if (
-        req.coverage_property == "drive_time"
-    ):  # currently drive does not take into account ANY based on property
-
-        # Get nearest points
-        # instead of always producing three pointsthat are nearestI want totake the amount of time that the user wantedto have his location to be inand find what would bethe equivalent distance assumingregular drive conditions and regular speed limitand have that distance in metersbe the radius that we will use to determine the points that are closeand then we will find the nearest pointssuch that its maximum of three pointsbut maybe within that distancewe can only find one point
-        nearest_locations = await filter_for_nearest_points(
-            based_on_coordinates, to_be_changed_coordinates, num_points_per_target=2
-        )
-
-        filtered_nearest_locations = filter_locations_by_drive_time(
-            nearest_locations, req.coverage_value
-        )
-
-        # Calculate routes with Google Maps
-        route_results = await calculate_nearest_points_drive_time(
-            filtered_nearest_locations
-        )
-
-        # Main function
-        within_time_features = []
-        outside_time_features = []
-        unallocated_features = []
-
-        for target_routes in route_results:
-            min_static_time = float("inf")
-
-            # Get minimum static drive time from routes
-            for route in target_routes.routes:
-                try:
-                    if route.route and route.route[0].static_duration:
-                        static_time = int(route.route[0].static_duration.replace("s", ""))
-                        min_static_time = min(min_static_time, static_time)
-                except:
-                    pause=1
-            
-
-            # Find the point with matching coordinates
-            for change_point in change_layer_dataset["features"]:
-                if (
-                    change_point["geometry"]["coordinates"][1]
-                    == target_routes.target["latitude"]
-                    and change_point["geometry"]["coordinates"][0]
-                    == target_routes.target["longitude"]
-                ):
-
-                    feature = assign_point_properties(change_point)
-
-                    if min_static_time != float("inf"):
-                        drive_time_minutes = min_static_time / 60
-                        if drive_time_minutes <= req.coverage_value:
-                            within_time_features.append(feature)
-                        else:
-                            outside_time_features.append(feature)
-                    else:
-                        unallocated_features.append(feature)
-                    break
-
-        # Create the three layers
-        new_layers = []
-        base_layer_name = f"{req.change_lyr_name} based on {req.based_on_lyr_name}"
-
-        layer_configs = [
-            {
-                "features": within_time_features,
-                "category": "within_drivetime",
-                "name_suffix": "Within Drive Time",
-                "color": req.color_grid_choice[0],
-                "legend": f"Drive Time ≤ {req.coverage_value} m",
-                "description": f"Points within {req.coverage_value} minutes drive time",
-            },
-            {
-                "features": outside_time_features,
-                "category": "outside_drivetime",
-                "name_suffix": "Outside Drive Time",
-                "color": req.color_grid_choice[-1],
-                "legend": f"Drive Time > {req.coverage_value} m",
-                "description": f"Points outside {req.coverage_value} minutes drive time",
-            },
-            {
-                "features": unallocated_features,
-                "category": "unallocated_drivetime",
-                "name_suffix": "Unallocated Drive Time",
-                "color": "#FFFFFF",
-                "legend": "No route available",
-                "description": "Points with no available route information",
-            },
-        ]
-
-        for config in layer_configs:
-            if config["features"]:
-                new_layers.append(
-                    ResGradientColorBasedOnZone(
-                        type="FeatureCollection",
-                        features=config["features"],
-                        properties=list(
-                            config["features"][0].get("properties", {}).keys()
-                        ),
-                        prdcer_layer_name=f"{base_layer_name} ({config['name_suffix']})",
-                        prdcer_lyr_id=str(uuid.uuid4()),
-                        sub_lyr_id=f"{req.change_lyr_id}_{config['category']}_{req.based_on_lyr_id}",
-                        bknd_dataset_id=req.change_lyr_id,
-                        points_color=config["color"],
-                        layer_legend=config["legend"],
-                        layer_description=f"{config['description']}. Layer {req.change_lyr_id} based on {req.based_on_lyr_id}",
-                        records_count=len(config["features"]),
-                        city_name=change_layer_metadata.get(
-                            "city_name", ""
-                        ),  # Added city_name field
-                        is_zone_lyr="true",
-                    )
-                )
-
-        return new_layers
-
-
-    if req.color_based_on == "name":
-        # Validate input conditions
-        if not req.list_names:
-            raise ValueError("list_names must be provided when color_based_on is 'name'.")
-        if req.based_on_lyr_id != req.change_lyr_id:
-            raise ValueError("Based_on and change layers must be identical for name-based coloring")
-
-        # Normalize names for case-insensitive comparison
-        list_names_lower = [name.strip().lower() for name in req.list_names]
-        
-        # Determine colors to use
-        original_color = req.change_lyr_orginal_color
-        new_color = req.change_lyr_new_color
-
-        # Categorize features
-        matched_features = []
-        unmatched_features = []
-        
-        for feature in change_layer_dataset["features"]:
-            feature_name = feature["properties"].get("name", "").strip().lower()
-            
-            # Check for partial substring matches
-            if any(search_name in feature_name for search_name in list_names_lower):
-                matched_features.append(assign_point_properties(feature))
-            else:
-                unmatched_features.append(assign_point_properties(feature))
-
-        # Create result layers
-        new_layers = []
-        base_layer_name = f"{req.change_lyr_name} - Name Match"
-
-        if matched_features:
-            new_layers.append(
-                ResGradientColorBasedOnZone(
-                    type="FeatureCollection",
-                    features=matched_features,
-                    properties=list(matched_features[0].get("properties", {}).keys()),
-                    prdcer_layer_name=f"{base_layer_name} (Matched)",
-                    prdcer_lyr_id=str(uuid.uuid4()),
-                    sub_lyr_id=f"{req.change_lyr_id}_matched",
-                    bknd_dataset_id=req.change_lyr_id,
-                    points_color=new_color,
-                    layer_legend=f"Contains: {', '.join(req.list_names)}",
-                    layer_description=f"Features matching names: {', '.join(req.list_names)}",
-                    records_count=len(matched_features),
-                    city_name=change_layer_metadata.get("city_name", ""),
-                    is_zone_lyr="true",
-                )
-            )
-
-        if unmatched_features:
-            new_layers.append(
-                ResGradientColorBasedOnZone(
-                    type="FeatureCollection",
-                    features=unmatched_features,
-                    properties=list(unmatched_features[0].get("properties", {}).keys()),
-                    prdcer_layer_name=f"{base_layer_name} (Unmatched)",
-                    prdcer_lyr_id=str(uuid.uuid4()),
-                    sub_lyr_id=f"{req.change_lyr_id}_unmatched",
-                    bknd_dataset_id=req.change_lyr_id,
-                    points_color=original_color,
-                    layer_legend="No name match",
-                    layer_description="Features without matching names",
-                    records_count=len(unmatched_features),
-                    city_name=change_layer_metadata.get("city_name", ""),
-                    is_zone_lyr="true",
-                )
-            )
-
-        return new_layers
-    else:
-
-        # Calculate influence scores for change_layer_dataset and store them
-        influence_scores = []
-        point_influence_map = {}
-        for change_point in change_layer_dataset["features"]:
-            change_point["id"] = str(uuid.uuid4())
-            surrounding_metric_avg = average_metric_of_surrounding_points(
-                req.color_based_on,
-                change_point,
-                based_on_layer_dataset,
-                req.coverage_value,
-            )
-            if surrounding_metric_avg is not None:
-                influence_scores.append(surrounding_metric_avg)
-                point_influence_map[change_point["id"]] = surrounding_metric_avg
-
-        # Create layers
-        new_layers = []
-
-        # Calculate thresholds based on influence scores
-        percentiles = [16.67, 33.33, 50, 66.67, 83.33]
-
-        # Initialize layer data
-        if not influence_scores:
-            # If no scores, create single layer of unallocated points
-            layer_data = [[]] * (len(percentiles) + 1) + [
-                [
-                    assign_point_properties(point)
-                    for point in change_layer_dataset["features"]
-                ]
-            ]
-            thresholds = []  # Empty thresholds since we have no scores
-        else:
-            # Calculate thresholds if we have influence scores
-            thresholds = np.percentile(influence_scores, percentiles)
-            layer_data = [[] for _ in range(len(thresholds) + 2)]
-
-            # Assign points to layers
-            for change_point in change_layer_dataset["features"]:
-                surrounding_metric_avg = point_influence_map.get(change_point["id"])
-                feature = assign_point_properties(change_point)
-
-                if surrounding_metric_avg is None:
-                    layer_index = -1  # Last layer (unallocated)
-                    feature["properties"]["influence_score"] = None
-                else:
-                    layer_index = next(
-                        (
-                            i
-                            for i, threshold in enumerate(thresholds)
-                            if surrounding_metric_avg <= threshold
-                        ),
-                        len(thresholds),
-                    )
-                    feature["properties"]["influence_score"] = surrounding_metric_avg
-
-                layer_data[layer_index].append(feature)
-
-        # Create layers only for non-empty data
-        for i, data in enumerate(layer_data):
-            if data:
-                color = (
-                    req.color_grid_choice[i]
-                    if i < len(req.color_grid_choice)
-                    else "#FFFFFF"
-                )
-                if i == len(layer_data) - 1:
-                    layer_name = "Unallocated Points"
-                    layer_legend = "No nearby points"
-                elif i == 0:
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = f"Influence Score < {thresholds[0]:.2f}"
-                elif i == len(thresholds):
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = f"Influence Score > {thresholds[-1]:.2f}"
-                else:
-                    layer_name = f"Gradient Layer {i+1}"
-                    layer_legend = (
-                        f"Influence Score {thresholds[i-1]:.2f} - {thresholds[i]:.2f}"
-                    )
-
-                # Extract properties from first feature if available
-                properties = []
-                if data and len(data) > 0:
-                    first_feature = data[0]
-                    properties = list(first_feature.get("properties", {}).keys())
-
-                new_layers.append(
-                    ResGradientColorBasedOnZone(
-                        type="FeatureCollection",
-                        features=data,
-                        properties=properties,  # Add the properties list here
-                        prdcer_layer_name=layer_name,
-                        prdcer_lyr_id=req.change_lyr_id,
-                        sub_lyr_id=f"{req.change_lyr_id}_gradient_{i+1}",
-                        bknd_dataset_id=req.change_lyr_id,
-                        points_color=color,
-                        layer_legend=layer_legend,
-                        layer_description=f"Gradient layer based on nearby {req.color_based_on} influence",
-                        records_count=len(data),
-                        city_name=change_layer_metadata.get("city_name", ""),
-                        is_zone_lyr="true",
-                    )
-                )
-
-        return new_layers
-
-
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
 
@@ -1679,36 +1183,7 @@ async def update_profile(req):
 
 # llm agent call
 
-async def process_color_based_on_llm(req:ReqPrompt)-> ResProcessColorBasedOnLLM:
-    prompt=req.prompt
-    user_id=req.user_id
-    user_layers=req.layers
-    if not user_layers:
-        user_layers=await fetch_user_layers(user_id)
-    # validate the prompt
-    validation_agent=PromptValidationAgent()
-    validation_result=validation_agent(prompt,user_layers)
-    response=ResProcessColorBasedOnLLM(layers=[],explanation="",validation_result=validation_result)
-    if validation_result.is_valid:
-        agent=ReqGradientColorBasedOnZoneAgent()
-        output_validation_agent=OutputValidationAgent()
-        #explanation_agent=ExplanationAgent()
-        output=agent(prompt,user_layers)
-        validation_output_result=output_validation_agent(prompt,output,user_layers)
-        if validation_output_result.is_valid:
-            try:
-                new_layers=await process_color_based_on(output)
-                #response=explanation_agent(prompt,new_layers)
-                response.layers=new_layers
-                #response.explanation=response
-            except Exception as e:
-                #response=explanation_agent(prompt,str(e))
-                #final_output.layers=[]
-                #final_output.explanation=response
-                pass
-        else:
-            response.validation_result=validation_output_result
-    return response
+
 
 
 
