@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-from typing import Dict, List, TypeVar, Generic, Optional, Any
-=======
-from typing import Dict, List, TypeVar, Generic, Optional, Literal
->>>>>>> Stashed changes
+from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
