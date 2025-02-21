@@ -9,12 +9,39 @@ import contextily as ctx
 
 
 def define_boundary(bounding_box):
+    """
+    args: 
+    ----
+    A list of tuples containing containing lng, lat information. 
+    The legth of the list must be [3,inf)
+
+    return: 
+    ------
+    A shapely polygon
+    """
     boundary = Polygon([[p[0], p[1]] for p in bounding_box])
     return boundary
 
 def get_population_by_zoom_in_bounding_box(population_data=None, 
                                            zoom_level=None, 
                                            bounding_box=None):
+    """
+    args:
+    ----
+    
+    `populaton_data` is a dataframe of census data 
+    containing population column for each population center as a point geometry
+
+    `zoom_level` is the level of the zoom that is present in the dataset
+
+    `bounding box` is the shapely polygon create by `define_boundary` function
+
+
+    return:
+    ------
+
+    DataFrame filtered using bounding box and zoom_level
+    """
     population_data = gpd.GeoDataFrame(
           population_data, geometry=gpd.points_from_xy(population_data.longitude, 
                                                        population_data.latitude)
@@ -24,17 +51,23 @@ def get_population_by_zoom_in_bounding_box(population_data=None,
     pop_by_zoom = pop_by_zoom.loc[pop_by_zoom.within(city_boundary)]
     return pop_by_zoom
     
-def get_places_data_old(places_data=None, 
-                    place=None, 
-                    bounding_box=None):
-    places = places_data.loc[places_data.filename.str.contains(place)].response_data.map(json.loads).map(lambda x: gpd.GeoDataFrame.from_features(x["features"])).values.tolist()
-    places = pd.concat(places).reset_index()
-    city_boundary = define_boundary(bounding_box)
-    places = places.loc[places.within(city_boundary)]
-    return places
 
 def get_places_data(places_data=None, 
                     bounding_box=None):
+    
+    """
+    args:
+    ----
+
+    `places_data` is the dataframe of destinations forexample supermarkets, pharmecies etc.
+    `bounding box` is the shapely polygon create by `define_boundary` function
+
+    return:
+    ------
+
+    DataFrame filtered using bounding box
+    """
+
     places = places_data.data.map(lambda x: gpd.GeoDataFrame.from_features(x["features"])).values.tolist()
     places = pd.concat(places).reset_index()
     city_boundary = define_boundary(bounding_box)
@@ -44,6 +77,19 @@ def get_places_data(places_data=None,
 def create_grid(population=None, 
                 grid_size=None):
     
+    """
+    args:
+    ----
+
+    `pouplation` is the filtered data set from `get_population_by_zoom_in_bounding_box`
+    `grid_size` is the size of the grid. if set None the grid size will be calculated based on the 
+    available data. donot set its value unless necessary
+
+    return:
+    ------
+    A dataframe containing geometry column having polygon covering the ROI
+    """
+
     minx, miny, maxx, maxy = population.total_bounds
     a_grid_size = (((maxx-minx) * (maxy-miny))/(population.shape[0]))**(0.5)
     if grid_size is None:
@@ -56,8 +102,19 @@ def create_grid(population=None,
     grid = gpd.GeoDataFrame(geometry=grid_cells, crs=population.crs)
     return grid
 
-
 def haversine(lat1_array, lon1_array, lat2_array, lon2_array):
+    """
+    args:
+    `lat1_array, lon1_array, lat2_array, lon2_array` are the arrays of origins and destinations.
+    lat1, lon1 are for the origins in degrres (population center)
+    lat2, lon2 are for the destination in degrees (places)
+
+    return:
+    ------
+    A numpy array for distance matrix calculated using haversine formula which takes inaccount the 
+    curvature of the earth. The returned distances are in km
+    """
+
     lat1_rad, lon1_rad = np.radians(lat1_array), np.radians(lon1_array)
     lat2_rad, lon2_rad = np.radians(lat2_array), np.radians(lon2_array)
 
@@ -77,6 +134,18 @@ def haversine(lat1_array, lon1_array, lat2_array, lon2_array):
 
 
 def get_grids_of_data(origins, destinations, distnace_limit):
+    """
+    args:
+    ----
+    `origins` are the population centers in a form if geodataframe
+    `destinations` are the places geodataframe
+    `distance_limit` is a max distance a person is willing to travel to reach destination
+
+    return:
+    ------
+    a single geodataframe containing popygons (grids) for entire ROI and aggregated data for each grid
+    cell (population, places counts)
+    """
     matrix = haversine(origins.latitude.values, 
                         origins.longitude.values,
                         destinations.latitude.values,
@@ -128,20 +197,57 @@ def get_grids_of_data(origins, destinations, distnace_limit):
     return data
 
 def select_nbrs_with_sum(i, cost, max_share, shares, used):
-        x = np.argsort(cost)
-        value = 0
-        nbrs = []
-        for i in x:
-            if i in used:
-                continue
-            value += shares[i]
-            nbrs.append(i)
-            if value>=max_share:
-                break
-        return nbrs
+    """
+    A helper function for clustering funtionality. It makes sure that the cluster are formed by neighboring
+    gridcells and calculates the sum of indicator value for each itteration.
 
-def get_clusters_for_sales_man(num_sales_man, population, places, bounding_box, distance_limit=2.5, zoom_level=5):
+    args:
+    ----
+    `i` is index of the origin
+    `cost` is od distnace matrix
+    `max_share` is the max share of the indicator each cluster can have
+    `shares` is the assigned value to each destination
+    `used` is the a list of gridcells that are taken
 
+    return:
+    ------
+    a list of neighboring gridcells for origin i that will become of cluster
+    """
+    x = np.argsort(cost)
+    value = 0
+    nbrs = []
+    for i in x:
+        if i in used:
+            continue
+        value += shares[i]
+        nbrs.append(i)
+        if value>=max_share:
+            break
+    return nbrs
+
+def get_clusters_for_sales_man(num_sales_man, 
+                               population, 
+                               places, 
+                               bounding_box, 
+                               distance_limit=2.5, 
+                               zoom_level=5):
+
+    """
+    Main funtion to produce the clusters for the salesman problem
+    args:
+    ----
+    `num_sales_man` is the number of cluster we want in the final output geodataframe
+    `population` is the raw census dataframe
+    `places` is the raw places fataframe containing responese column
+    `bounding_box` is the shapely polygon to define ROI
+    `distance_limit` is the max distace a cosumer is willing to travel to reach destination
+    `zoom_level` is the zoom_level for the census data
+
+    return:
+    ------
+    A geodataframe constaining gridcells (polygons) under geometry column 
+    each grid cell is classfied by cluster index under group column
+    """
     population = get_population_by_zoom_in_bounding_box(population_data=population, 
                                                         zoom_level=zoom_level, 
                                                         bounding_box=bounding_box)
@@ -194,7 +300,26 @@ def get_clusters_for_sales_man(num_sales_man, population, places, bounding_box, 
     masked_grided_data["group"] = masked_grided_data["group"].map(return_group_number)
     return  masked_grided_data
 
-def plot_results(grided_data, n_cols, n_rows, colors, alpha=0.8, show_legends=True, edge_color="white", show_title=True):
+def plot_results(grided_data, 
+                 n_cols, 
+                 n_rows, 
+                 colors, 
+                 alpha=0.8, 
+                 show_legends=True, 
+                 edge_color="white", 
+                 show_title=True):
+    """
+    args:
+    ----
+    `grided_data` is the geodataframe
+    `n_cols` is the number of cols in th plot
+    `n_rows` is the number of rows in th plot
+    `colors` if the list of color maps for each plot
+    `alpha` is the opacity of the colors
+    `show_legends` flag to turn legeneds on or off
+    `edge_color` to define the edge colors of the gridcells
+    `show_title` flag to show or hide the title
+    """
     grid = grided_data.copy(deep=True)
 
     single_fig_width = 8
