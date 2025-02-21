@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
 )
+from fetch_dataset_llm import process_llm_query
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,7 +52,7 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-    ReqPrompt
+    ReqLLMDataset
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -81,7 +82,7 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
-    ResProcessColorBasedOnLLM
+    ResLLMDataset
 )
 
 from google_api_connector import check_street_view_availability
@@ -102,7 +103,7 @@ from data_fetcher import (
     poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    
+    process_color_based_on,
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_dataset,
@@ -110,7 +111,6 @@ from data_fetcher import (
     update_profile
     
 )
-from recoler_filter import (process_color_based_on,process_color_based_on_agent)
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
     ProductRes,
@@ -338,6 +338,23 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     return response
 
 
+
+@app.post(
+    CONF.process_llm_query,
+    response_model=ResModel[ResLLMDataset],
+    dependencies=[Depends(JWTBearer())],
+)
+async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqLLMDataset,
+        ResModel[ResLLMDataset],
+        process_llm_query,
+        wrap_output=True,
+    )
+    return response
+
+
 @app.post(
     CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
 )
@@ -373,6 +390,9 @@ async def user_layers(req: ReqModel[ReqUserId]):
     return response
 
 
+
+
+
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
 async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     response = await request_handling(
@@ -383,6 +403,22 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
         wrap_output=True,
     )
     return response
+
+
+# @app.post(
+#     CONF.nearest_lyr_map_data,
+#     description="Get Nearest Point",
+#     response_model=ResModel[list[NearestPointRouteResponse]],
+# )
+# async def calculate_nearest_route(req: ReqModel[ReqNearestRoute]):
+#     response = await request_handling(
+#         req.request_body,
+#         ReqNearestRoute,
+#         ResModel[list[NearestPointRouteResponse]],
+#         fetch_nearest_points_Gmap,
+#         wrap_output=True,
+#     )
+#     return response
 
 
 @app.post(
@@ -1004,20 +1040,6 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     )
     return response
 
-@app.post(
-        CONF.gradient_color_based_on_zone+"_llm",
-        response_model=ResModel[ResProcessColorBasedOnLLM],   
-)
-async def ep_process_color_based_on_agent(
-    req:ReqModel[ReqPrompt], request: Request):
-    response = await request_handling(
-        req.request_body,
-        ReqPrompt,
-        ResModel[ResProcessColorBasedOnLLM],
-        process_color_based_on_agent,
-        wrap_output=True,
-    )
-    return response
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
 
