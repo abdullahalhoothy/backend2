@@ -38,10 +38,7 @@ async def filter_for_nearest_points(
     for target in bussiness_target_coordinates:
         distances = []
         for loc in category_coordinates:
-            dist = calculate_distance_km(
-                (target["longitude"], target["latitude"]),
-                (loc["longitude"], loc["latitude"]),
-            )
+            dist = calculate_distance(target, loc)/1000 # to km
             distances.append(
                 {
                     "latitude": loc["latitude"],
@@ -62,6 +59,7 @@ async def filter_for_nearest_points(
         )
 
     return nearest_locations
+
 
 
 
@@ -122,27 +120,6 @@ def average_metric_of_surrounding_points(
     else:
         return None
     
-
-
-def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
-    """
-    Calculates the distance between two points in kilometers using the Haversine formula.
-    """
-    try:
-        R = 6371
-        lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
-        lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = (
-            math.sin(dlat / 2) ** 2
-            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-        )
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = R * c
-        return distance
-    except Exception as e:
-        raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
 def filter_locations_by_drive_time(
