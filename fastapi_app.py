@@ -53,7 +53,8 @@ from all_types.myapi_dtypes import (
     ReqCityCountry,
     ReqDeletePrdcerLayer,
     ReqLLMDataset,
-    ReqPrompt
+    ReqPrompt,
+    ValidationResult
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -84,7 +85,6 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
     LayerInfo,
     ResLLMDataset,
-    ResProcessColorBasedOnLLM
 )
 
 from google_api_connector import check_street_view_availability
@@ -105,7 +105,6 @@ from data_fetcher import (
     poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    process_color_based_on,
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_dataset,
@@ -153,6 +152,7 @@ from backend_common.stripe_backend import (
     fetch_wallet,
     deduct_from_wallet
 )
+from recoler_filter import (process_color_based_on_agent,process_color_based_on)
 
 # TODO: Add stripe secret key
 
@@ -335,21 +335,6 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
         ReqFetchDataset,
         ResModel[ResFetchDataset],
         fetch_dataset,
-        wrap_output=True,
-    )
-    return response
-
-@app.post(
-        CONF.gradient_color_based_on_zone+"_llm",
-        response_model=ResModel[ResProcessColorBasedOnLLM],   
-)
-async def ep_process_color_based_on_agent(
-    req:ReqModel[ReqPrompt], request: Request):
-    response = await request_handling(
-        req.request_body,
-        ReqPrompt,
-        ResModel[ResProcessColorBasedOnLLM],
-        process_color_based_on_agent,
         wrap_output=True,
     )
     return response
@@ -1055,6 +1040,20 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     )
     return response
 
+@app.post(
+        CONF.gradient_color_based_on_zone+"_llm",
+        response_model=ResModel[ValidationResult],   
+)
+async def ep_process_color_based_on_agent(
+    req:ReqModel[ReqPrompt], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqPrompt,
+        ResModel[ValidationResult],
+        process_color_based_on_agent,
+        wrap_output=True,
+    )
+    return response
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
 
