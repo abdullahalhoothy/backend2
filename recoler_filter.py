@@ -65,6 +65,8 @@ async def filter_for_nearest_points(
 
 
 
+
+
 async def calculate_nearest_points_drive_time(
     nearest_locations: List[Dict[str, Any]]
 ) -> List[NearestPointRouteResponse]:
@@ -121,7 +123,6 @@ def average_metric_of_surrounding_points(
     else:
         return None
     
-
 
 
 def filter_locations_by_drive_time(
