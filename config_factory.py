@@ -47,7 +47,6 @@ class ApiConfig(CommonApiConfig):
     gcloud_slocator_bucket_name:str = "s-locator"
     gcloud_images_bucket_path:str = "postgreSQL/dbo_operational/raw_schema_marketplace/catalog_thumbnails"
     gcloud_bucket_credentials_json_path:str = "secrets/weighty-gasket-437422-h6-a9caa84da98d.json"
-    process_llm_query:str = backend_base_uri + "process_llm_query"
 
     @classmethod
     def get_conf(cls):
