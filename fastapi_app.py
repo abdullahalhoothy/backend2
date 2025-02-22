@@ -51,7 +51,8 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-    ReqPrompt
+    ReqPrompt,
+    ValidationResult
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -81,7 +82,6 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
-    ResProcessColorBasedOnLLM
 )
 
 from google_api_connector import check_street_view_availability
@@ -1006,14 +1006,14 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
 
 @app.post(
         CONF.gradient_color_based_on_zone+"_llm",
-        response_model=ResModel[ResProcessColorBasedOnLLM],   
+        response_model=ResModel[ValidationResult],   
 )
 async def ep_process_color_based_on_agent(
     req:ReqModel[ReqPrompt], request: Request):
     response = await request_handling(
         req.request_body,
         ReqPrompt,
-        ResModel[ResProcessColorBasedOnLLM],
+        ResModel[ValidationResult],
         process_color_based_on_agent,
         wrap_output=True,
     )

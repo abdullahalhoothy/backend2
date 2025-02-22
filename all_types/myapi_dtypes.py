@@ -150,3 +150,10 @@ class ReqPrompt(BaseModel):
     user_id: str
     layers: List[Dict[str, Any]]
     prompt: str
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    endpoint: Optional[str] = None
+    body: ReqGradientColorBasedOnZone = None

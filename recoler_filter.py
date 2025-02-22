@@ -693,36 +693,32 @@ async def process_color_based_on(
         return new_layers
     
 
-async def process_color_based_on_agent(req:ReqPrompt)-> ResProcessColorBasedOnLLM:
+
+async def process_color_based_on_agent(req:ReqPrompt)-> ValidationResult:
     prompt=req.prompt
     user_id=req.user_id
     user_layers=req.layers
     if not user_layers:
         user_layers=await fetch_user_layers(user_id)
-    # validate the prompt
-    validation_agent=PromptValidationAgent()
-    validation_result=validation_agent(prompt,user_layers)
-    response=ResProcessColorBasedOnLLM(layers=[],explanation="",validation_result=validation_result)
-    if validation_result.is_valid:
-        agent=ReqGradientColorBasedOnZoneAgent()
+
+    # validate the prompt'
+    prompt_validation_agent=PromptValidationAgent()
+    prompt_validation_result=prompt_validation_agent(prompt,user_layers)
+    
+    if prompt_validation_result.is_valid:
+        recolor_agent=ReqGradientColorBasedOnZoneAgent()
         output_validation_agent=OutputValidationAgent()
-        #explanation_agent=ExplanationAgent()
-        output=agent(prompt,user_layers)
-        validation_output_result=output_validation_agent(prompt,output,user_layers)
-        if validation_output_result.is_valid:
-            try:
-                new_layers=await process_color_based_on(output)
-                #response=explanation_agent(prompt,new_layers)
-                response.layers=new_layers
-                #response.explanation=response
-            except Exception as e:
-                #response=explanation_agent(prompt,str(e))
-                #final_output.layers=[]
-                #final_output.explanation=response
-                pass
-        else:
-            response.validation_result=validation_output_result
-    return response
+
+        recolor_object=recolor_agent(prompt,user_layers)
+        validation_recolor_object=output_validation_agent(prompt,recolor_object,user_layers)
+
+        if validation_recolor_object.is_valid:
+            validation_recolor_object.endpoint="gradient_color_based_on_zone"
+            validation_recolor_object.body=recolor_object
+
+        return validation_recolor_object
+    return prompt_validation_result
+
 
 # filter based on 
 async def filter_based_on(req: ReqGradientColorBasedOnZone):
