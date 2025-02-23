@@ -695,6 +695,7 @@ async def fetch_dataset(req: ReqFetchDataset):
     geojson_dataset["records_count"] = len(geojson_dataset.get("features", ""))
     geojson_dataset["prdcer_lyr_id"] = layer_id
     geojson_dataset["next_page_token"] = next_page_token
+    geojson_dataset["progress"] = user_data["prdcer"]["prdcer_dataset"]["progress"]
     return geojson_dataset
 
 
