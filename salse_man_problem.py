@@ -204,7 +204,7 @@ def select_nbrs_with_sum(i : int,
                          cost : np.ndarray, 
                          max_share : float, 
                          shares : dict, 
-                         used : list) -> list:
+                         used : list[int]) -> list[int]:
     """
     A helper function for clustering funtionality. It makes sure that the cluster are formed by neighboring
     gridcells and calculates the sum of indicator value for each itteration.
@@ -316,7 +316,7 @@ def get_clusters_for_sales_man(num_sales_man : int,
 def plot_results(grided_data : gpd.GeoDataFrame, 
                  n_cols :int, 
                  n_rows : int, 
-                 colors : list, 
+                 colors : list[str], 
                  alpha : float  = 0.8, 
                  show_legends : bool = True, 
                  edge_color : str = "white", 
