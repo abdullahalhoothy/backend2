@@ -22,3 +22,4 @@ docker-compose.yml
 
 *.csv
 saudi_supermarkets_20250218_121912.json
+saudi_pharmacies_20250222_214042.json

@@ -7,12 +7,12 @@ import shapely
 import contextily as ctx
 
 
-def define_boundary(bounding_box: list[tuple]):
+def define_boundary(bounding_box: list[tuple[float, float]]) -> Polygon:
     """
     args: 
     ----
     A list of tuples containing containing lng, lat information. 
-    The legth of the list must be [3,inf)
+    The length of the list must be [3,inf)
 
     return: 
     ------
@@ -23,7 +23,7 @@ def define_boundary(bounding_box: list[tuple]):
 
 def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | None = None, 
                                            zoom_level: int | None = None, 
-                                           bounding_box: list[tuple] | None = None):
+                                           bounding_box: list[tuple] | None = None) -> gpd.GeoDataFrame:
     """
     args:
     ----
@@ -52,7 +52,7 @@ def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | 
     
 
 def get_places_data(places_data : gpd.GeoDataFrame | None = None, 
-                    bounding_box : list[tuple] | None = None):
+                    bounding_box : list[tuple] | None = None) -> gpd.GeoDataFrame:
     
     """
     args:
@@ -74,7 +74,7 @@ def get_places_data(places_data : gpd.GeoDataFrame | None = None,
     return places
 
 def create_grid(population : gpd.GeoDataFrame | None = None, 
-                grid_size : int | None = None):
+                grid_size : int | None = None) -> gpd.GeoDataFrame:
     
     """
     args:
@@ -104,7 +104,7 @@ def create_grid(population : gpd.GeoDataFrame | None = None,
 def haversine(lat1_array : np.ndarray, 
               lon1_array : np.ndarray, 
               lat2_array : np.ndarray, 
-              lon2_array : np.ndarray):
+              lon2_array : np.ndarray) -> np.ndarray:
     """
     args:
     `lat1_array, lon1_array, lat2_array, lon2_array` are the arrays of origins and destinations.
@@ -137,7 +137,7 @@ def haversine(lat1_array : np.ndarray,
 
 def get_grids_of_data(origins : gpd.GeoDataFrame, 
                       destinations : gpd.GeoDataFrame, 
-                      distanace_limit: float):
+                      distanace_limit: float) -> gpd.GeoDataFrame:
     """
     args:
     ----
@@ -204,7 +204,7 @@ def select_nbrs_with_sum(i : int,
                          cost : np.ndarray, 
                          max_share : float, 
                          shares : dict, 
-                         used : list):
+                         used : list) -> list:
     """
     A helper function for clustering funtionality. It makes sure that the cluster are formed by neighboring
     gridcells and calculates the sum of indicator value for each itteration.
@@ -238,7 +238,7 @@ def get_clusters_for_sales_man(num_sales_man : int,
                                places : gpd.GeoDataFrame, 
                                bounding_box : list[tuple], 
                                distance_limit : float = 2.5, 
-                               zoom_level : int = 5):
+                               zoom_level : int = 5) -> gpd.GeoDataFrame:
 
     """
     Main funtion to produce the clusters for the salesman problem
@@ -298,7 +298,12 @@ def get_clusters_for_sales_man(num_sales_man : int,
         if j >= num_sales_man:
             break
 
-    def return_group_number(index):
+    def return_group_number(index : int) -> int:
+        """
+        Returns back the class/group index for each grid cell based in the `groups` dict
+        `groups` is the dict created in the `get_clusters_for_sales_man`
+        `index`is the index of the gridcell in the `masked_grided_data`
+        """
         for k, v in groups.items():
             if index in v:
                 return k
@@ -315,7 +320,7 @@ def plot_results(grided_data : gpd.GeoDataFrame,
                  alpha : float  = 0.8, 
                  show_legends : bool = True, 
                  edge_color : str = "white", 
-                 show_title : bool = True):
+                 show_title : bool = True) -> None:
     """
     args:
     ----
