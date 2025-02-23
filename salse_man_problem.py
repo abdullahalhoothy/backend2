@@ -23,7 +23,7 @@ def define_boundary(bounding_box: list[tuple[float, float]]) -> Polygon:
 
 def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | None = None, 
                                            zoom_level: int | None = None, 
-                                           bounding_box: list[tuple] | None = None) -> gpd.GeoDataFrame:
+                                           bounding_box: list[tuple[float, float]] | None = None) -> gpd.GeoDataFrame:
     """
     args:
     ----
@@ -52,7 +52,7 @@ def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | 
     
 
 def get_places_data(places_data : gpd.GeoDataFrame | None = None, 
-                    bounding_box : list[tuple] | None = None) -> gpd.GeoDataFrame:
+                    bounding_box : list[tuple[float, float]] | None = None) -> gpd.GeoDataFrame:
     
     """
     args:
@@ -236,7 +236,7 @@ def select_nbrs_with_sum(i : int,
 def get_clusters_for_sales_man(num_sales_man : int, 
                                population : gpd.GeoDataFrame, 
                                places : gpd.GeoDataFrame, 
-                               bounding_box : list[tuple], 
+                               bounding_box : list[tuple[float, float]], 
                                distance_limit : float = 2.5, 
                                zoom_level : int = 5) -> gpd.GeoDataFrame:
 
@@ -247,7 +247,7 @@ def get_clusters_for_sales_man(num_sales_man : int,
     `num_sales_man` is the number of cluster we want in the final output geodataframe
     `population` is the raw census dataframe
     `places` is the raw places fataframe containing responese column
-    `bounding_box` is the shapely polygon to define ROI
+    `bounding_box` is a list if longitude, latitude pair
     `distance_limit` is the max distace a cosumer is willing to travel to reach destination
     `zoom_level` is the zoom_level for the census data
 
