@@ -1,4 +1,5 @@
 import logging
+import random
 from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Tuple, Optional
@@ -695,7 +696,9 @@ async def fetch_dataset(req: ReqFetchDataset):
     geojson_dataset["records_count"] = len(geojson_dataset.get("features", ""))
     geojson_dataset["prdcer_lyr_id"] = layer_id
     geojson_dataset["next_page_token"] = next_page_token
-    geojson_dataset["progress"] = user_data["prdcer"]["prdcer_dataset"]["progress"]
+    geojson_dataset["progress"] = (
+        user_data.get("prdcer", {}).get("prdcer_dataset", {}).get("progress", 0)
+    )
     return geojson_dataset
 
 
@@ -859,6 +862,7 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         city_name=layer_metadata.get("city_name"),
         records_count=dataset_info.get("records_count"),
         is_zone_lyr="false",
+        progress=random.randint(0, 100),
     )
 
 

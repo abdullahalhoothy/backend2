@@ -88,6 +88,7 @@ class LayerInfo(BaseModel):
     records_count: int
     city_name: str
     is_zone_lyr: str
+    progress: Optional[int]
 
 
 class ResLyrMapData(MapData, LayerInfo):
