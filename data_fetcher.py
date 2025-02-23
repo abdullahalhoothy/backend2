@@ -688,9 +688,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 
 
         user_data = await load_user_profile(req.user_id)
-        user_data["prdcer"]["prdcer_dataset"][
-            plan_name.replace("plan_", "")
-        ] = plan_name
+        user_data["prdcer"]["prdcer_dataset"]["dataset_plan"] = plan_name
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
