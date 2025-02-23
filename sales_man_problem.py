@@ -33,7 +33,7 @@ def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | 
 
     `zoom_level` is the level of the zoom that is present in the dataset
 
-    `bounding box` is the shapely polygon create by `define_boundary` function
+    `bounding box` is the list of lon lat pair to develope a shapely polygon
 
 
     return:
@@ -49,8 +49,36 @@ def get_population_by_zoom_in_bounding_box(population_data : gpd.GeoDataFrame | 
     city_boundary = define_boundary(bounding_box)
     pop_by_zoom = pop_by_zoom.loc[pop_by_zoom.within(city_boundary)]
     return pop_by_zoom
-    
 
+
+def get_income_by_zoom_in_bounding_box(income_data : gpd.GeoDataFrame | None = None, 
+                                        zoom_level: int | None = None, 
+                                        bounding_box: list[tuple[float, float]] | None = None) -> gpd.GeoDataFrame:
+    """
+    args:
+    ----
+    
+    `income_data` is a dataframe of income data 
+
+    `zoom_level` is the level of the zoom that is present in the dataset
+
+    `bounding box` is the list of lon lat pair to develope a shapely polygon
+
+
+    return:
+    ------
+
+    DataFrame filtered using bounding box and zoom_level
+    """
+    income_data = gpd.GeoDataFrame(
+          income_data, geometry=gpd.points_from_xy(income_data.longitude, 
+                                                   income_data.latitude)
+      )
+    inc_by_zoom =  income_data.loc[income_data.zoom_level == zoom_level]
+    city_boundary = define_boundary(bounding_box)
+    inc_by_zoom = inc_by_zoom.loc[inc_by_zoom.within(city_boundary)]
+    return inc_by_zoom
+    
 def get_places_data(places_data : gpd.GeoDataFrame | None = None, 
                     bounding_box : list[tuple[float, float]] | None = None) -> gpd.GeoDataFrame:
     
@@ -59,7 +87,7 @@ def get_places_data(places_data : gpd.GeoDataFrame | None = None,
     ----
 
     `places_data` is the dataframe of destinations forexample supermarkets, pharmecies etc.
-    `bounding box` is the shapely polygon create by `define_boundary` function
+    `bounding box` is the list of lon lat pair to develope a shapely polygon
 
     return:
     ------
@@ -137,12 +165,14 @@ def haversine(lat1_array : np.ndarray,
 
 def get_grids_of_data(origins : gpd.GeoDataFrame, 
                       destinations : gpd.GeoDataFrame, 
+                      weights : gpd.GeoDataFrame,
                       distanace_limit: float) -> gpd.GeoDataFrame:
     """
     args:
     ----
     `origins` are the population centers in a form if geodataframe
     `destinations` are the places geodataframe
+    `weights` are the income dataframes in this context for each population center keep `None` if unavailable
     `distance_limit` is a max distance a person is willing to travel to reach destination
 
     return:
@@ -173,7 +203,11 @@ def get_grids_of_data(origins : gpd.GeoDataFrame,
                 break
 
     origins["number_of_accessibile_markets"] = [len(i) for i in od_cost_matrix.values()]
-    origins["effective_population"] = origins["population"]/origins["number_of_accessibile_markets"]
+
+    if weights is None:
+        origins["effective_population"] = origins["population"]/origins["number_of_accessibile_markets"]
+    else:
+        origins["effective_population"] = (origins["population"].values*weights["income"].values)/origins["number_of_accessibile_markets"].values
 
     market = {k:[] for k in range(matrix.shape[1])}
     for i in range(matrix.shape[1]):
@@ -187,14 +221,13 @@ def get_grids_of_data(origins : gpd.GeoDataFrame,
 
     poulation_grid = gpd.sjoin(origins, grid, how="left", predicate="within")
     places_grid = gpd.sjoin(destinations, grid, how="left", predicate="within")
-
     data = pd.concat([
-        grid,
-        poulation_grid.groupby("index_right")["population"].sum().rename("number_of_persons"),
-        poulation_grid.groupby("index_right")["effective_population"].sum().rename("effective_population"),
-        places_grid.groupby("index_right")["geometry"].count().rename("number_of_supermarkets"),
-        places_grid.groupby("index_right")["market"].sum().rename("number_of_potential_customers"),
-    ], axis=1)
+            grid,
+            poulation_grid.groupby("index_right")["population"].sum().rename("number_of_persons"),
+            poulation_grid.groupby("index_right")["effective_population"].sum().rename("effective_population"),
+            places_grid.groupby("index_right")["geometry"].count().rename("number_of_supermarkets"),
+            places_grid.groupby("index_right")["market"].sum().rename("number_of_potential_customers"),
+        ], axis=1)
 
     mask = ~data.iloc[:,1:].isna().all(axis=1)
     data = data.loc[mask].fillna(0.0).reset_index(drop=True)
@@ -235,9 +268,10 @@ def select_nbrs_with_sum(i : int,
 
 def get_clusters_for_sales_man(num_sales_man : int, 
                                population : gpd.GeoDataFrame, 
-                               places : gpd.GeoDataFrame, 
+                               places : gpd.GeoDataFrame,
+                               weights : gpd.GeoDataFrame,
                                bounding_box : list[tuple[float, float]], 
-                               distance_limit : float = 2.5, 
+                               distance_limit : float = 2.5,
                                zoom_level : int = 5) -> gpd.GeoDataFrame:
 
     """
@@ -246,7 +280,8 @@ def get_clusters_for_sales_man(num_sales_man : int,
     ----
     `num_sales_man` is the number of cluster we want in the final output geodataframe
     `population` is the raw census dataframe
-    `places` is the raw places fataframe containing responese column
+    `places` is the raw places dataframe containing responese column
+    `weights` is the raw income data
     `bounding_box` is a list if longitude, latitude pair
     `distance_limit` is the max distace a cosumer is willing to travel to reach destination
     `zoom_level` is the zoom_level for the census data
@@ -257,19 +292,24 @@ def get_clusters_for_sales_man(num_sales_man : int,
     each grid cell is classfied by cluster index under group column
     """
     population = get_population_by_zoom_in_bounding_box(population_data=population, 
-                                                        zoom_level=zoom_level, 
+                                                        zoom_level=zoom_level,
                                                         bounding_box=bounding_box)
 
     places = get_places_data(places_data=places, 
                             bounding_box=bounding_box).assign(longitude=lambda x: x.geometry.x,
                                                                 latitude=lambda x: x.geometry.y)
+    if weights is not None:
+        weights = get_income_by_zoom_in_bounding_box(income_data=weights,
+                                                     zoom_level=zoom_level,
+                                                     bounding_box=bounding_box)
+
     
     places = places.loc[places.geometry.drop_duplicates().index]
     
     origins = population[["geometry", "longitude", "latitude", "population"]].reset_index(drop=True)
     destinations = places[["geometry", "longitude", "latitude"]].reset_index(drop=True)
     
-    grided_data = get_grids_of_data(origins, destinations, distance_limit)
+    grided_data = get_grids_of_data(origins, destinations, weights, distance_limit)
     mask = (grided_data.number_of_potential_customers>0)
     masked_grided_data = grided_data[mask].reset_index(drop=True)
     
