@@ -228,7 +228,7 @@ class PromptValidationAgent:
         OUTPUT FORMAT:
         You must return a JSON object with the following structure:
         {format_instruction}
-        example:
+
         {{
             "is_valid": boolean,
             "reason": string (only if is_valid is false),
@@ -338,7 +338,6 @@ class OutputValidationAgent:
         You must return a JSON object with the following structure:
         {format_instruction}
 
-        example:
         {{
             "is_valid": boolean,
             "reason": string (only if is_valid is false),

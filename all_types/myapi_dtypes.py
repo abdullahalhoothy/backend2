@@ -187,3 +187,6 @@ class ReqLLMDataset(BaseModel):
         default = '',
         description = "The cost value returned by calculate_cost_tool"
     )
+
+class ReqFilter(ReqGradientColorBasedOnZone):
+    threshold: float|str

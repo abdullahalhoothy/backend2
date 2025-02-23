@@ -65,8 +65,6 @@ async def filter_for_nearest_points(
 
 
 
-
-
 async def calculate_nearest_points_drive_time(
     nearest_locations: List[Dict[str, Any]]
 ) -> List[NearestPointRouteResponse]:
@@ -123,6 +121,27 @@ def average_metric_of_surrounding_points(
     else:
         return None
     
+
+
+def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
+    """
+    Calculates the distance between two points in kilometers using the Haversine formula.
+    """
+    try:
+        R = 6371
+        lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
+        lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance = R * c
+        return distance
+    except Exception as e:
+        raise ValueError(f"Error in calculate_distance_km: {str(e)}")
 
 
 def filter_locations_by_drive_time(
@@ -435,12 +454,26 @@ def filter_by_property(change_layer_dataset: Dict[str, Any], property_name: str,
     unmatched_features = []
     
     for feature in change_layer_dataset["features"]:
-        feature_property_value = feature["properties"].get(property_name)
+        feature_property=feature["properties"]
+        feature_property_value = feature_property.get(property_name)
         
-        if feature_property_value == property_value:
-            matched_features.append(assign_point_properties(feature))
+        if property_name in ["rating", "popularity_score", "user_ratings_total", "heatmap_weight"]:
+            feature_property_value = float(feature_property_value)    
+            if feature_property_value <= property_value:
+                matched_features.append(assign_point_properties(feature))
+            else:
+                unmatched_features.append(assign_point_properties(feature))
         else:
-            unmatched_features.append(assign_point_properties(feature))
+            if property_name =="types":
+                if property_value in feature_property_value:
+                    matched_features.append(assign_point_properties(feature))
+                else:
+                    unmatched_features.append(assign_point_properties(feature))
+            else:
+                if feature_property_value == property_value:
+                    matched_features.append(assign_point_properties(feature))
+                else:
+                    unmatched_features.append(assign_point_properties(feature))
             
     return {
         'matched': matched_features,
@@ -448,28 +481,38 @@ def filter_by_property(change_layer_dataset: Dict[str, Any], property_name: str,
     }
 
 # filet by distance (radius)
-def filter_by_distance(change_layer_dataset: Dict[str, Any], based_on_coordinates,to_be_changed_coordinates,radius: float) -> Dict[str, List[Dict]]:
-    filtred_coord=[]
+def filter_by_distance(
+    change_layer_dataset: Dict[str, Any], 
+    based_on_coordinates,
+    to_be_changed_coordinates,
+    radius: float
+) -> Dict[str, List[Dict]]:
+    filtred_coord = []
     for based_coord in based_on_coordinates:
         for to_be_changed_coord in to_be_changed_coordinates:
-            distance = calculate_distance(based_coord, to_be_changed_coord)
-            if distance <= radius:
-                filtred_coord.append(based_coord)
+            if to_be_changed_coord!=based_coord:
+                distance = calculate_distance(based_coord, to_be_changed_coord)
+                if distance <= radius:
+                    filtred_coord.append(based_coord)
+    
     matched_within_radius = []
     unmatched_outside_radius = []
+    
     for feature in change_layer_dataset["features"]:
-        feature_coordinates = (
-            feature["geometry"]["coordinates"][1],  # latitude
-            feature["geometry"]["coordinates"][0]   # longitude
-        )
+        feature_coordinates = {
+            "latitude": feature["geometry"]["coordinates"][1],
+            "longitude": feature["geometry"]["coordinates"][0]
+        }
         if feature_coordinates in filtred_coord:
             matched_within_radius.append(assign_point_properties(feature))
         else:
             unmatched_outside_radius.append(assign_point_properties(feature))
+            
     return {
         'matched_within_radius': matched_within_radius,
         'unmatched_outside_radius': unmatched_outside_radius
     }
+
 
 # filter by property & drive time
 async def filter_by_property_and_drive_time(
@@ -497,6 +540,42 @@ async def filter_by_property_and_drive_time(
         filtered_features_prop = filter_by_property(change_layer_dataset, property_name, property_value)["matched"]
         return [feature for feature in filtered_features_prop if feature in filtered_features_dt]
 
+
+
+async def filter_by_property_and_coverage_property(
+        change_layer_dataset,
+        based_on_coordinates,
+        to_be_changed_coordinates,
+        req: ReqFilter,
+) -> Dict[str, List[Dict]]:
+    # filter by drive time
+    filtered_features_cp = []
+    if req.coverage_property == "drive_time":
+        filtered_features_cp = (await filter_by_drive_time(
+            change_layer_dataset=change_layer_dataset,
+            based_on_coordinates=based_on_coordinates,
+            to_be_changed_coordinates=to_be_changed_coordinates,
+            coverage_minutes=req.coverage_value
+        ))["within_time"]
+    elif req.coverage_property == "radius":
+        filtered_features_cp = filter_by_distance(
+            change_layer_dataset=change_layer_dataset,
+            based_on_coordinates=based_on_coordinates,
+            to_be_changed_coordinates=to_be_changed_coordinates,
+            radius=req.coverage_value
+        )["matched_within_radius"]
+
+    if req.color_based_on:
+        if req.color_based_on == "name":
+            filtered_features = filter_by_name(change_layer_dataset=change_layer_dataset,list_names=req.list_names)["matched"]
+        else:
+            property_name = req.color_based_on
+            property_value = req.threshold
+            # filter by property
+            filtered_features = filter_by_property(change_layer_dataset, property_name, property_value)["matched"]
+        filtered_features_intersection=[feature for feature in filtered_features if feature in filtered_features_cp] if req.coverage_property else filtered_features
+        return filtered_features_intersection
+    return filtered_features_cp
 
 
 
@@ -672,6 +751,64 @@ async def process_color_based_on(
 
         return new_layers
 
+# filter based on 
+async def filter_based_on(req: ReqFilter):
+    change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(
+        req.change_lyr_id
+    )
+    based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(
+        req.based_on_lyr_id
+    )
+
+    based_on_coordinates = [
+        {
+            "latitude": point["geometry"]["coordinates"][1],
+            "longitude": point["geometry"]["coordinates"][0],
+        }
+        for point in based_on_layer_dataset["features"]
+    ]
+
+    to_be_changed_coordinates = [
+        {
+            "latitude": point["geometry"]["coordinates"][1],
+            "longitude": point["geometry"]["coordinates"][0],
+        }
+        for point in change_layer_dataset["features"]
+    ]
+
+    filtred_property= await filter_by_property_and_coverage_property(
+        change_layer_dataset=change_layer_dataset,
+        based_on_coordinates=based_on_coordinates,
+        to_be_changed_coordinates=to_be_changed_coordinates,
+        req=req
+    )
+    result_layers=[]
+    for feature in filtred_property:
+        layer=ResGradientColorBasedOnZone(
+            type="FeatureCollection",
+            features=[feature],
+            properties=list(feature.get("properties", {}).keys()),
+            prdcer_layer_name=f"{req.change_lyr_name} - Drive Time Match" 
+                if req.coverage_property == "drive_time" else f"{req.change_lyr_name} - Radius Match",
+            prdcer_lyr_id=str(uuid.uuid4()),
+            sub_lyr_id=f"{req.change_lyr_id}_drive_time_match" 
+                if req.coverage_property == "drive_time" else f"{req.change_lyr_id}_radius_match",
+            bknd_dataset_id=req.change_lyr_id,
+            points_color=req.change_lyr_new_color,
+            layer_legend=f"Drive Time ≤ {req.coverage_value} m" if req.coverage_property == "drive_time" else f"Radius ≤ {req.coverage_value} m",
+            layer_description=f"Points within {req.coverage_value} minutes drive time" if req.coverage_property == "drive_time" else f"Points within {req.coverage_value} m radius",
+            records_count=len(filtred_property),
+            city_name=change_layer_metadata.get("city_name", ""),
+            is_zone_lyr="true",
+        )
+        result_layers.append(layer)
+    if len(result_layers)>0:
+        return result_layers
+    else:
+        raise ValueError("No features found based on the given criteria.")
+
+
+    
 
 async def process_color_based_on_agent(req:ReqPrompt)-> ValidationResult:
     prompt=req.prompt
@@ -697,57 +834,6 @@ async def process_color_based_on_agent(req:ReqPrompt)-> ValidationResult:
 
         return validation_recolor_object
     return prompt_validation_result
-
-
-
-# filter based on 
-async def filter_based_on(req: ReqGradientColorBasedOnZone):
-    change_layer_dataset, change_layer_metadata = await given_layer_fetch_dataset(
-        req.change_lyr_id
-    )
-    based_on_layer_dataset, based_on_layer_metadata = await given_layer_fetch_dataset(
-        req.based_on_lyr_id
-    )
-
-    based_on_coordinates = [
-        {
-            "latitude": point["geometry"]["coordinates"][1],
-            "longitude": point["geometry"]["coordinates"][0],
-        }
-        for point in based_on_layer_dataset["features"]
-    ]
-
-    to_be_changed_coordinates = [
-        {
-            "latitude": point["geometry"]["coordinates"][1],
-            "longitude": point["geometry"]["coordinates"][0],
-        }
-        for point in change_layer_dataset["features"]
-    ]
-
-
-    if req.coverage_property == "drive_time":
-        if req.color_based_on:
-            filtred_features=filter_by_property_and_drive_time(
-                change_layer_dataset=change_layer_dataset,
-                based_on_coordinates=based_on_coordinates,
-                to_be_changed_coordinates=to_be_changed_coordinates,
-                req=req)
-            return filtred_features
-        else:
-            return filter_by_drive_time(
-                change_layer_dataset=change_layer_dataset,
-                based_on_coordinates=based_on_coordinates,
-                to_be_changed_coordinates=to_be_changed_coordinates,
-                coverage_minutes=req.coverage_value
-            )["within_time"]
-    elif req.coverage_property == "radius": # not implemented yet
-        if req.color_based_on:
-            pass
-        else:
-            pass
-    return 
-
 
         
 

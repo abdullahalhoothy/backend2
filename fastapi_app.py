@@ -54,7 +54,8 @@ from all_types.myapi_dtypes import (
     ReqDeletePrdcerLayer,
     ReqLLMDataset,
     ReqPrompt,
-    ValidationResult
+    ValidationResult,
+    ReqFilter
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -152,7 +153,7 @@ from backend_common.stripe_backend import (
     fetch_wallet,
     deduct_from_wallet
 )
-from recoler_filter import (process_color_based_on_agent,process_color_based_on)
+from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
 
 # TODO: Add stripe secret key
 
@@ -1065,3 +1066,19 @@ async def ep_process_color_based_on_agent(
 
 #     response = await analyze_prompt_completeness(request.user_prompt, vector_store=vector_store)
 #     return response
+
+@app.post(
+    CONF.filter_based_on,
+    response_model=ResModel[list[ResGradientColorBasedOnZone]],
+)
+async def filter_based_on_(
+    req: ReqModel[ReqFilter], request: Request
+):
+    response = await request_handling(
+        req.request_body,
+        ReqFilter,
+        ResModel[list[ResGradientColorBasedOnZone]],
+        filter_based_on,
+        wrap_output=True,
+    )
+    return response
