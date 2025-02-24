@@ -52,7 +52,7 @@ from all_types.myapi_dtypes import (
     ReqFetchCtlgLyrs,
     ReqCityCountry,
     ReqDeletePrdcerLayer,
-    ReqLLMDataset,
+    ReqLLMFetchDataset,
     ReqPrompt,
     ValidationResult,
     ReqFilter
@@ -85,7 +85,7 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
-    ResLLMDataset,
+    ResLLMFetchDataset,
 )
 
 from google_api_connector import check_street_view_availability
@@ -342,14 +342,14 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
 
 @app.post(
     CONF.process_llm_query,
-    response_model=ResModel[ResLLMDataset],
+    response_model=ResModel[ResLLMFetchDataset],
     dependencies=[Depends(JWTBearer())],
 )
-async def process_llm_query_ep(req: ReqModel[ReqLLMDataset], request: Request):
+async def process_llm_query_ep(req: ReqModel[ReqLLMFetchDataset], request: Request):
     response = await request_handling(
         req.request_body,
-        ReqLLMDataset,
-        ResModel[ResLLMDataset],
+        ReqLLMFetchDataset,
+        ResModel[ResLLMFetchDataset],
         process_llm_query,
         wrap_output=True,
     )

@@ -1,16 +1,39 @@
-from langchain_core.pydantic_v1 import BaseModel, Field, validator
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.tools import StructuredTool
-import json
+from pydantic import BaseModel, Field, model_validator
 import requests
+from all_types.response_dtypes import ResLLMFetchDataset
+from all_types.myapi_dtypes import ReqLLMFetchDataset
 from config_factory import CONF
-from all_types.myapi_dtypes import ReqLLMDataset
-from all_types.response_dtypes import ResLLMDataset
 
-# Function to fetch Approved_cities, Approved_countries and Approved_Categories
 
+def calculate_cost(Request: ResLLMFetchDataset):
+    api_requests = [Request.fetch_dataset_request]
+    API_ENDPOINT = CONF.cost_calculator
+    responses = []
+    total_cost = 0
+    
+    for api_request in api_requests:
+        try:
+            payload = {
+                "message": "Cost calculation request from LLM",
+                "request_info": {},  # Add relevant request info if needed
+                "request_body": api_request.dict()
+            }
+            
+            response = requests.post(
+                API_ENDPOINT,
+                json=payload
+            )
+            response.raise_for_status()
+            total_cost += response.json()["data"]["cost"]
+            responses.append(response.json())
+        except requests.exceptions.RequestException as e:
+            responses.append({"error": f"API request failed for {api_request}: {e}"})
+    Request.cost = str(total_cost)
+
+    return Request
 def fetch_approved_data(url: str):
     """
     Sends a GET request to the specified API endpoint.
@@ -43,44 +66,7 @@ def extract_countries_and_cities(data):
 
     return countries, cities
 
-
-def calculate_cost(Request: ReqLLMDataset)->ResLLMDataset:
-    api_requests = [Request.fetch_dataset_request]
-    API_ENDPOINT = CONF.calculate_cost
-    responses = []
-    total_cost = 0
-    
-    for api_request in api_requests:
-        try:
-            payload = {
-                "message": "Cost calculation request from LLM",
-                "request_info": {},  # Add relevant request info if needed
-                "request_body": api_request.dict()
-            }
-            
-            response = requests.post(
-                API_ENDPOINT,
-                json=payload
-            )
-            response.raise_for_status()
-            total_cost += response.json()["data"]["cost"]
-            responses.append(response.json())
-        except requests.exceptions.RequestException as e:
-            responses.append({"error": f"API request failed for {api_request}: {e}"})
-    Request.cost = str(total_cost)
-
-    return Request
-
-def extract_location_info(Request: ReqLLMDataset) -> ResLLMDataset:
-    """
-    Uses an LLM call to extract location-based information from the query.
-
-    Args:
-        query (str): The query string to process.
-
-    Returns:
-        ReqLLMDataset: An instance of ReqLLMDataset containing extracted information.
-    """
+async def process_llm_query(req:ReqLLMFetchDataset):
     country_city_data = fetch_approved_data(CONF.country_city)
     category_data = fetch_approved_data(CONF.nearby_categories)
     if country_city_data and "data" in country_city_data:
@@ -95,9 +81,6 @@ def extract_location_info(Request: ReqLLMDataset) -> ResLLMDataset:
         Approved_Categories = []
         print("Warning: Failed to fetch approved categories.")
 
-    
-    if (Request.requestStatus)=="Processed":
-        return Request
 
     system_message = """You are an intelligent assistant that extracts structured data for a location-based search API. Only process queries that specifically request 
                         information about places in a city or country. Add the country name automatically and try to be consistent.
@@ -125,74 +108,24 @@ def extract_location_info(Request: ReqLLMDataset) -> ResLLMDataset:
 
 
                     """
-    llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0.0)
-    prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", system_message),
-        ("human", "{text}",),
-    ]
-    )
+    model = ChatOpenAI(model_name="gpt-4-turbo-preview", temperature=0.0)
 
+    parser = PydanticOutputParser(pydantic_object=ResLLMFetchDataset)
     
-    query = Request.query
-    chain = prompt | llm.with_structured_output(schema=ReqLLMDataset)
-    response = chain.invoke({
-    "text": query,
-    "Approved_Cities": Approved_Cities,
-    "Approved_Categories": Approved_Categories,
-    "Approved_Countries":Approved_Countries
-
-    })
-
-    
-    response.requestStatus = "Processed"
-    return response
-
-
-def process_llm_query(Request: ReqLLMDataset)-> ResLLMDataset:
-    query = Request.query
-    text = "User Query = "+Request.query + "\n" + " ReqLLMDataset = " + Request.json() 
-    system_message = """
-                    You are a helpful assistant for a location based API. Your task is to calculate cost for a user query passed.
-                    #Rules to Follow#
-                    1. Cost tool should not make any changes except 'cost' field.
-                    2. It should not modify Boolean Query in any circumstances.
-                    3. Validate the input and check that it contains a city name and a place.
-                    4. Validate the output also.
-
-                    
-                """
-    llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0.0)
-    prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", system_message),
-        ("human", "{text}"),
-         ("placeholder", "{chat_history}"),
-        ("placeholder", "{agent_scratchpad}")
-    ]
-    )
-
-    location_info_tool = StructuredTool.from_function(
-        func=extract_location_info,
-        name="extract_location_info",
-        description="Takes query parameter of ReqLLMDataset and parses it to extract data. Returns an ReqLLMDataset Object"
+    prompt = PromptTemplate(
+        template="{system_message}.\n{format_instructions}\n{query}\n",
+        input_variables=["query"],
+        partial_variables={"format_instructions": parser.get_format_instructions()},
     )
     
-    cost_calculation_tool = StructuredTool.from_function(
-        func=calculate_cost,
-        name="cost_calculation_tool",
-        description="Makes an API call to the endpoint for extracting cost information from an ReqLLMDataset object.",
-        return_direct = True
-    )
+    # And a query intended to prompt a language model to populate the data structure.
+    prompt_and_model = prompt | model
+    output = prompt_and_model.invoke({"query": req.query,"system_message":system_message})
+    outputResponse = parser.invoke(output)
     
+    if outputResponse.fetch_dataset_request is None:
+        return outputResponse
+    else:
+        outputResponse.requestStatus = "Processed"
+        return calculate_cost(outputResponse)
     
-    # Group tools
-    tools = [location_info_tool, cost_calculation_tool]
-    
-    # Create the agent
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    
-    # Create the agent executor
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-    response = agent_executor.invoke({"text": text})
-    return response["output"]
