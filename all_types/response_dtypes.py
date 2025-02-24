@@ -61,6 +61,7 @@ class ResFetchDataset(BaseModel):
     prdcer_lyr_id: str
     records_count: int
     delay_before_next_call: Optional[int] = 0
+    progress: Optional[int] = 0
     next_page_token: Optional[str] = ""
 
 
