@@ -809,6 +809,7 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
                     city_name=lyr_data["city_name"],
                     bknd_dataset_id=lyr_data["bknd_dataset_id"],
                     is_zone_lyr="false",
+                    progress=random.randint(0, 100),
                 )
             )
         except KeyError as e:
