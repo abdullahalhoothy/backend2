@@ -1,10 +1,13 @@
+import json
 import logging
 import random
+import re
 from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Tuple, Optional
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
+from collections import defaultdict
 
 from fastapi import HTTPException
 from fastapi import status
@@ -13,6 +16,8 @@ from backend_common.auth import (
     update_user_profile,
     update_user_profile_settings,
 )
+from backend_common.auth import db
+from backend_common.background import get_background_tasks
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import (
     upload_file_to_google_cloud_bucket,
@@ -608,6 +613,70 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     return "google_categories"
 
 
+async def _create_batches(plan_data):
+    batches = defaultdict(list)
+
+    for item in plan_data:
+        match = re.search(r"circle=([\d.]+)", item)
+        if match:
+            circle_value = match.group(1)
+            level = circle_value.count(".") + 1
+            batches[level].append(item)
+
+    # Creating batches of 5 within each level
+    final_batches = []
+    for level, items in batches.items():
+        for i in range(0, len(items), 5):
+            final_batches.append(items[i : i + 5])
+
+    return final_batches
+
+
+async def _excecute_dataset_plan(req, plan_name):
+    with open(
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json",
+        "r",
+    ) as f:
+        plan_data = json.load(f)
+        progress = 0
+        plan_length = len(plan_data) - 1
+
+        batches = await _create_batches(plan_data)
+
+        for batch in batches:
+            for index, level in enumerate(batch):
+                parts = level.split("_")
+                lng = parts[0]
+                lat = parts[1]
+                req.lng = float(lng)
+                req.lat = float(lat)
+
+                await fetch_ggl_nearby(req)
+                progress = int((index + 1 / plan_length) * 100)
+                await db.get_async_client().collection("plan_progress").document(
+                    plan_name
+                ).set({"progress": progress}, merge=True)
+
+        # for index, item in enumerate(plan_data):
+        #     if index == 5:
+        #         break
+        #     parts = item.split("_")
+        #     lng = parts[0]
+        #     lat = parts[1]
+
+        #     req.lng = float(lng)
+        #     req.lat = float(lat)
+
+        #     await fetch_ggl_nearby(req)
+
+        #     print("=====index========", index)
+        #     progress = int((index + 1 / plan_length) * 100)
+        #     print("===========", progress)
+        #     await db.get_async_client().collection("plan_progress").document(
+        #         plan_name
+        #     ).set({"progress": progress}, merge=True)
+
+
 async def fetch_dataset(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
@@ -666,6 +735,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds 
 
 
+        get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
