@@ -6,6 +6,7 @@ import requests
 from all_types.response_dtypes import ResLLMFetchDataset
 from all_types.myapi_dtypes import ReqLLMFetchDataset
 from cost_calculator import calculate_cost
+from config_factory import CONF
 
 
 def fetch_approved_data(url: str):
@@ -41,8 +42,8 @@ def extract_countries_and_cities(data):
     return countries, cities
 
 async def process_llm_query(req:ReqLLMFetchDataset):
-    country_city_data = fetch_approved_data("http://37.27.195.216:8000/fastapi/country_city")
-    category_data = fetch_approved_data("http://37.27.195.216:8000/fastapi/nearby_categories")
+    country_city_data = fetch_approved_data(CONF.country_city)
+    category_data = fetch_approved_data(CONF.nearby_categories)
     if country_city_data and "data" in country_city_data:
         Approved_Countries, Approved_Cities = extract_countries_and_cities(country_city_data["data"])
     else:
