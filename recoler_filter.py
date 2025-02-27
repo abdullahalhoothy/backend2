@@ -762,24 +762,26 @@ async def filter_based_on(req: ReqFilter):
     )
     result_layers=[]
     for feature in filtred_property:
-        layer=ResGradientColorBasedOnZone(
-            type="FeatureCollection",
-            features=[feature],
-            properties=list(feature.get("properties", {}).keys()),
+        layer = ResGradientColorBasedOnZone(
             prdcer_layer_name=f"{req.change_lyr_name} - Drive Time Match" 
                 if req.coverage_property == "drive_time" else f"{req.change_lyr_name} - Radius Match",
             prdcer_lyr_id=str(uuid.uuid4()),
-            sub_lyr_id=f"{req.change_lyr_id}_drive_time_match" 
-                if req.coverage_property == "drive_time" else f"{req.change_lyr_id}_radius_match",
             bknd_dataset_id=req.change_lyr_id,
             points_color=req.change_lyr_new_color,
             layer_legend=f"Drive Time ≤ {req.coverage_value} m" if req.coverage_property == "drive_time" else f"Radius ≤ {req.coverage_value} m",
-            layer_description=f"Points within {req.coverage_value} minutes drive time" if req.coverage_property == "drive_time" else f"Points within {req.coverage_value} m radius",
-            records_count=len(filtred_property),
-            city_name=change_layer_metadata.get("city_name", ""),
             is_zone_lyr="true",
+            type="FeatureCollection",
+            features=[feature],
+            properties=list(feature.get("properties", {}).keys()),
+            sub_lyr_id=f"{req.change_lyr_id}_drive_time_match" 
+                if req.coverage_property == "drive_time" else f"{req.change_lyr_id}_radius_match",
+            layer_description="",  
+            records_count=1,  
+            city_name=change_layer_metadata.get("city_name", ""),  
+            progress=0  
         )
         result_layers.append(layer)
+    
     if len(result_layers)>0:
         return result_layers
     else:

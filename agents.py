@@ -21,7 +21,7 @@ class ExplanationAgent:
 
     def __getmodel(self):
     #key=os.environ["DEEPSEEK_API_KEY"]
-      api_key=os.environ["GEMINI_API_KEY"] # YOur API KEY
+      api_key=os.environ["GEMINI_API_KEY"]# YOur API KEY
       base_url="https://generativelanguage.googleapis.com/v1beta"
       client=ChatOpenAI(
           base_url=base_url,
@@ -185,7 +185,7 @@ class PromptValidationAgent:
         self.chain = self.template | self.model | self.parser
     
     def __getmodel(self):
-        api_key = os.environ["GEMINI_API_KEY"]
+        api_key =os.environ["GEMINI_API_KEY"]
         base_url = "https://generativelanguage.googleapis.com/v1beta"
         client = ChatOpenAI(
             base_url=base_url,
@@ -269,7 +269,7 @@ class PromptValidationAgent:
                 suggestions=["Invalid available_layers"]
             )
         
-        if not isinstance(available_layers, dict) or not available_layers:
+        if not isinstance(available_layers, list) or not available_layers:
             return ValidationResult(
                 is_valid=False,
                 reason="Invalid available_layers",
