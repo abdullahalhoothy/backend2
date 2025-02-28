@@ -642,44 +642,64 @@ async def _excecute_dataset_plan(req, plan_name):
         "r",
     ) as f:
         plan_data = json.load(f)
-        progress = 0
+        progress, index = 0, 1
         plan_length = len(plan_data) - 1
+        level_results = {}
+        next_level_batches = set()
 
         batches = await _create_batches(plan_data)
 
         for batch in batches:
-            for index, level in enumerate(batch):
-                parts = level.split("_")
-                lng = parts[0]
-                lat = parts[1]
-                req.lng = float(lng)
-                req.lat = float(lat)
+            current_level_batches = []
 
-                await fetch_ggl_nearby(req)
-                progress = int((index + 1 / plan_length) * 100)
-                await db.get_async_client().collection("plan_progress").document(
-                    plan_name
-                ).set({"progress": progress}, merge=True)
+            for row in batch:
+                parts = row.split("_")
+                lng, lat = float(parts[0]), float(parts[1])
+                match = re.search(r"circle=([\d.]+)", row)
+                if match:
+                    level = match.group(1)
 
-        # for index, item in enumerate(plan_data):
-        #     if index == 5:
-        #         break
-        #     parts = item.split("_")
-        #     lng = parts[0]
-        #     lat = parts[1]
+                    # Extract correct level
+                    level_parts = level.split(".")
+                    parent_level = (
+                        ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
+                    )
 
-        #     req.lng = float(lng)
-        #     req.lat = float(lat)
+                    # Process only if it's a base level or part of the approved hierarchy
+                    if not next_level_batches or (parent_level in next_level_batches):
+                        req.lng = lng
+                        req.lat = lat
 
-        #     await fetch_ggl_nearby(req)
+                        # dataset = await fetch_ggl_nearby(req)
+                        dataset = []
+                        level_results[level] = dataset
 
-        #     print("=====index========", index)
-        #     progress = int((index + 1 / plan_length) * 100)
-        #     print("===========", progress)
-        #     await db.get_async_client().collection("plan_progress").document(
-        #         plan_name
-        #     ).set({"progress": progress}, merge=True)
+                        # Check if this level qualifies for the next level
+                        # if len(dataset[0].get("features", "")) >= 20:
 
+                        # for testing purposes
+                        dummy_results = random.randint(15, 25)
+                        if dummy_results >= 20:
+                            current_level_batches.append(level)
+
+            # Update the list of levels allowed for the next iteration
+            next_level_batches.update(current_level_batches)
+
+            # Update progress
+            index += len(batch)
+            progress = int((index / plan_length) * 100)
+            await db.get_async_client().collection("plan_progress").document(
+                plan_name
+            ).set({"progress": progress}, merge=True)
+
+            # Stop processing if no next-level batch qualifies
+            if not current_level_batches:
+                break
+
+        # Some levels might be skipped but all processing has been done till now.
+        await db.get_async_client().collection("plan_progress").document(plan_name).set(
+            {"progress": 100}, merge=True
+        )
 
 async def fetch_dataset(req: ReqFetchDataset):
     """
