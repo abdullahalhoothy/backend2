@@ -250,7 +250,9 @@ def create_name_based_layers(
                     layer_description=config["description"],
                     records_count=len(config["features"]),
                     city_name=change_layer_metadata.get("city_name", ""),
-                    is_zone_lyr="true"
+                    is_zone_lyr="true",
+                    progress=0
+                    
                 )
             )
 
@@ -406,6 +408,7 @@ def create_drive_time_layers(
                     records_count=len(config["features"]),
                     city_name=change_layer_metadata.get("city_name", ""),
                     is_zone_lyr="true",
+                    progress=0
                 )
             )
 
@@ -724,6 +727,7 @@ async def process_color_based_on(
                         records_count=len(data),
                         city_name=change_layer_metadata.get("city_name", ""),
                         is_zone_lyr="true",
+                        progress=0
                     )
                 )
 
