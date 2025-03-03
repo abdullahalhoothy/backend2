@@ -661,12 +661,21 @@ async def _excecute_dataset_plan(req, plan_name):
                         ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
                     )
 
+                    """
+                    - for loop sequential 
+                    - it needs to be parallel
+                    - execute one level, it will update the JSON & we need to skip the "skip" entries
+                    - lock per file when one level is writing to JSON.
+                    - await asyncio.gather(*query_tasks)
+                    """
+
                     # Process only if it's a base level or part of the approved hierarchy
                     if not next_level_batches or (parent_level in next_level_batches):
                         req.lng = lng
                         req.lat = lat
+                        # add radius in req object
 
-                        # dataset = await fetch_ggl_nearby(req)
+                        dataset = await fetch_ggl_nearby(req)
                         dataset = []
                         level_results[level] = dataset
 
@@ -708,7 +717,6 @@ async def fetch_dataset(req: ReqFetchDataset):
     if req.page_token == "" or req.prdcer_lyr_id == "":
         layer_id = generate_layer_id()
 
-
     geojson_dataset = []
 
     # Load all categories
@@ -748,12 +756,11 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
-        # if the user already has this dataset on his profile don't charge him 
-        
+        # if the user already has this dataset on his profile don't charge him
+
         # if the first query of the full data was successful and returned results
         # deduct money from the user's wallet for the price of this dataset
-        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds 
-
+        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
         get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
 
@@ -761,23 +768,19 @@ async def fetch_dataset(req: ReqFetchDataset):
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
         # when saving the dataset we should save what is the % availability of this dataset based on the plan , plan that is 50% executed means data available 50%
         # while we are at it we should add the dataset's next refresh date, and a flag saying whether to auto refresh or no
-        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call , 
+        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call ,
         # and we should make this delay 3 seconds
         # in those 3 seconds we hope to allow to backend to advance in the query plan execution
         # the frontend should display the % as a bar with an indication that this bar is filling in those 3 seconds to reassure the user
         # we should return this % completetion to the user to display while the user is watiing for his data
-        
 
-
-        #TODO this is seperate, optimisation for foreground process of data retrival from db
+        # TODO this is seperate, optimisation for foreground process of data retrival from db
         # then on subsequent calls using next page token the backend should execute calls within the same level at the same time in a batch of 5 at a time
-        
-        #TODO
-        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
-
-
 
         bknd_dataset_id = plan_name
+        # TODO
+        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
+
         user_data = await load_user_profile(req.user_id)
         user_data["prdcer"]["prdcer_dataset"]["dataset_plan"] = plan_name
         await update_user_profile(req.user_id, user_data)
@@ -1235,8 +1238,6 @@ async def given_layer_fetch_dataset(layer_id: str):
     return all_datasets, layer_metadata
 
 
-
-
 # async def fetch_nearest_points_Gmap(
 #     req: ReqNearestRoute,
 # ) -> List[NearestPointRouteResponse]:
@@ -1281,9 +1282,6 @@ async def update_profile(req):
 
 
 # llm agent call
-
-
-
 
 
 # Apply the decorator to all functions in this module
