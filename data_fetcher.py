@@ -617,6 +617,18 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     return "google_categories"
 
 
+async def read_plan_data(plan_name):
+    file_path = (
+        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
+    )
+    try:
+        with open(file_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error reading JSON file: {e}")
+        return []
+
+
 async def _create_batches(plan_data):
     batches = defaultdict(list)
 
@@ -637,78 +649,73 @@ async def _create_batches(plan_data):
 
 
 async def _excecute_dataset_plan(req, plan_name):
-    with open(
-        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json",
-        "r",
-    ) as f:
-        plan_data = json.load(f)
-        progress, index = 0, 1
+    progress, index = 0, 1
+    plan_length = 0
+    next_level_batches = set()
+    level_results = {}
+
+    while True:
+        plan_data = await read_plan_data(plan_name)
+        if not plan_data:
+            break
+
         plan_length = len(plan_data) - 1
-        level_results = {}
-        next_level_batches = set()
+        current_level_batches = []
 
-        batches = await _create_batches(plan_data)
+        for row in plan_data:
+            if "skip" in row:
+                continue
 
-        for batch in batches:
-            current_level_batches = []
+            if "end" in row:
+                break
 
-            for row in batch:
-                parts = row.split("_")
-                lng, lat = float(parts[0]), float(parts[1])
-                match = re.search(r"circle=([\d.]+)", row)
-                if match:
-                    level = match.group(1)
+            parts = row.split("_")
+            lng, lat, radius = float(parts[0]), float(parts[1]), float(parts[2])
+            match = re.search(r"circle=([\d.]+)", row)
 
-                    # Extract correct level
-                    level_parts = level.split(".")
-                    parent_level = (
-                        ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
-                    )
+            if match:
+                level = match.group(1)
+                level_parts = level.split(".")
+                parent_level = (
+                    ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
+                )
 
-                    """
-                    - for loop sequential 
-                    - it needs to be parallel
-                    - execute one level, it will update the JSON & we need to skip the "skip" entries
-                    - lock per file when one level is writing to JSON.
-                    - await asyncio.gather(*query_tasks)
-                    """
+                # Process only if it's a base level or part of the approved hierarchy
+                if not next_level_batches or (parent_level in next_level_batches):
+                    req.lng = lng
+                    req.lat = lat
+                    req.radius = radius
 
-                    # Process only if it's a base level or part of the approved hierarchy
-                    if not next_level_batches or (parent_level in next_level_batches):
-                        req.lng = lng
-                        req.lat = lat
-                        # add radius in req object
+                    dataset = await fetch_ggl_nearby(req)
+                    dataset = []
+                    level_results[level] = dataset
 
-                        dataset = await fetch_ggl_nearby(req)
-                        dataset = []
-                        level_results[level] = dataset
+                    # Simulated result count (for testing)
+                    dummy_results = random.randint(15, 25)
+                    if dummy_results >= 20:
+                        current_level_batches.append(level)
 
-                        # Check if this level qualifies for the next level
-                        # if len(dataset[0].get("features", "")) >= 20:
+                    # Re-read the JSON after processing each row
+                    plan_data = await read_plan_data(plan_name)
 
-                        # for testing purposes
-                        dummy_results = random.randint(15, 25)
-                        if dummy_results >= 20:
-                            current_level_batches.append(level)
-
-            # Update the list of levels allowed for the next iteration
-            next_level_batches.update(current_level_batches)
-
-            # Update progress
-            index += len(batch)
+            index += 1
             progress = int((index / plan_length) * 100)
             await db.get_async_client().collection("plan_progress").document(
                 plan_name
             ).set({"progress": progress}, merge=True)
 
-            # Stop processing if no next-level batch qualifies
-            if not current_level_batches:
-                break
+        # Update next level batches
+        next_level_batches.update(current_level_batches)
 
-        # Some levels might be skipped but all processing has been done till now.
-        await db.get_async_client().collection("plan_progress").document(plan_name).set(
-            {"progress": 100}, merge=True
-        )
+        # Stop if no more levels qualify
+        if not current_level_batches:
+            break
+
+    # Ensure final progress update
+    await db.get_async_client().collection("plan_progress").document(plan_name).set(
+        {"progress": 100}, merge=True
+    )
+
 
 async def fetch_dataset(req: ReqFetchDataset):
     """
