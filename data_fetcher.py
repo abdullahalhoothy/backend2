@@ -665,12 +665,21 @@ async def _excecute_dataset_plan(req, plan_name):
                         ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
                     )
 
+                    """
+                    - for loop sequential 
+                    - it needs to be parallel
+                    - execute one level, it will update the JSON & we need to skip the "skip" entries
+                    - lock per file when one level is writing to JSON.
+                    - await asyncio.gather(*query_tasks)
+                    """
+
                     # Process only if it's a base level or part of the approved hierarchy
                     if not next_level_batches or (parent_level in next_level_batches):
                         req.lng = lng
                         req.lat = lat
+                        # add radius in req object
 
-                        # dataset = await fetch_ggl_nearby(req)
+                        dataset = await fetch_ggl_nearby(req)
                         dataset = []
                         level_results[level] = dataset
 
@@ -751,6 +760,7 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
+<<<<<<< HEAD
         estimated_cost, _ = await calculate_cost(req)
         estimated_cost = int(round(estimated_cost[1], 2) * 100)
         user_data = await load_user_profile(req.user_id)
@@ -786,12 +796,19 @@ async def fetch_dataset(req: ReqFetchDataset):
                 description="Deducted funds from wallet"
             )
         # if the user already has this dataset on his profile don't charge him 
+=======
+        # if the user already has this dataset on his profile don't charge him
+>>>>>>> 83de7e2 (Resolve merge conflicts)
 
         # if the first query of the full data was successful and returned results
         # deduct money from the user's wallet for the price of this dataset
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
+<<<<<<< HEAD
         get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
+=======
+        get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
+>>>>>>> 83de7e2 (Resolve merge conflicts)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
