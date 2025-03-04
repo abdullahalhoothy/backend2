@@ -144,8 +144,6 @@ class ResGradientColorBasedOnZoneLLM(BaseModel):
     explanation: str  # This is the additional property
 
 
-
-
 class ResLLMFetchDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
@@ -153,19 +151,24 @@ class ResLLMFetchDataset(BaseModel):
         default = "",
         description = "Original query passed by the user."
     )
-    queryStatus: Literal["Valid", "Invalid"] = Field(
-        default="Valid",
-        description="Status of the query that depends on approved categories.It must be either 'Valid' or 'Invalid'"
+    is_valid: Literal["Valid", "Invalid"] = Field(
+        default="",
+        description="Status is valid if the user query is from approved categories and cities. Otherwise, it is invalid."
     )
-    LLMmessage: str = Field(
-        default = "This is a valid query as it follows the rules.",
-        description = "Response message for the User after processing the query. It helps user to identify issues in the query"
+    reason: str = Field(
+        default = "",
+        description = """Response message for the User after processing the query. It helps user to identify issues in the query like if city and 
+                          place is an approved city or place or not."""
     )
-    requestStatus: Literal["Processed", "NotProcessed"] = Field(
-        default="NotProcessed",
-        description="Set to processed whenever an LLM encounters the query is processed by the LLM"
+
+    endpoint: Literal["/fastapi/fetch_dataset"] = "/fastapi/fetch_dataset"
+
+    suggestions : List[str] = Field(
+        default = [],
+        description = "List of suggestions to improve the query."
     )
-    fetch_dataset_request: Optional[ReqFetchDataset] = Field(
+
+    body: Optional[ReqFetchDataset] = Field(
         default=None,
         description="An object containing detailed request parameters for fetching dataset"
     )
