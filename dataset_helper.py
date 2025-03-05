@@ -1,4 +1,8 @@
 import json
+<<<<<<< HEAD
+=======
+import random
+>>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
 import re
 from collections import defaultdict
 from backend_common.auth import db
@@ -34,7 +38,11 @@ async def create_batches(plan_data):
     return final_batches
 
 
+<<<<<<< HEAD
 async def excecute_dataset_plan(req, plan_name, layer_id):
+=======
+async def excecute_dataset_plan(req, plan_name):
+>>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
     progress, index = 0, 1
     plan_length = 0
     next_level_batches = set()
@@ -73,6 +81,7 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                     req.radius = radius
 
                     from data_fetcher import fetch_ggl_nearby
+<<<<<<< HEAD
                     dataset, _, _, _ = await fetch_ggl_nearby(req)
                     level_results[level] = dataset
 
@@ -80,6 +89,15 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                         dataset.get("features")
                         and len(dataset.get("features", "")) >= 20
                     ):
+=======
+                    dataset = await fetch_ggl_nearby(req)
+                    dataset = []
+                    level_results[level] = dataset
+
+                    # Simulated result count (for testing)
+                    dummy_results = random.randint(15, 25)
+                    if dummy_results >= 20:
+>>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
                         current_level_batches.append(level)
 
                     # Re-read the JSON after processing each row
@@ -91,10 +109,13 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                 plan_name
             ).set({"progress": progress}, merge=True)
 
+<<<<<<< HEAD
             await db.get_async_client().collection("all_user_profiles").document(
                 req.user_id
             ).set({"prdcer_lyrs": {layer_id: {"progress": progress}}}, merge=True)
 
+=======
+>>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
         # Update next level batches
         next_level_batches.update(current_level_batches)
 
@@ -105,7 +126,11 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
     # Ensure final progress update
     await db.get_async_client().collection("plan_progress").document(plan_name).set(
         {"progress": 100}, merge=True
+<<<<<<< HEAD
     )
     await db.get_async_client().collection("all_user_profiles").document(
         req.user_id
     ).set({"prdcer_lyrs": {layer_id: {"progress": progress}}}, merge=True)
+=======
+    )
+>>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
