@@ -670,7 +670,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         # deduct money from the user's wallet for the price of this dataset
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
-        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name)
+        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
