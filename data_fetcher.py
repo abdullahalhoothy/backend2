@@ -716,6 +716,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
 =======
         get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
@@ -723,6 +724,9 @@ async def fetch_dataset(req: ReqFetchDataset):
 =======
         get_background_tasks().add_task(excecute_dataset_plan, req, plan_name)
 >>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
+=======
+        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
+>>>>>>> 4686c4f (Update layer_id on user_profile)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
