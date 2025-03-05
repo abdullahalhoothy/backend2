@@ -18,6 +18,7 @@ from backend_common.auth import (
 )
 from backend_common.auth import db
 from backend_common.background import get_background_tasks
+from dataset_helper import excecute_dataset_plan
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import (
     upload_file_to_google_cloud_bucket,
@@ -613,106 +614,6 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     return "google_categories"
 
 
-async def read_plan_data(plan_name):
-    file_path = (
-        f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
-    )
-    try:
-        with open(file_path, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Error reading JSON file: {e}")
-        return []
-
-
-async def _create_batches(plan_data):
-    batches = defaultdict(list)
-
-    for item in plan_data:
-        match = re.search(r"circle=([\d.]+)", item)
-        if match:
-            circle_value = match.group(1)
-            level = circle_value.count(".") + 1
-            batches[level].append(item)
-
-    # Creating batches of 5 within each level
-    final_batches = []
-    for level, items in batches.items():
-        for i in range(0, len(items), 5):
-            final_batches.append(items[i : i + 5])
-
-    return final_batches
-
-
-async def _excecute_dataset_plan(req, plan_name):
-    progress, index = 0, 1
-    plan_length = 0
-    next_level_batches = set()
-    level_results = {}
-
-    while True:
-        plan_data = await read_plan_data(plan_name)
-        if not plan_data:
-            break
-
-        plan_length = len(plan_data) - 1
-        current_level_batches = []
-
-        for row in plan_data:
-            if "skip" in row:
-                continue
-
-            if "end" in row:
-                break
-
-            parts = row.split("_")
-            lng, lat, radius = float(parts[0]), float(parts[1]), float(parts[2])
-            match = re.search(r"circle=([\d.]+)", row)
-
-            if match:
-                level = match.group(1)
-                level_parts = level.split(".")
-                parent_level = (
-                    ".".join(level_parts[:-1]) if len(level_parts) > 1 else None
-                )
-
-                # Process only if it's a base level or part of the approved hierarchy
-                if not next_level_batches or (parent_level in next_level_batches):
-                    req.lng = lng
-                    req.lat = lat
-                    req.radius = radius
-
-                    dataset = await fetch_ggl_nearby(req)
-                    dataset = []
-                    level_results[level] = dataset
-
-                    # Simulated result count (for testing)
-                    dummy_results = random.randint(15, 25)
-                    if dummy_results >= 20:
-                        current_level_batches.append(level)
-
-                    # Re-read the JSON after processing each row
-                    plan_data = await read_plan_data(plan_name)
-
-            index += 1
-            progress = int((index / plan_length) * 100)
-            await db.get_async_client().collection("plan_progress").document(
-                plan_name
-            ).set({"progress": progress}, merge=True)
-
-        # Update next level batches
-        next_level_batches.update(current_level_batches)
-
-        # Stop if no more levels qualify
-        if not current_level_batches:
-            break
-
-    # Ensure final progress update
-    await db.get_async_client().collection("plan_progress").document(plan_name).set(
-        {"progress": 100}, merge=True
-    )
-
-
 async def fetch_dataset(req: ReqFetchDataset):
     """
     This function attempts to fetch an existing layer based on the provided
@@ -769,7 +670,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         # deduct money from the user's wallet for the price of this dataset
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
-        get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
+        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
