@@ -11,6 +11,7 @@ from collections import defaultdict
 
 from fastapi import HTTPException
 from fastapi import status
+import stripe
 from backend_common.auth import (
     load_user_profile,
     update_user_profile,
@@ -19,6 +20,7 @@ from backend_common.auth import (
 from backend_common.auth import db
 from backend_common.background import get_background_tasks
 from dataset_helper import excecute_dataset_plan
+from backend_common.stripe_backend.customers import fetch_customer
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import (
     upload_file_to_google_cloud_bucket,
@@ -31,6 +33,7 @@ from all_types.response_dtypes import (
     LayerInfo,
     UserCatalogInfo
 )
+from cost_calculator import calculate_cost
 from google_api_connector import (
     fetch_from_google_maps_api,
     text_fetch_from_google_maps_api,
@@ -666,6 +669,36 @@ async def fetch_dataset(req: ReqFetchDataset):
     if req.action == "full data":
         # if the user already has this dataset on his profile don't charge him
 
+        estimated_cost, _ = await calculate_cost(req)
+        estimated_cost = int(round(estimated_cost[1], 2) * 100)
+        user_data = await load_user_profile(req.user_id)
+        admin_id = user_data["admin_id"]
+        user_owns_this_dataset = False
+
+        if plan_name in user_data["prdcer"]["prdcer_dataset"]:
+            user_owns_this_dataset = True
+
+        # if the user already has this dataset on his profile don't charge him 
+        if not user_owns_this_dataset:
+            
+            if not admin_id:
+                customer = await fetch_customer(user_id=req.user_id)
+            else:
+                customer = await fetch_customer(user_id=admin_id)
+
+            if not customer:
+                raise HTTPException(status_code=404, detail="Customer not found")
+            
+            # Deduct funds from the customer's balance in Stripe
+            # Note: For deductions, we pass a negative amount
+            stripe.Customer.create_balance_transaction(
+                customer['id'],
+                amount=-estimated_cost,  # Negative amount to decrease balance
+                currency="usd",
+                description="Deducted funds from wallet"
+            )
+        # if the user already has this dataset on his profile don't charge him 
+
         # if the first query of the full data was successful and returned results
         # deduct money from the user's wallet for the price of this dataset
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
@@ -690,7 +723,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
 
         user_data = await load_user_profile(req.user_id)
-        user_data["prdcer"]["prdcer_dataset"]["dataset_plan"] = plan_name
+        user_data["prdcer"]["prdcer_dataset"][f"{plan_name}"] = plan_name
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id

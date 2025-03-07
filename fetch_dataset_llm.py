@@ -7,7 +7,7 @@ from all_types.response_dtypes import ResLLMFetchDataset
 from all_types.myapi_dtypes import ReqLLMFetchDataset
 from cost_calculator import calculate_cost
 from config_factory import CONF
-
+#baseurl = "http://37.27.195.216:8000"
 
 def fetch_approved_data(url: str):
     """
@@ -56,33 +56,37 @@ async def process_llm_query(req:ReqLLMFetchDataset):
         Approved_Categories = []
         print("Warning: Failed to fetch approved categories.")
 
-
-    system_message = """You are an intelligent assistant that extracts structured data for a location-based search API. Only process queries that specifically request 
-                        information about places in a city or country. Add the country name automatically and try to be consistent.
-                        
-                        Reject queries that:
-                        1. Do not explicitly mention searching for a place (e.g., "How to dance in Dubai" or "Weather in Paris").
-                        2. Are general knowledge or instructional queries (e.g., "History of London" or "How to apply for a visa").
-                        3. Contain inappropriate, offensive, illegal, or nonsensical requests.
-                        4. Do not belong to the approved categories for places (e.g. tea shops is not an approved category)
-                        5. Do not belong to approved cities and countries.
-                        6. Contain multiple cities or countries
-                        7. Do not contain a city name
-                        
-                        #Approved Categories for Places#
-                        {Approved_Categories}
-                        # Approved Countries #
-                        {Approved_Countries}                     
-                        # Approved Cities #
-                        {Approved_Cities} 
-                        
-                        #Formation of Boolean Queries
-                        1. Boolean Query is a string formed by joining all the places in the query by 'OR' / 'AND'
-                        2. Examine the user query semantically and construct a Boolean Query
-
-
-
-                    """
+    system_message = """You are an intelligent assistant that extracts structured data for a location-based search API. 
+    Your primary function is to process location-based search queries and format them appropriately.
+    # CRITICAL REQUIREMENTS
+    - MUST HAVE: Exactly one approved city name in the query from Approved Cities:{Approved_Cities}
+    - MUST NOT HAVE: Multiple city names in the same query
+    - These requirements are non-negotiable - immediately reject any query that violates them
+    # QUERY PROCESSING RULES
+    - Only process queries that explicitly request information about places within a single approved city.
+    - Automatically add the corresponding country name to maintain consistency.
+    - Ensure consistent results for identical queries by following a deterministic analysis process.
+    # REJECTION CRITERIA
+    Reject queries that:
+    1. Do not contain an approved city name
+    2. Contain multiple city names
+    3. Do not explicitly seek physical places/venues (e.g., "Weather in Paris" or "History of London")
+    4. Are general knowledge or instructional in nature (e.g., "How to apply for a visa in Singapore")
+    5. Contain inappropriate, offensive, illegal, or nonsensical content
+    6. Reference place categories not in the approved list: {Approved_Categories}
+    7. Mention countries not in the approved list: {Approved_Countries}
+    - 
+    # Boolean Query Construction
+    - The boolean query must only contain approved category terms connected by 'AND' and 'OR' operators
+    - Analyze the semantic relationship between place categories in the query:
+    - Use 'OR' for alternatives (e.g., "restaurants or cafes" → "RESTAURANT OR CAFE")
+    - Use 'AND' for combinations (e.g., "hotels with restaurants" → "HOTEL AND RESTAURANT")
+    - For complex queries with both independent and combined categories:
+    - Group related terms with parentheses
+    - Example: "ATMs and supermarkets with ATMs" → "ATM OR (SUPERMARKET AND ATM)"
+    - Always use the standardized category names from the approved list
+    For invalid queries, politely explain why the query cannot be processed, specifically mentioning the requirement for exactly one approved city name.
+    """
     model = ChatOpenAI(model_name="gpt-4-turbo-preview", temperature=0.0)
 
     parser = PydanticOutputParser(pydantic_object=ResLLMFetchDataset)
@@ -93,14 +97,13 @@ async def process_llm_query(req:ReqLLMFetchDataset):
         partial_variables={"format_instructions": parser.get_format_instructions()},
     )
     
-    # And a query intended to prompt a language model to populate the data structure.
     prompt_and_model = prompt | model
     output = prompt_and_model.invoke({"query": req.query,"system_message":system_message})
     outputResponse = parser.invoke(output)
-    if outputResponse.fetch_dataset_request is None:
+    if outputResponse.body is None:
         return outputResponse
     else:
-        costData = await calculate_cost(outputResponse.fetch_dataset_request)
+        costData = await calculate_cost(outputResponse.body)
         outputResponse.cost = str(costData.cost)
         return (outputResponse)
     
