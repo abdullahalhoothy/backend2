@@ -217,7 +217,7 @@ def create_name_based_layers(
 
     layer_configs = [
         {
-            "features": filtered_features['matched'],
+            "features": filtered_features['matched_within_radius'],
             "category": "matched",
             "name_suffix": "Matched",
             "color": req.change_lyr_new_color,
@@ -225,7 +225,7 @@ def create_name_based_layers(
             "description": f"Features matching names: {', '.join(req.list_names)}"
         },
         {
-            "features": filtered_features['unmatched'],
+            "features": filtered_features['unmatched_outside_radius'],
             "category": "unmatched",
             "name_suffix": "Unmatched",
             "color": req.change_lyr_orginal_color,
@@ -605,7 +605,24 @@ async def process_color_based_on(
         )
 
         return new_layers
+    elif (
+        req.coverage_property == "radius"
+    ):
+        # filter by drive time
+        filtered_features = filter_by_distance(         
+            change_layer_dataset=change_layer_dataset,
+            based_on_coordinates=based_on_coordinates,
+            to_be_changed_coordinates=to_be_changed_coordinates,
+            radius=req.coverage_value
+        ) # -> this function will return dict has {within_time_features,outside_time_features,unallocated_features}
 
+        # Main function to create new layers
+        new_layers=create_name_based_layers(
+            filtered_features=filtered_features,
+            req=req,
+            change_layer_metadata=change_layer_metadata
+        )
+        return new_layers
 
     if req.color_based_on == "name":
         # Validate input conditions
