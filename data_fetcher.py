@@ -682,6 +682,12 @@ async def fetch_dataset(req: ReqFetchDataset):
             if not customer:
                 raise HTTPException(status_code=404, detail="Customer not found")
             
+            if customer['balance'] < estimated_cost:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Insufficient balance in wallet"
+                )
+
             # Deduct funds from the customer's balance in Stripe
             # Note: For deductions, we pass a negative amount
             stripe.Customer.create_balance_transaction(
