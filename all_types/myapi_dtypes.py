@@ -163,9 +163,9 @@ class ValidationResult(BaseModel):
 class ReqLLMFetchDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
-    query: str = Field(
+    prompt: str = Field(
         default = "",
-        description = "Original query passed by the user."
+        description = "Original prompt passed by the user."
     )
 
 class ReqFilter(ReqGradientColorBasedOnZone):

@@ -147,12 +147,12 @@ class ResGradientColorBasedOnZoneLLM(BaseModel):
 class ResLLMFetchDataset(BaseModel):
     """Extract Location Based Information from the Query"""
 
-    query: str = Field(
+    prompt: str = Field(
         default = "",
         description = "Original query passed by the user."
     )
-    is_valid: Literal["Valid", "Invalid"] = Field(
-        default="",
+    is_valid: bool = Field(
+        default=False,
         description="Status is valid if the user query is from approved categories and cities. Otherwise, it is invalid."
     )
     reason: str = Field(
@@ -161,7 +161,7 @@ class ResLLMFetchDataset(BaseModel):
                           place is an approved city or place or not."""
     )
 
-    endpoint: Literal["/fastapi/fetch_dataset"] = "/fastapi/fetch_dataset"
+    endpoint: Literal["/fetch_dataset"] = "/fetch_dataset"
 
     suggestions : List[str] = Field(
         default = [],
