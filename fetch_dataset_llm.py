@@ -97,12 +97,13 @@ async def process_llm_query(req:ReqLLMFetchDataset):
     )
     
     prompt_and_model = prompt | model
-    output = prompt_and_model.invoke({"query": req.query,"system_message":system_message})
+    output = prompt_and_model.invoke({"query": req.prompt,"system_message":system_message})
     outputResponse = parser.invoke(output)
     if outputResponse.body is None:
         return outputResponse
     else:
         costData = await calculate_cost(outputResponse.body)
         outputResponse.cost = str(costData.cost)
+        outputResponse.body.action = "sample"
         return (outputResponse)
     
