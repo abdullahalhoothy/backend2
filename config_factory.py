@@ -49,15 +49,29 @@ class ApiConfig(CommonApiConfig):
     gcloud_images_bucket_path:str = "postgreSQL/dbo_operational/raw_schema_marketplace/catalog_thumbnails"
     gcloud_bucket_credentials_json_path:str = "secrets/weighty-gasket-437422-h6-a9caa84da98d.json"
     process_llm_query:str = backend_base_uri + "process_llm_query"
+    openai_api_key:str=""
+    gemini_api_key:str=""
 
     @classmethod
     def get_conf(cls):
         common_conf = CommonApiConfig.get_common_conf()
         conf = cls(**{f.name: getattr(common_conf, f.name) for f in fields(CommonApiConfig)})
+
         try:
-            with open("secrets/secrets_gmap.json", "r", encoding="utf-8") as config_file:
-                data = json.load(config_file)
-                conf.api_key = data.get("gmaps_api", "")
+            if os.path.exists("secrets/secrets_gmap.json"):
+                with open("secrets/secrets_gmap.json", "r", encoding="utf-8") as config_file:
+                    data = json.load(config_file)
+                    conf.api_key = data.get("gmaps_api", "")
+
+            if os.path.exists("secrets/secrets_openai.json"):
+                with open("secrets/secrets_openai.json", "r", encoding="utf-8") as config_file:
+                    data = json.load(config_file)
+                    conf.openai_api_key = data.get("openai_api_key", "")
+
+            if os.path.exists("secrets/secrets_gemini.json"):
+                with open("secrets/secrets_gemini.json", "r", encoding="utf-8") as config_file:
+                    data = json.load(config_file)
+                    conf.gemini_api_key = data.get("gemini_api_key", "")
 
             return conf
         except Exception as e:

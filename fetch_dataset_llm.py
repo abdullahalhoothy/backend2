@@ -86,7 +86,7 @@ async def process_llm_query(req:ReqLLMFetchDataset):
     - Always use the standardized category names from the approved list
     For invalid queries, politely explain why the query cannot be processed, specifically mentioning the requirement for exactly one approved city name.
     """
-    model = ChatOpenAI(model_name="gpt-4-turbo-preview", temperature=0.0)
+    model = ChatOpenAI(model_name="gpt-4-turbo-preview", temperature=0.0,openai_api_key=CONF.openai_api_key)
 
     parser = PydanticOutputParser(pydantic_object=ResLLMFetchDataset)
     
@@ -104,5 +104,6 @@ async def process_llm_query(req:ReqLLMFetchDataset):
     else:
         costData = await calculate_cost(outputResponse.body)
         outputResponse.cost = str(costData.cost)
+        outputResponse.body.action = "sample"
         return (outputResponse)
     
