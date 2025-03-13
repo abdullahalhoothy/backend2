@@ -4,11 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_openai import ChatOpenAI
 import os 
-
-
-
-
-
+from config_factory import CONF
 
 class ExplanationAgent:
     def __init__(self):
@@ -21,11 +17,11 @@ class ExplanationAgent:
 
     def __getmodel(self):
     #key=os.environ["DEEPSEEK_API_KEY"]
-      api_key=os.environ["GEMINI_API_KEY"]# YOur API KEY
+      #api_key=os.environ["GEMINI_API_KEY"]# YOur API KEY
       base_url="https://generativelanguage.googleapis.com/v1beta"
       client=ChatOpenAI(
           base_url=base_url,
-          api_key=api_key,
+          api_key=CONF.gemini_api_key,
           model="gemini-2.0-flash-exp"
       )
       return client
@@ -55,11 +51,11 @@ class ReqGradientColorBasedOnZoneAgent:
 
   def __getmodel(self):
     #key=os.environ["DEEPSEEK_API_KEY"]
-    api_key=os.environ["GEMINI_API_KEY"]
+    #api_key=os.environ["GEMINI_API_KEY"]
     base_url="https://generativelanguage.googleapis.com/v1beta"
     client=ChatOpenAI(
         base_url=base_url,
-        api_key=api_key,
+        api_key=CONF.gemini_api_key,
         model="gemini-2.0-flash-exp"
     )
     return client
@@ -185,11 +181,11 @@ class PromptValidationAgent:
         self.chain = self.template | self.model | self.parser
     
     def __getmodel(self):
-        api_key =os.environ["GEMINI_API_KEY"]
+        #api_key =os.environ["GEMINI_API_KEY"]
         base_url = "https://generativelanguage.googleapis.com/v1beta"
         client = ChatOpenAI(
             base_url=base_url,
-            api_key=api_key,
+            api_key=CONF.gemini_api_key,
             model="gemini-2.0-flash-exp"
         )
         return client
@@ -307,11 +303,11 @@ class OutputValidationAgent:
         self.chain = self.template | self.model | self.parser
     
     def __getmodel(self):
-        api_key = os.environ["GEMINI_API_KEY"]
+        #api_key = os.environ["GEMINI_API_KEY"]
         base_url = "https://generativelanguage.googleapis.com/v1beta"
         client = ChatOpenAI(
             base_url=base_url,
-            api_key=api_key,
+            api_key=CONF.gemini_api_key,
             model="gemini-2.0-flash-exp"
         )
         return client
