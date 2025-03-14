@@ -1028,3 +1028,8 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
 
 #     response = await analyze_prompt_completeness(request.user_prompt, vector_store=vector_store)
 #     return response
+def get_fastapi_app():
+    """ This function returns the fastapi app after 
+    all endpoints have been added to it
+    """
+    return app
