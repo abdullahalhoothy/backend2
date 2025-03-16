@@ -1,0 +1,212 @@
+[
+  {
+    "id": "ChIJf6fU_uAayUwRQeRy3h2uA7s",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "1 Ave du Casino, Montreal, QC H3C 4W7, Canada",
+    "location": {
+      "latitude": 45.5054701,
+      "longitude": -73.5256318
+    },
+    "rating": 4.3,
+    "userRatingCount": 17618,
+    "displayName": {
+      "text": "Casino de Montr\u00e9al",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJI9HRSV4ayUwR5cKP1D38nFc",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "500 Rue Sherbrooke O, Montr\u00e9al, QC H3A 3G6, Canada",
+    "location": {
+      "latitude": 45.5061379,
+      "longitude": -73.5720164
+    },
+    "rating": 3.3,
+    "userRatingCount": 495,
+    "displayName": {
+      "text": "Loto-Qu\u00e9bec",
+      "languageCode": "fr"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJowiTMCUbyUwRbK8QMfw_zJ0",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "1591 Bd Roland-Therrien, Longueuil, QC J4J 5C5, Canada",
+    "location": {
+      "latitude": 45.538496200000004,
+      "longitude": -73.477903
+    },
+    "rating": 4.3,
+    "userRatingCount": 183,
+    "displayName": {
+      "text": "Kinzo Longueuil",
+      "languageCode": "en"
+    },
+    "primaryType": "casino",
+    "paymentOptions": {
+      "acceptsCashOnly": true
+    }
+  },
+  {
+    "id": "ChIJtW9TWCERyUwR0X4vVVZ5SGU",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "7401 Bd Newman, LaSalle, QC H8N 1X3, Canada",
+    "location": {
+      "latitude": 45.4411748,
+      "longitude": -73.6224995
+    },
+    "rating": 4,
+    "userRatingCount": 99,
+    "displayName": {
+      "text": "Kinzo LaSalle",
+      "languageCode": "fr"
+    },
+    "takeout": false,
+    "delivery": false,
+    "primaryType": "casino",
+    "paymentOptions": {
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJb4j-LWwbyUwRTmUrNF7bQ7Y",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "412 Rue du Champ de Mars, Montr\u00e9al, QC H2Y 1B4, Canada",
+    "location": {
+      "latitude": 45.5107882,
+      "longitude": -73.5530113
+    },
+    "displayName": {
+      "text": "BizzoCasino - nice online casino in Montreal",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJBXCCAekYyUwRDJDALqNYwbc",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "9310 Boul. Saint-Laurent, Montr\u00e9al, QC H2N 1N4, Canada",
+    "location": {
+      "latitude": 45.544334,
+      "longitude": -73.6518464
+    },
+    "rating": 5,
+    "userRatingCount": 1,
+    "displayName": {
+      "text": "Au Lucky Charm Casino Production",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJn1AIOH4ayUwRorMurCN9yxE",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "2401 Rue Centre, Montr\u00e9al, QC H3K 1J9, Canada",
+    "location": {
+      "latitude": 45.4797927,
+      "longitude": -73.5673994
+    },
+    "rating": 4.5,
+    "userRatingCount": 8,
+    "displayName": {
+      "text": "Syndicat Des Croupiers",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJoZ7zJ3MZyUwRJRgt9VVj53M",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "6750 Av. de l'Esplanade, Montr\u00e9al, QC H2V 4M1, Canada",
+    "location": {
+      "latitude": 45.52964,
+      "longitude": -73.6162847
+    },
+    "rating": 4,
+    "userRatingCount": 4,
+    "displayName": {
+      "text": "Casino Services",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJt-rZomQZyUwR8ksD1XiD3Bk",
+    "types": [
+      "casino",
+      "night_club",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "5675 R. Saint-Denis, Montr\u00e9al, QC H2S 3R2, Canada",
+    "location": {
+      "latitude": 45.530871000000005,
+      "longitude": -73.5967812
+    },
+    "rating": 5,
+    "userRatingCount": 1,
+    "displayName": {
+      "text": "Technomage-Animation",
+      "languageCode": "fr"
+    }
+  },
+  {
+    "id": "ChIJpWwoAmIRyUwR6iXF0IxZ-vk",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "999 Rue du Coll\u00e8ge, Montr\u00e9al, QC H4C 2S2, Canada",
+    "location": {
+      "latitude": 45.4795902,
+      "longitude": -73.5896128
+    },
+    "displayName": {
+      "text": "Graham Krenz",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  }
+]

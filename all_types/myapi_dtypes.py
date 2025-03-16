@@ -1,4 +1,4 @@
-from typing import Dict, List, TypeVar, Generic, Optional, Any
+from typing import Dict, List, TypeVar, Generic, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class ReqModel(BaseModel, Generic[U]):
 
 
 class ReqCityCountry(BaseModel):
-    city_name: Optional[str] = None
+    city_name: str
     country_name: str
 
 
@@ -145,8 +145,3 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
-# User prompt -> llm
-class ReqPrompt(BaseModel):
-    user_id: str
-    layers: List[Dict[str, Any]]
-    prompt: str

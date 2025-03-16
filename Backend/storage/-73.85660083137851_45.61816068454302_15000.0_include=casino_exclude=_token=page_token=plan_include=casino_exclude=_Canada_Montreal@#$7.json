@@ -1,0 +1,229 @@
+[
+  {
+    "id": "ChIJmY1nto4lyUwR7P5Gs7jP0_k",
+    "types": [
+      "performing_arts_theater",
+      "casino",
+      "event_venue",
+      "sports_club",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "215 Rue Saint-Laurent #205, Saint-Eustache, QC J7P 4W4, Canada",
+    "location": {
+      "latitude": 45.574722799999996,
+      "longitude": -73.8776098
+    },
+    "rating": 4.3,
+    "userRatingCount": 214,
+    "displayName": {
+      "text": "Cabaret Billard Le Patriote",
+      "languageCode": "en"
+    },
+    "primaryType": "sports_club",
+    "paymentOptions": {
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJWZIhl1Y7yUwRPtEESpFfI3I",
+    "types": [
+      "bar",
+      "sports_complex",
+      "casino",
+      "event_venue",
+      "sports_club",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "5017 Bd des Sources, Pierrefonds, QC H8Y 3E3, Canada",
+    "location": {
+      "latitude": 45.508587999999996,
+      "longitude": -73.82041559999999
+    },
+    "rating": 4.1,
+    "priceLevel": "PRICE_LEVEL_INEXPENSIVE",
+    "userRatingCount": 267,
+    "displayName": {
+      "text": "Billard Shooters",
+      "languageCode": "fr"
+    },
+    "delivery": false,
+    "primaryType": "bar",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  },
+  {
+    "id": "ChIJ99jSSFrVyEwRKkbea4ADLB8",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "17680 Rue Charles Suite 110, Mirabel, QC J7J 0T6, Canada",
+    "location": {
+      "latitude": 45.696814499999995,
+      "longitude": -73.93139819999999
+    },
+    "rating": 4,
+    "userRatingCount": 26,
+    "displayName": {
+      "text": "Kinzo Mirabel",
+      "languageCode": "fr"
+    },
+    "delivery": false,
+    "primaryType": "casino",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJ-2Suys0jyUwRL-gFvKsQBVY",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "1545 Boul. le Corbusier, Laval, QC H7S 2K6, Canada",
+    "location": {
+      "latitude": 45.563237,
+      "longitude": -73.7281756
+    },
+    "rating": 3.9,
+    "userRatingCount": 72,
+    "displayName": {
+      "text": "Kinzo Galeries",
+      "languageCode": "en"
+    },
+    "primaryType": "casino",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsNfc": false
+    }
+  },
+  {
+    "id": "ChIJV29bonQvyUwRpvmCmoOJGuE",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "508 Rue Dufour, Saint-Eustache, QC J7R 0C3, Canada",
+    "location": {
+      "latitude": 45.56927470000001,
+      "longitude": -73.9112986
+    },
+    "rating": 4.2,
+    "userRatingCount": 99,
+    "displayName": {
+      "text": "Kinzo Saint-Eustache",
+      "languageCode": "en"
+    },
+    "delivery": false,
+    "primaryType": "casino",
+    "paymentOptions": {
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJwXJ9qEAlyUwRlxGnQZNKk8k",
+    "types": [
+      "bar",
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "955 Bd de l'H\u00f4tel-de-Ville, Laval, QC H7X 2K9, Canada",
+    "location": {
+      "latitude": 45.5304946,
+      "longitude": -73.8147583
+    },
+    "rating": 3.7,
+    "userRatingCount": 9,
+    "displayName": {
+      "text": "ROYAL PALACE",
+      "languageCode": "fr"
+    },
+    "delivery": false,
+    "primaryType": "bar"
+  },
+  {
+    "id": "ChIJ3zFiymvvyEwRFoFQmoHE-pg",
+    "types": [
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "34 Rue de Vitr\u00e9, Blainville, QC J7B 1Z3, Canada",
+    "location": {
+      "latitude": 45.6687614,
+      "longitude": -73.82885809999999
+    },
+    "rating": 4.5,
+    "userRatingCount": 8,
+    "displayName": {
+      "text": "Magic Nights Casino",
+      "languageCode": "en"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJJ8buvBnWyEwRcfyCH07WHHI",
+    "types": [
+      "bar",
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "1356 Bd du Cur\u00e9-Labelle, Blainville, QC J7C 2P2, Canada",
+    "location": {
+      "latitude": 45.68907,
+      "longitude": -73.902847
+    },
+    "rating": 3.3,
+    "userRatingCount": 6,
+    "displayName": {
+      "text": "Bar Viva Las Vegas",
+      "languageCode": "fr"
+    },
+    "delivery": false,
+    "primaryType": "bar",
+    "paymentOptions": {
+      "acceptsCashOnly": false
+    }
+  },
+  {
+    "id": "ChIJ8RfATsAjyUwRg9PMh-7UrBs",
+    "types": [
+      "casino",
+      "night_club",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "12235 Rue F\u00e9lix - l'Allier, Mirabel, QC J7N 0T7, Canada",
+    "location": {
+      "latitude": 45.638051,
+      "longitude": -74.0380204
+    },
+    "rating": 4.6,
+    "userRatingCount": 71,
+    "displayName": {
+      "text": "Les Productions Technomage",
+      "languageCode": "fr"
+    }
+  }
+]

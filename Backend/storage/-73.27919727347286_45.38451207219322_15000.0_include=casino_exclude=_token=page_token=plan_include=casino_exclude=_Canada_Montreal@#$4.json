@@ -1,0 +1,53 @@
+[
+  {
+    "id": "ChIJ5xrPu0qiyUwRrcz4e9g9mn4",
+    "types": [
+      "casino",
+      "tourist_attraction",
+      "bar",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "182 Boulevard Saint-Joseph, Saint-Jean-sur-Richelieu, QC J3B 1W7, Canada",
+    "location": {
+      "latitude": 45.3132519,
+      "longitude": -73.2604498
+    },
+    "rating": 4.3,
+    "userRatingCount": 147,
+    "displayName": {
+      "text": "Kinzo Saint-Jean-sur-Richelieu",
+      "languageCode": "fr"
+    },
+    "primaryType": "casino"
+  },
+  {
+    "id": "ChIJrb6tqd2jyUwR3dzmt0Znz5E",
+    "types": [
+      "bar",
+      "casino",
+      "point_of_interest",
+      "establishment"
+    ],
+    "formattedAddress": "919 Bd du S\u00e9minaire N, Saint-Jean-sur-Richelieu, QC J3A 1B6, Canada",
+    "location": {
+      "latitude": 45.3321785,
+      "longitude": -73.2668377
+    },
+    "rating": 4.3,
+    "priceLevel": "PRICE_LEVEL_MODERATE",
+    "userRatingCount": 39,
+    "displayName": {
+      "text": "Caf\u00e9 Royal",
+      "languageCode": "fr"
+    },
+    "delivery": false,
+    "primaryType": "bar",
+    "paymentOptions": {
+      "acceptsCreditCards": true,
+      "acceptsDebitCards": true,
+      "acceptsCashOnly": false,
+      "acceptsNfc": true
+    }
+  }
+]

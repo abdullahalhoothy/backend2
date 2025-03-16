@@ -27,9 +27,6 @@ from all_types.response_dtypes import (
     LayerInfo,
     UserCatalogInfo,
     NearestPointRouteResponse,
-    ResProcessColorBasedOnLLM,
-    
-
 )
 from google_api_connector import (
     calculate_distance_traffic_route,
@@ -71,7 +68,7 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
-from agents import (ExplanationAgent,PromptValidationAgent,OutputValidationAgent,ReqGradientColorBasedOnZoneAgent)
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -191,20 +188,11 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
 
 
 def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
-    # If lat and lng are provided directly, use them
-    if req.lat is not None and req.lng is not None:
-        req._bounding_box = expand_bounding_box(req.lat, req.lng)
-        return req
-
     # Load country/city data
     country_city_data = load_country_city()
 
     # Find the city coordinates
     city_data = None
-    
-    if not req.city_name:
-        raise ValueError("Either city_name or lat/lng coordinates must be provided")
-
     if req.country_name in country_city_data:
         for city in country_city_data[req.country_name]:
             if city["name"] == req.city_name:
@@ -275,43 +263,41 @@ async def fetch_census_realestate(
 
 async def fetch_ggl_nearby(req: ReqFetchDataset):
     search_type = req.search_type
+    next_page_token = req.page_token
     action = req.action
     plan_name = ""
 
-    # try 30 times to get non empty dataset
-    for _ in range(30):
-        next_page_token = req.page_token
+    if req.action == "full data":
+        req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+            await process_req_plan(req)
+        )
+    else:
+        req = fetch_lat_lng_bounding_box(req)
 
-        if req.action == "full data":
-            req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-                await process_req_plan(req)
-            )
-        else:
-            req = fetch_lat_lng_bounding_box(req)
+    bknd_dataset_id = make_dataset_filename(req)
+    # dataset = await load_dataset(bknd_dataset_id)
 
-        bknd_dataset_id = make_dataset_filename(req)
+    # dataset, bknd_dataset_id = await get_dataset_from_storage(req)
 
-        if "default" in search_type or "category_search" in search_type:
-            dataset = await fetch_from_google_maps_api(req)
-        elif "keyword_search" in search_type:
-            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
-            dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
-            if ggl_api_resp:
-                dataset = convert_strings_to_ints(dataset)
+    # if not dataset:
 
-        if req.action == "full data" and len(dataset.get("features", "")) == 0:
-            new_page_index = await rectify_plan(plan_name, current_plan_index)
-            if new_page_index == "":
-                break
-            else:
-                req.page_token = (
-                    req.page_token.split("@#$")[0] + "@#$" + str(new_page_index)
-                )
-        else:
-            # continue as usual
-            break
-        
+    if "default" in search_type or "category_search" in search_type:
+        dataset = await fetch_from_google_maps_api(req)
+    elif "keyword_search" in search_type:
+        ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
+        dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
+        if ggl_api_resp:
+            dataset = convert_strings_to_ints(dataset)
+    # Store the fetched data in storage
+    # dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp,req.radius)
+    # if ggl_api_resp:
+    #     dataset = convert_strings_to_ints(dataset)
+    #     bknd_dataset_id = await store_data_resp(
+    #         req, dataset, bknd_dataset_id
+    #     )
     # if dataset is less than 20 or none and action is full data
+    #     call function rectify plan
+    #     replace next_page_token with next non-skip page token
     if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
@@ -623,10 +609,9 @@ async def fetch_dataset(req: ReqFetchDataset):
     and returns it. If the layer doesn't exist, it creates a new layer
     """
     next_page_token = None
-    layer_id = req.prdcer_lyr_id
-    if req.page_token == "" or req.prdcer_lyr_id == "":
-        layer_id = generate_layer_id()
-
+    new_layer_id = req.prdcer_lyr_id
+    if req.page_token != "" or req.page_token != "0":
+        new_layer_id = generate_layer_id()
 
     geojson_dataset = []
 
@@ -667,29 +652,6 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
-        # if the user already has this dataset on his profile don't charge him 
-        
-        # if the first query of the full data was successful and returned results
-        # deduct money from the user's wallet for the price of this dataset
-        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds 
-
-
-
-        # if the first query of the full data was successful and returned results run the fetch data plan in the background
-        # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
-        # when saving the dataset we should save what is the % availability of this dataset based on the plan , plan that is 50% executed means data available 50%
-        # while we are at it we should add the dataset's next refresh date, and a flag saying whether to auto refresh or no
-        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call , and we should make this delay 3 seconds
-        # in those 3 seconds we hope to allow to backend to advance in the query plan execution
-        # the frontend should display the % as a bar with an indication that this bar is filling in those 3 seconds to reassure the user
-        # then on subsequent calls using next page token the backend should execute calls within the same level at the same time in a batch of 5 at a time
-        
-        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
-
-        # we should return this % completetion to the user to display while the user is watiing for his data
-        
-
-
         user_data = await load_user_profile(req.user_id)
         user_data["prdcer"]["prdcer_dataset"][
             plan_name.replace("plan_", "")
@@ -698,7 +660,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
     geojson_dataset["records_count"] = len(geojson_dataset.get("features", ""))
-    geojson_dataset["prdcer_lyr_id"] = layer_id
+    geojson_dataset["prdcer_lyr_id"] = new_layer_id
     geojson_dataset["next_page_token"] = next_page_token
     return geojson_dataset
 
@@ -1258,11 +1220,16 @@ async def calculate_nearest_points_drive_time(
             origin = f"{target['latitude']},{target['longitude']}"
             destination = f"{nearest[0]},{nearest[1]}"
 
-            # Fetch route information between target and nearest location
-            if origin != destination:
+            try:
+                # Fetch route information between target and nearest location
                 route_info = await calculate_distance_traffic_route(origin, destination)
                 target_routes.routes.append(route_info)
-
+            except HTTPException as e:
+                # Handle HTTP exceptions during the route fetching
+                target_routes.routes.append({"error": str(e.detail)})
+            except Exception as e:
+                # Handle any other exceptions
+                target_routes.routes.append({"error": f"An error occurred: {str(e)}"})
 
         results.append(target_routes)
 
@@ -1403,13 +1370,9 @@ async def process_color_based_on(
 
             # Get minimum static drive time from routes
             for route in target_routes.routes:
-                try:
-                    if route.route and route.route[0].static_duration:
-                        static_time = int(route.route[0].static_duration.replace("s", ""))
-                        min_static_time = min(min_static_time, static_time)
-                except:
-                    pause=1
-            
+                if route.route and route.route[0].static_duration:
+                    static_time = int(route.route[0].static_duration.replace("s", ""))
+                    min_static_time = min(min_static_time, static_time)
 
             # Find the point with matching coordinates
             for change_point in change_layer_dataset["features"]:
@@ -1675,41 +1638,6 @@ async def get_user_profile(req):
 
 async def update_profile(req):
     return await update_user_profile_settings(req)
-
-
-# llm agent call
-
-async def process_color_based_on_llm(req:ReqPrompt)-> ResProcessColorBasedOnLLM:
-    prompt=req.prompt
-    user_id=req.user_id
-    user_layers=req.layers
-    if not user_layers:
-        user_layers=await fetch_user_layers(user_id)
-    # validate the prompt
-    validation_agent=PromptValidationAgent()
-    validation_result=validation_agent(prompt,user_layers)
-    response=ResProcessColorBasedOnLLM(layers=[],explanation="",validation_result=validation_result)
-    if validation_result.is_valid:
-        agent=ReqGradientColorBasedOnZoneAgent()
-        output_validation_agent=OutputValidationAgent()
-        #explanation_agent=ExplanationAgent()
-        output=agent(prompt,user_layers)
-        validation_output_result=output_validation_agent(prompt,output,user_layers)
-        if validation_output_result.is_valid:
-            try:
-                new_layers=await process_color_based_on(output)
-                #response=explanation_agent(prompt,new_layers)
-                response.layers=new_layers
-                #response.explanation=response
-            except Exception as e:
-                #response=explanation_agent(prompt,str(e))
-                #final_output.layers=[]
-                #final_output.explanation=response
-                pass
-        else:
-            response.validation_result=validation_output_result
-    return response
-
 
 
 # Apply the decorator to all functions in this module

@@ -1,0 +1,417 @@
+[
+    {
+      "id": "ChIJL3XExDrXwxURsgAsXn29uYE",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Jeddah International Airport Hall-1 Departure Gate-A, \u0627\u0644\u0623\u0645\u064a\u0631 \u0645\u0627\u062c\u062f\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23631\u060c\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23634\u060c\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23634\u060c\u060c King Abdulaziz International Airport, Jeddah 23634, Saudi Arabia",
+      "location": {
+        "latitude": 21.660014399999998,
+        "longitude": 39.1775744
+      },
+      "rating": 4.5,
+      "userRatingCount": 729,
+      "displayName": {
+        "text": "Terminal 1 - Eastern Parking - Car Rental Return",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJOfP2WX3QwxURbjVy3R1GNCo",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0637\u0631\u064a\u0642 \u0627\u0644\u0645\u062f\u064a\u0646\u0629 \u0627\u0644\u0645\u0646\u0648\u0631\u0629, \u0635\u0627\u0631\u064a \u0641\u0631\u0639\u064a\u060c \u0627\u0644\u0633\u0644\u0627\u0645\u0629\u060c \u062c\u062f\u0629 23436, Saudi Arabia",
+      "location": {
+        "latitude": 21.583828,
+        "longitude": 39.164148999999995
+      },
+      "rating": 3.8,
+      "userRatingCount": 1051,
+      "displayName": {
+        "text": "\u064a\u0644\u0648 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a (\u0627\u0644\u0648\u0641\u0627\u0642)",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJzabQyQHXwxURm5ychfYJYlU",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0635\u0627\u0644\u0629 \u0631\u0642\u0645 1, King Abdulaziz International Airport, Jeddah 23631, Saudi Arabia",
+      "location": {
+        "latitude": 21.659381999999997,
+        "longitude": 39.175809
+      },
+      "rating": 3.7,
+      "userRatingCount": 1162,
+      "displayName": {
+        "text": "\u064a\u0644\u0648 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a (\u0627\u0644\u0648\u0641\u0627\u0642)",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJh1uA2YXQwxURYUc2HqF254s",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Al-Madinah Al-Munawarah Rd, Al Bawadi, Jeddah 23443, Saudi Arabia",
+      "location": {
+        "latitude": 21.589670899999998,
+        "longitude": 39.162789
+      },
+      "rating": 3.8,
+      "userRatingCount": 1191,
+      "displayName": {
+        "text": "Key Car Rental",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJCUdFucXRwxURoXzMwLdyZTk",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Aziziyah, Jeddah 23338, Saudi Arabia",
+      "location": {
+        "latitude": 21.547873000000003,
+        "longitude": 39.204784
+      },
+      "rating": 3.8,
+      "userRatingCount": 447,
+      "displayName": {
+        "text": "Yelo Car Rental",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJiRmJf-_NwxURBoqFC67_mB0",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "G65R+W2, King Abdallah Rd, An Naseem, Jeddah 23236, Saudi Arabia",
+      "location": {
+        "latitude": 21.509765299999998,
+        "longitude": 39.2401201
+      },
+      "rating": 3.8,
+      "userRatingCount": 1477,
+      "displayName": {
+        "text": "\u0627\u0648\u062a\u0648\u0632\u0648\u0646 \u0628\u0627\u0644\u0628\u064a\u062f - Autozone Balubaid",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental",
+      "paymentOptions": {
+        "acceptsCreditCards": true,
+        "acceptsDebitCards": true
+      }
+    },
+    {
+      "id": "ChIJ82v4BWjXwxURerEZxeJcuV0",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "King Abdulaziz International Airport, Jeddah 23634, Saudi Arabia",
+      "location": {
+        "latitude": 21.661559099999998,
+        "longitude": 39.1770068
+      },
+      "rating": 3.6,
+      "userRatingCount": 329,
+      "displayName": {
+        "text": "\u0627\u0644\u0631\u062d\u064a\u0644\u064a \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJvYJv4WXXwxUR_NHZedXc5-c",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0627\u0644\u0642\u0627\u062f\u0645\u0648\u0646 \u0627\u0644\u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062b\u0627\u0646\u064a\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a (JED)\u060c \u0637\u0631\u064a\u0642 \u0627\u0644\u0645\u062f\u064a\u0646\u0629 \u0627\u0644\u0645\u0646\u0648\u0631\u0629\u060c\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23635\u060c King Abdulaziz International Airport, Jeddah 23634, Saudi Arabia",
+      "location": {
+        "latitude": 21.6600796,
+        "longitude": 39.1778043
+      },
+      "rating": 3.3,
+      "userRatingCount": 52,
+      "displayName": {
+        "text": "\u0627\u0639\u0627\u062f\u0629 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0645\u0633\u062a\u0623\u062c\u0631\u0629",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJayF2-6_RwxURVQfO2uKdmmo",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0637\u0631\u064a\u0642 \u0627\u0644\u0645\u062f\u064a\u0646\u0629, Al Bawadi, Jeddah 23443, Saudi Arabia",
+      "location": {
+        "latitude": 21.587318300000003,
+        "longitude": 39.163574100000005
+      },
+      "rating": 4.2,
+      "userRatingCount": 113,
+      "displayName": {
+        "text": "\u0644\u064a\u0643\u0633 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a \u0627\u0644\u0641\u0627\u062e\u0631\u0629 LYX Car Rental",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJ0f12pbHXwxURCQwOsimKn5c",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "King Abdulaziz International Airport, Terminal 1, King Abdulaziz International Airport, Jeddah 12345, Saudi Arabia",
+      "location": {
+        "latitude": 21.6629787,
+        "longitude": 39.1732234
+      },
+      "rating": 3.8,
+      "userRatingCount": 52,
+      "displayName": {
+        "text": "Key rental Car",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJGWE3-xfXwxURpFmH71z5lOc",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Al Amal, \u062d\u064a \u0627\u0644\u0646\u0632\u0647\u0629\u060c Jeddah 11423, Saudi Arabia",
+      "location": {
+        "latitude": 21.629044999999998,
+        "longitude": 39.155868999999996
+      },
+      "rating": 4,
+      "userRatingCount": 324,
+      "displayName": {
+        "text": "\u0630\u064a\u0628 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJpTgYU-LNwxURbnb0b_7n4dE",
+      "types": [
+        "car_dealer",
+        "car_rental",
+        "auto_parts_store",
+        "car_repair",
+        "general_contractor",
+        "store",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Al-Sulymania, District, \u0637\u0631\u064a\u0642 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0644\u0647\u060c \u0627\u0644\u0646\u0633\u064a\u0645\u060c \u062c\u062f\u0629 23236, Saudi Arabia",
+      "location": {
+        "latitude": 21.5102513,
+        "longitude": 39.2399367
+      },
+      "rating": 4.1,
+      "userRatingCount": 317,
+      "displayName": {
+        "text": "Balubaid Group of Companies",
+        "languageCode": "en"
+      },
+      "primaryType": "car_dealer",
+      "paymentOptions": {
+        "acceptsCreditCards": true
+      }
+    },
+    {
+      "id": "ChIJJ2UNvoTQwxURArVsO8te8y4",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "3799\u060c 8114 Al-Madinah Al-Munawarah Rd, Al Bawadi, Jeddah 23437, Saudi Arabia",
+      "location": {
+        "latitude": 21.593857099999997,
+        "longitude": 39.1614724
+      },
+      "rating": 3.2,
+      "userRatingCount": 269,
+      "displayName": {
+        "text": "Lumi Car Rental",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJZQHU5jLRwxURiQiQnianoLA",
+      "types": [
+        "car_rental",
+        "car_dealer",
+        "store",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "JDBB7790\u060c 7790, \u0627\u0644\u0623\u0645\u064a\u0631 \u0645\u0627\u062c\u062f\u060c \u0641\u0631\u0639\u064a, \u062c\u062f\u0629 23535, Saudi Arabia",
+      "location": {
+        "latitude": 21.613677799999998,
+        "longitude": 39.1873493
+      },
+      "rating": 4.3,
+      "userRatingCount": 193,
+      "displayName": {
+        "text": "\u0630\u064a\u0628 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJWwhd0V3XwxURPeOJ3cOlPMk",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0627\u0644\u0642\u0627\u062f\u0645\u0648\u0646 \u0627\u0644\u0645\u0633\u062a\u0648\u0649 \u0627\u0644\u062b\u0627\u0646\u064a\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a (JED)\u060c \u0637\u0631\u064a\u0642 \u0627\u0644\u0645\u062f\u064a\u0646\u0629 \u0627\u0644\u0645\u0646\u0648\u0631\u0629\u060c\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23635\u060c\u060c \u0645\u0637\u0627\u0631 \u0627\u0644\u0645\u0644\u0643 \u0639\u0628\u062f\u0627\u0644\u0639\u0632\u064a\u0632 \u0627\u0644\u062f\u0648\u0644\u064a\u060c \u062c\u062f\u0629 23634\u060c\u060c \u062c\u062f\u0629 23634\u060c\u060c King Abdulaziz International Airport, Jeddah 23634, Saudi Arabia",
+      "location": {
+        "latitude": 21.6605804,
+        "longitude": 39.1749122
+      },
+      "rating": 3.6,
+      "userRatingCount": 156,
+      "displayName": {
+        "text": "\u0627\u0644\u0645\u0641\u062a\u0627\u062d \u0644\u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0633\u064a\u0627\u0631\u0629 \u0645\u0637\u0627\u0631 \u062c\u062f\u0629",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJmxXzKO7PwxUR3K5Su2h2NMI",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Abdullah Sulayman St, Al Fayha'a, Jeddah 22246, Saudi Arabia",
+      "location": {
+        "latitude": 21.495682,
+        "longitude": 39.219349
+      },
+      "rating": 3.8,
+      "userRatingCount": 445,
+      "displayName": {
+        "text": "\u0630\u064a\u0628 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJew119oTQwxURn8Rvl5IpbqY",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "As Salamah, Jeddah 23525, Saudi Arabia",
+      "location": {
+        "latitude": 21.606290299999998,
+        "longitude": 39.156827899999996
+      },
+      "rating": 3.7,
+      "userRatingCount": 841,
+      "displayName": {
+        "text": "\u0630\u064a\u0628 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJY1gS76bPwxURQuxu4w6N5WI",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Hael, Al-Baghdadiyah Al-Gharbiyah, Jeddah 22234, Saudi Arabia",
+      "location": {
+        "latitude": 21.503722999999997,
+        "longitude": 39.179485
+      },
+      "rating": 4,
+      "userRatingCount": 773,
+      "displayName": {
+        "text": "\u064a\u0644\u0648 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a (\u0627\u0644\u0648\u0641\u0627\u0642)",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJ72FXz6jRwxURzR-7SIgUrRQ",
+      "types": [
+        "car_rental",
+        "taxi_stand",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "An Nuzhah, Jeddah 23534, Saudi Arabia",
+      "location": {
+        "latitude": 21.627467,
+        "longitude": 39.173894
+      },
+      "rating": 4,
+      "userRatingCount": 234,
+      "displayName": {
+        "text": "Yelo Car Rental (Al Wefaq)",
+        "languageCode": "en"
+      },
+      "primaryType": "car_rental"
+    },
+    {
+      "id": "ChIJRwXs_KbPwxUR0H2B517mx3Y",
+      "types": [
+        "car_rental",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "\u0628\u0627\u062a\u062c\u0627\u0647 \u0627\u0644\u062c\u0646\u0648\u0628-\u0628\u0639\u062f \u062c\u0633\u0631 \u0641\u0644\u0633\u0637\u064a\u0646\u060c Al Modon, Al-Baghdadiyah Al-Gharbiyah, Jeddah 22234, Saudi Arabia",
+      "location": {
+        "latitude": 21.502222,
+        "longitude": 39.182525
+      },
+      "rating": 3.9,
+      "userRatingCount": 338,
+      "displayName": {
+        "text": "\u0630\u064a\u0628 \u0644\u062a\u0623\u062c\u064a\u0631 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+        "languageCode": "ar"
+      },
+      "primaryType": "car_rental"
+    }
+  ]

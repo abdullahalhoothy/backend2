@@ -726,11 +726,11 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
             if json_content:
                 created_at = json_content.get("created_at")
-                if created_at.tzinfo is None:
-                    created_at = created_at.replace(tzinfo=timezone.utc)
-                if created_at and created_at < three_months_ago:
-                    await Database.execute(SqlObject.delete_dataset, dataset_id)
-                    json_content= None
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if created_at and created_at < three_months_ago:
+                await Database.execute(SqlObject.delete_dataset, dataset_id)
+                json_content= None
             if json_content:
                 dataset = orjson.loads(json_content.get("response_data", "{}")) 
                 all_features.extend(dataset.get("features", [])) 
