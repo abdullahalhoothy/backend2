@@ -19,9 +19,3 @@ all_types/__pycache__/**
 
 # user files
 docker-compose.yml
-
-*.csv
-*.pkl
-saudi_supermarkets_20250218_121912.json
-saudi_pharmacies_20250222_214042.json
-population.json
