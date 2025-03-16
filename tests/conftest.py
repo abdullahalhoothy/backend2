@@ -222,3 +222,12 @@ def stripe_customer_full_data():
           "user_id": "QxLtKyvwLJaoj8LHo0pOMPo4oew2"
         },
         'name': 'username', 'next_invoice_sequence': 1, 'phone': None, 'preferred_locales': [], 'shipping': None, 'tax_exempt': 'none', 'test_clock': None, 'user_id': 'QxLtKyvwLJaoj8LHo0pOMPo4oew2'}
+
+@pytest.fixture
+def req_load_user_profile():
+    return {
+            "message": "Request from frontend",
+            "request_info": {},
+            "request_body": {
+                "user_id": "123" 
+            } }
