@@ -19,7 +19,7 @@ async def test_save_layer(async_client, req_save_layer, user_profile_data):
 
 
 @pytest.mark.asyncio
-async def test_save_layer(async_client, req_save_layer_duplicate, user_profile_data):
+async def test_save_layer_fail(async_client, req_save_layer_duplicate, user_profile_data):
     with (
         patch("data_fetcher.update_user_profile", new_callable=AsyncMock) as mock_fetch,
         patch("data_fetcher.update_dataset_layer_matching", new_callable=AsyncMock) as mock_strip,
