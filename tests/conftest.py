@@ -231,3 +231,11 @@ def req_load_user_profile():
             "request_body": {
                 "user_id": "123" 
             } }
+
+@pytest.fixture
+def req_load_user_profile_duplicate():
+    return {
+            "message": "Request from frontend",
+            "request_info": {},
+            "request_body": {
+            } }
