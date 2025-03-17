@@ -360,7 +360,9 @@ def plot_results(grided_data : gpd.GeoDataFrame,
                  alpha : float  = 0.8, 
                  show_legends : bool = True, 
                  edge_color : str = "white", 
-                 show_title : bool = True) -> None:
+                 show_title : bool = True,
+                 log_output : bool = True,
+                 ) -> None:
     """
     args:
     ----
@@ -382,11 +384,11 @@ def plot_results(grided_data : gpd.GeoDataFrame,
     for i,column in enumerate(grid.columns[1:], 1):
       ax = plt.subplot(n_rows,n_cols,i)
       grid[f"log_{column}"] = np.log1p(grid[column])
-      vmax = grid[f"log_{column}"].quantile(0.95)
-      vmin = grid[f"log_{column}"].quantile(0.05)
+      vmax = grid[f"log_{column}"].quantile(0.95) if log_output else grid[column].max()
+      vmin = grid[f"log_{column}"].quantile(0.05) if log_output else grid[column].min()
       grid.set_crs(epsg=4326, inplace=True)
       grid.to_crs(epsg=3857).plot(
-                column=f"log_{column}",
+                column=f"log_{column}" if log_output else column,
                 legend=show_legends,
                 cmap=colors[i-1],
                 edgecolor=edge_color,
@@ -398,5 +400,5 @@ def plot_results(grided_data : gpd.GeoDataFrame,
       ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron)
       ax.axis("off")
       if show_title:
-        ax.set_title(f"{column} per Grid Cell (Log scaled)", fontsize=14)
+        ax.set_title(f"{column} per Grid Cell", fontsize=14)
     plt.show()
