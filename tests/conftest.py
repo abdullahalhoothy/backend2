@@ -239,3 +239,28 @@ def req_load_user_profile_duplicate():
             "request_info": {},
             "request_body": {
             } }
+
+@pytest.fixture
+def res_catlog_collection():
+    return {
+  "message": "Request received.",
+  "request_id": "req-1f6db35d-83fa-4c52-bafd-da5448ce5706",
+  "data": [
+    {
+      "id": "2",
+      "name": "Saudi Arabia - Real Estate Transactions",
+      "description": "Database of real-estate transactions in Saudi Arabia",
+      "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/real_estate_ksa.png",
+      "catalog_link": "https://example.com/catalog2.jpg",
+      "records_number": 20,
+      "can_access": 1
+    },
+    {
+      "id": "55",
+      "name": "Saudi Arabia - gas stations poi data",
+      "description": "Database of all Saudi Arabia gas stations Points of Interests",
+      "thumbnail_url": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.PNG",
+      "catalog_link": "https://catalog-assets.s3.ap-northeast-1.amazonaws.com/SAUgasStations.PNG",
+      "records_number": 8517,
+      "can_access": 0
+    }]}          
