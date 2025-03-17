@@ -13,9 +13,11 @@ __pycache__/
 **/__pycache__/*
 **/__pycache__/** */
 all_types/__pycache__/**
+**plan_*
 
 # IDE - VSCode
 .vscode/
 
 # user files
 docker-compose.yml
+

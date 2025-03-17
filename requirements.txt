@@ -18,4 +18,11 @@ aiohttp
 stripe
 pandas
 orjson
+<<<<<<< HEAD
 sympy
+=======
+sympy
+rich
+langchain
+langchain-openai
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c

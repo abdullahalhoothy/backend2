@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Form,
 )
+from fetch_dataset_llm import process_llm_query
 import json
 from backend_common.background import set_background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -50,7 +51,15 @@ from all_types.myapi_dtypes import (
     ReqSavePrdcerLyer,
     ReqFetchCtlgLyrs,
     ReqCityCountry,
+<<<<<<< HEAD
     ReqDeletePrdcerLayer
+=======
+    ReqDeletePrdcerLayer,
+    ReqLLMFetchDataset,
+    ReqPrompt,
+    ValidationResult,
+    ReqFilter
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -80,6 +89,7 @@ from all_types.response_dtypes import (
     NearestPointRouteResponse,
     UserCatalogInfo,
     LayerInfo,
+    ResLLMFetchDataset,
 )
 
 from google_api_connector import check_street_view_availability
@@ -100,7 +110,6 @@ from data_fetcher import (
     poi_categories,
     save_draft_catalog,
     fetch_gradient_colors,
-    process_color_based_on,
     get_user_profile,
     # fetch_nearest_points_Gmap,
     fetch_dataset,
@@ -148,6 +157,7 @@ from backend_common.stripe_backend import (
     fetch_wallet,
     deduct_from_wallet
 )
+from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
 
 # TODO: Add stripe secret key
 
@@ -330,6 +340,24 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
         ReqFetchDataset,
         ResModel[ResFetchDataset],
         fetch_dataset,
+<<<<<<< HEAD
+=======
+        wrap_output=True,
+    )
+    return response
+
+@app.post(
+    CONF.process_llm_query,
+    response_model=ResModel[ResLLMFetchDataset],
+    dependencies=[Depends(JWTBearer())],
+)
+async def process_llm_query_ep(req: ReqModel[ReqLLMFetchDataset], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqLLMFetchDataset,
+        ResModel[ResLLMFetchDataset],
+        process_llm_query,
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
         wrap_output=True,
     )
     return response
@@ -368,6 +396,9 @@ async def user_layers(req: ReqModel[ReqUserId]):
         wrap_output=True,
     )
     return response
+
+
+
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
@@ -1017,6 +1048,23 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     )
     return response
 
+<<<<<<< HEAD
+=======
+@app.post(
+        CONF.gradient_color_based_on_zone+"_llm",
+        response_model=ResModel[ValidationResult],   
+)
+async def ep_process_color_based_on_agent(
+    req:ReqModel[ReqPrompt], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqPrompt,
+        ResModel[ValidationResult],
+        process_color_based_on_agent,
+        wrap_output=True,
+    )
+    return response
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
 
@@ -1028,3 +1076,19 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
 
 #     response = await analyze_prompt_completeness(request.user_prompt, vector_store=vector_store)
 #     return response
+
+@app.post(
+    CONF.filter_based_on,
+    response_model=ResModel[list[ResGradientColorBasedOnZone]],
+)
+async def filter_based_on_(
+    req: ReqModel[ReqFilter], request: Request
+):
+    response = await request_handling(
+        req.request_body,
+        ReqFilter,
+        ResModel[list[ResGradientColorBasedOnZone]],
+        filter_based_on,
+        wrap_output=True,
+    )
+    return response

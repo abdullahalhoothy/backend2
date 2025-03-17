@@ -1,8 +1,12 @@
+<<<<<<< HEAD
 from typing import Dict, List, TypeVar, Generic, Optional
+=======
+from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
 from pydantic import BaseModel, Field
 
-from all_types.response_dtypes import LyrInfoInCtlgSave
+from all_types.internal_types import LyrInfoInCtlgSave
 
 U = TypeVar("U")
 
@@ -23,7 +27,11 @@ class ReqModel(BaseModel, Generic[U]):
 
 
 class ReqCityCountry(BaseModel):
+<<<<<<< HEAD
     city_name: str
+=======
+    city_name: Optional[str] = None
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
     country_name: str
 
 
@@ -145,3 +153,31 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
+<<<<<<< HEAD
+=======
+# User prompt -> llm
+class ReqPrompt(BaseModel):
+    user_id: str
+    layers: List[Dict[str, Any]]
+    prompt: str
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    endpoint: Optional[str] = None
+    body: ReqGradientColorBasedOnZone = None
+
+
+
+class ReqLLMFetchDataset(BaseModel):
+    """Extract Location Based Information from the Query"""
+
+    query: str = Field(
+        default = "",
+        description = "Original query passed by the user."
+    )
+
+class ReqFilter(ReqGradientColorBasedOnZone):
+    threshold: float|str
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c

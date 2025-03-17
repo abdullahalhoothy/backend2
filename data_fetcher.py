@@ -1,19 +1,39 @@
+<<<<<<< HEAD
 import logging
 import math
 import geopy.distance
+=======
+import json
+import logging
+import random
+import re
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Tuple, Optional
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
-import numpy as np
+from collections import defaultdict
+
 from fastapi import HTTPException
 from fastapi import status
+<<<<<<< HEAD
+=======
+import stripe
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 from backend_common.auth import (
     load_user_profile,
     update_user_profile,
     update_user_profile_settings,
+<<<<<<< HEAD
 )
+=======
+    db,
+)
+from backend_common.background import get_background_tasks
+from dataset_helper import excecute_dataset_plan
+from backend_common.stripe_backend.customers import fetch_customer
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import (
     upload_file_to_google_cloud_bucket,
@@ -22,14 +42,12 @@ from backend_common.gbucket import (
 from config_factory import CONF
 from all_types.myapi_dtypes import *
 from all_types.response_dtypes import (
-    ResGradientColorBasedOnZone,
     ResLyrMapData,
     LayerInfo,
-    UserCatalogInfo,
-    NearestPointRouteResponse,
+    UserCatalogInfo
 )
+from cost_calculator import calculate_cost
 from google_api_connector import (
-    calculate_distance_traffic_route,
     fetch_from_google_maps_api,
     text_fetch_from_google_maps_api,
 )
@@ -68,7 +86,10 @@ from storage import (
 )
 from boolean_query_processor import reduce_to_single_query
 from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
 logging.basicConfig(
     level=logging.INFO,
@@ -186,6 +207,15 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
         _LOCATION_CACHE[cache_key] = None
         return None
 
+<<<<<<< HEAD
+=======
+
+def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
+    # If lat and lng are provided directly, use them
+    if req.lat is not None and req.lng is not None:
+        req._bounding_box = expand_bounding_box(req.lat, req.lng)
+        return req
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
 def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
     # Load country/city data
@@ -193,6 +223,13 @@ def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
 
     # Find the city coordinates
     city_data = None
+<<<<<<< HEAD
+=======
+    
+    if not req.city_name:
+        raise ValueError("Either city_name or lat/lng coordinates must be provided")
+
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
     if req.country_name in country_city_data:
         for city in country_city_data[req.country_name]:
             if city["name"] == req.city_name:
@@ -263,6 +300,7 @@ async def fetch_census_realestate(
 
 async def fetch_ggl_nearby(req: ReqFetchDataset):
     search_type = req.search_type
+<<<<<<< HEAD
     next_page_token = req.page_token
     action = req.action
     plan_name = ""
@@ -298,6 +336,45 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
     # if dataset is less than 20 or none and action is full data
     #     call function rectify plan
     #     replace next_page_token with next non-skip page token
+=======
+    action = req.action
+    plan_name = ""
+
+    # try 30 times to get non empty dataset
+    for _ in range(30):
+        next_page_token = req.page_token
+
+        if req.action == "full data":
+            req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
+                await process_req_plan(req)
+            )
+        else:
+            req = fetch_lat_lng_bounding_box(req)
+
+        bknd_dataset_id = make_dataset_filename(req)
+
+        if "default" in search_type or "category_search" in search_type:
+            dataset = await fetch_from_google_maps_api(req)
+        elif "keyword_search" in search_type:
+            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
+            dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
+            if ggl_api_resp:
+                dataset = convert_strings_to_ints(dataset)
+
+        if req.action == "full data" and len(dataset.get("features", "")) == 0:
+            new_page_index = await rectify_plan(plan_name, current_plan_index)
+            if new_page_index == "":
+                break
+            else:
+                req.page_token = (
+                    req.page_token.split("@#$")[0] + "@#$" + str(new_page_index)
+                )
+        else:
+            # continue as usual
+            break
+        
+    # if dataset is less than 20 or none and action is full data
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
     if len(dataset.get("features", "")) < 20 and action == "full data":
         next_plan_index = await rectify_plan(plan_name, current_plan_index)
         if next_plan_index == "":
@@ -609,9 +686,15 @@ async def fetch_dataset(req: ReqFetchDataset):
     and returns it. If the layer doesn't exist, it creates a new layer
     """
     next_page_token = None
+<<<<<<< HEAD
     new_layer_id = req.prdcer_lyr_id
     if req.page_token != "" or req.page_token != "0":
         new_layer_id = generate_layer_id()
+=======
+    layer_id = req.prdcer_lyr_id
+    if req.page_token == "" or req.prdcer_lyr_id == "":
+        layer_id = generate_layer_id()
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
     geojson_dataset = []
 
@@ -652,16 +735,79 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
+        estimated_cost, _ = await calculate_cost(req)
+        estimated_cost = int(round(estimated_cost[1], 2) * 100)
         user_data = await load_user_profile(req.user_id)
-        user_data["prdcer"]["prdcer_dataset"][
-            plan_name.replace("plan_", "")
-        ] = plan_name
+        admin_id = user_data["admin_id"]
+        user_owns_this_dataset = False
+
+        if plan_name in user_data["prdcer"]["prdcer_dataset"]:
+            user_owns_this_dataset = True
+
+        # if the user already has this dataset on his profile don't charge him 
+        if not user_owns_this_dataset:
+            
+            if not admin_id:
+                customer = await fetch_customer(user_id=req.user_id)
+            else:
+                customer = await fetch_customer(user_id=admin_id)
+
+            if not customer:
+                raise HTTPException(status_code=404, detail="Customer not found")
+            
+            if customer['balance'] < estimated_cost:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Insufficient balance in wallet"
+                )
+
+            # Deduct funds from the customer's balance in Stripe
+            # Note: For deductions, we pass a negative amount
+            stripe.Customer.create_balance_transaction(
+                customer['id'],
+                amount=-estimated_cost,  # Negative amount to decrease balance
+                currency="usd",
+                description="Deducted funds from wallet"
+            )
+        # if the user already has this dataset on his profile don't charge him 
+
+        # if the first query of the full data was successful and returned results
+        # deduct money from the user's wallet for the price of this dataset
+        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
+
+        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
+
+        # if the first query of the full data was successful and returned results continue the fetch data plan in the background
+        # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
+        # when saving the dataset we should save what is the % availability of this dataset based on the plan , plan that is 50% executed means data available 50%
+        # while we are at it we should add the dataset's next refresh date, and a flag saying whether to auto refresh or no
+        # after the initiial api call api call, when we return to the frontend we need to add a new key in the return object saying delay before next call ,
+        # and we should make this delay 3 seconds
+        # in those 3 seconds we hope to allow to backend to advance in the query plan execution
+        # the frontend should display the % as a bar with an indication that this bar is filling in those 3 seconds to reassure the user
+        # we should return this % completetion to the user to display while the user is watiing for his data
+
+        # TODO this is seperate, optimisation for foreground process of data retrival from db
+        # then on subsequent calls using next page token the backend should execute calls within the same level at the same time in a batch of 5 at a time
+
+        bknd_dataset_id = plan_name
+        # TODO
+        # we need to somehow deduplicate our data before we send it to the user, i'm not sure how
+
+        user_data = await load_user_profile(req.user_id)
+        user_data["prdcer"]["prdcer_dataset"][f"{plan_name}"] = plan_name
         await update_user_profile(req.user_id, user_data)
 
     geojson_dataset["bknd_dataset_id"] = bknd_dataset_id
     geojson_dataset["records_count"] = len(geojson_dataset.get("features", ""))
+<<<<<<< HEAD
     geojson_dataset["prdcer_lyr_id"] = new_layer_id
+=======
+    geojson_dataset["prdcer_lyr_id"] = layer_id
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
     geojson_dataset["next_page_token"] = next_page_token
+    geojson_dataset["delay_before_next_call"] = 3
+    geojson_dataset["progress"] = random.randint(0, 100)
     return geojson_dataset
 
 
@@ -772,6 +918,7 @@ async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
                     city_name=lyr_data["city_name"],
                     bknd_dataset_id=lyr_data["bknd_dataset_id"],
                     is_zone_lyr="false",
+                    progress=random.randint(0, 100),
                 )
             )
         except KeyError as e:
@@ -825,6 +972,10 @@ async def fetch_lyr_map_data(req: ReqPrdcerLyrMapData) -> ResLyrMapData:
         city_name=layer_metadata.get("city_name"),
         records_count=dataset_info.get("records_count"),
         is_zone_lyr="false",
+<<<<<<< HEAD
+=======
+        progress=random.randint(0, 100),
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
     )
 
 
@@ -1021,28 +1172,6 @@ def calculate_thresholds(values: List[float]) -> List[float]:
     except Exception as e:
         raise ValueError(f"Error in calculate_thresholds: {str(e)}")
 
-
-def calculate_distance_km(point1: List[float], point2: List[float]) -> float:
-    """
-    Calculates the distance between two points in kilometers using the Haversine formula.
-    """
-    try:
-        R = 6371
-        lon1, lat1 = math.radians(point1[0]), math.radians(point1[1])
-        lon2, lat2 = math.radians(point2[0]), math.radians(point2[1])
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
-        a = (
-            math.sin(dlat / 2) ** 2
-            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
-        )
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = R * c
-        return distance
-    except Exception as e:
-        raise ValueError(f"Error in calculate_distance_km: {str(e)}")
-
-
 async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
     """
     Loads and returns a dictionary of area intelligence categories.
@@ -1050,6 +1179,16 @@ async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
     return AREA_INTELLIGENCE_CATEGORIES
 
 
+<<<<<<< HEAD
+async def load_area_intelligence_categories(req: ReqCityCountry = "") -> Dict:
+    """
+    Loads and returns a dictionary of area intelligence categories.
+    """
+    return AREA_INTELLIGENCE_CATEGORIES
+
+
+=======
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 async def poi_categories(req: ReqCityCountry = "") -> Dict:
     """
     Provides a comprehensive list of place categories, including Google places,
@@ -1129,14 +1268,29 @@ async def given_layer_fetch_dataset(layer_id: str):
     return all_datasets, layer_metadata
 
 
-def assign_point_properties(point):
-    return {
-        "type": "Feature",
-        "geometry": point["geometry"],
-        "properties": point.get("properties", {}),
-    }
+# async def fetch_nearest_points_Gmap(
+#     req: ReqNearestRoute,
+# ) -> List[NearestPointRouteResponse]:
+#     """
+#     Fetches detailed map data for a specific producer layer.
+#     """
+#     try:
+#         dataset_id, dataset_info = await fetch_dataset_id(req.prdcer_lyr_id)
+#         all_datasets = await load_dataset(dataset_id)
+#         coordinates_list = [
+#             {
+#                 "latitude": item["location"]["latitude"],
+#                 "longitude": item["location"]["longitude"],
+#             }
+#             for item in all_datasets
+#         ]
 
+#         business_target_coordinates = [
+#             {"latitude": point.latitude, "longitude": point.longitude}
+#             for point in req.points
+#         ]
 
+<<<<<<< HEAD
 # async def fetch_nearest_points_Gmap(
 #     req: ReqNearestRoute,
 # ) -> List[NearestPointRouteResponse]:
@@ -1630,7 +1784,20 @@ async def process_color_based_on(
                 )
 
         return new_layers
+=======
+#         nearest_points = await calculate_nearest_points(
+#             coordinates_list, business_target_coordinates
+#         )
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 
+#         Gmap_response = await calculate_nearest_points_drive_time(nearest_points)
+#         return Gmap_response
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=400, detail=f"An error occurred: {str(e)}"
+#         ) from e
 
 async def get_user_profile(req):
     return await load_user_profile(req.user_id)
@@ -1640,5 +1807,11 @@ async def update_profile(req):
     return await update_user_profile_settings(req)
 
 
+<<<<<<< HEAD
+=======
+# llm agent call
+
+
+>>>>>>> 5969bd781b948b4e694a8f066317b2c2dc7c303c
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)
