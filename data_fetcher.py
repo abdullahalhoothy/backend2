@@ -1,4 +1,4 @@
-import json
+from datetime import timedelta, datetime
 import logging
 import random
 import re
@@ -717,6 +717,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
 =======
         get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
@@ -727,6 +728,22 @@ async def fetch_dataset(req: ReqFetchDataset):
 =======
         get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
 >>>>>>> 4686c4f (Update layer_id on user_profile)
+=======
+        skip_flag = False
+        plan_progress_ref = db.get_async_client().collection("plan_progress").document(plan_name)
+        plan_progress_doc = await plan_progress_ref.get()
+
+        if plan_progress_doc.exists:
+            plan_progress_data = plan_progress_doc.to_dict()
+            progress = plan_progress_data.get("progress", 0)
+            completed_at = plan_progress_data.get("completed_at", datetime.min)
+
+            if progress >= 100 and completed_at < datetime.now() + timedelta(days=90):
+                skip_flag = True
+
+        if not skip_flag:
+            get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
+>>>>>>> 2ed9fa9 (Add no. of API calls for each.)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
