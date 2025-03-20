@@ -1,12 +1,6 @@
 from datetime import datetime
 import json
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 import random
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
->>>>>>> 4686c4f (Update layer_id on user_profile)
 import re
 from collections import defaultdict
 from backend_common.auth import db
@@ -42,15 +36,7 @@ async def create_batches(plan_data):
     return final_batches
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 async def excecute_dataset_plan(req, plan_name, layer_id):
-=======
-async def excecute_dataset_plan(req, plan_name):
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
-async def excecute_dataset_plan(req, plan_name, layer_id):
->>>>>>> 4686c4f (Update layer_id on user_profile)
     progress, index = 0, 1
     plan_length = 0
     next_level_batches = set()
@@ -89,16 +75,6 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                     req.radius = radius
 
                     from data_fetcher import fetch_ggl_nearby
-<<<<<<< HEAD
-<<<<<<< HEAD
-                    dataset, _, _, _ = await fetch_ggl_nearby(req)
-                    level_results[level] = dataset
-
-                    if (
-                        dataset.get("features")
-                        and len(dataset.get("features", "")) >= 20
-                    ):
-=======
                     dataset = await fetch_ggl_nearby(req)
                     dataset = []
                     level_results[level] = dataset
@@ -106,20 +82,15 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                     # Simulated result count (for testing)
                     dummy_results = random.randint(15, 25)
                     if dummy_results >= 20:
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
-                    dataset, _, _, _ = await fetch_ggl_nearby(req)
-                    level_results[level] = dataset
+                        dataset, _, _, _ = await fetch_ggl_nearby(req)
+                        level_results[level] = dataset
 
                     if (
                         dataset.get("features")
                         and len(dataset.get("features", "")) >= 20
                     ):
->>>>>>> 4686c4f (Update layer_id on user_profile)
-                        current_level_batches.append(level)
-
-                    # Re-read the JSON after processing each row
-                    plan_data = await read_plan_data(plan_name)
+                        # Re-read the JSON after processing each row
+                        plan_data = await read_plan_data(plan_name)
 
             index += 1
             progress = int((index / plan_length) * 100)
@@ -127,19 +98,6 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                 plan_name
             ).set({"progress": progress, "api_call": index}, merge=True)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 4686c4f (Update layer_id on user_profile)
-            await db.get_async_client().collection("all_user_profiles").document(
-                req.user_id
-            ).set({"prdcer_lyrs": {layer_id: {"progress": progress}}}, merge=True)
-
-<<<<<<< HEAD
-=======
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
->>>>>>> 4686c4f (Update layer_id on user_profile)
         # Update next level batches
         next_level_batches.update(current_level_batches)
 
@@ -149,22 +107,8 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
 
     # Ensure final progress update
     await db.get_async_client().collection("plan_progress").document(plan_name).set(
-<<<<<<< HEAD
-        {"progress": 100}, merge=True
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 4686c4f (Update layer_id on user_profile)
-=======
         {"progress": 100, "completed_at": datetime.now()}, merge=True
->>>>>>> 2ed9fa9 (Add no. of API calls for each.)
     )
     await db.get_async_client().collection("all_user_profiles").document(
         req.user_id
     ).set({"prdcer_lyrs": {layer_id: {"progress": progress}}}, merge=True)
-<<<<<<< HEAD
-=======
-    )
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
->>>>>>> 4686c4f (Update layer_id on user_profile)
