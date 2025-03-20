@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -124,7 +125,7 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
             progress = int((index / plan_length) * 100)
             await db.get_async_client().collection("plan_progress").document(
                 plan_name
-            ).set({"progress": progress}, merge=True)
+            ).set({"progress": progress, "api_call": index}, merge=True)
 
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -148,11 +149,15 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
 
     # Ensure final progress update
     await db.get_async_client().collection("plan_progress").document(plan_name).set(
+<<<<<<< HEAD
         {"progress": 100}, merge=True
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 4686c4f (Update layer_id on user_profile)
+=======
+        {"progress": 100, "completed_at": datetime.now()}, merge=True
+>>>>>>> 2ed9fa9 (Add no. of API calls for each.)
     )
     await db.get_async_client().collection("all_user_profiles").document(
         req.user_id
