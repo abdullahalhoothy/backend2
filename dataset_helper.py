@@ -79,9 +79,7 @@ async def excecute_dataset_plan(req, plan_name, layer_id):
                     dataset = []
                     level_results[level] = dataset
 
-                    # Simulated result count (for testing)
-                    dummy_results = random.randint(15, 25)
-                    if dummy_results >= 20:
+                    if len(dataset.get("features", "")) >= 20:
                         dataset, _, _, _ = await fetch_ggl_nearby(req)
                         level_results[level] = dataset
 
