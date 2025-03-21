@@ -20,10 +20,7 @@ from backend_common.auth import (
 )
 from backend_common.background import get_background_tasks
 from dataset_helper import excecute_dataset_plan
-<<<<<<< HEAD
 from backend_common.stripe_backend.customers import fetch_customer
-=======
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
 from backend_common.utils.utils import convert_strings_to_ints
 from backend_common.gbucket import (
     upload_file_to_google_cloud_bucket,
@@ -670,7 +667,6 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
-<<<<<<< HEAD
         estimated_cost, _ = await calculate_cost(req)
         estimated_cost = int(round(estimated_cost[1], 2) * 100)
         user_data = await load_user_profile(req.user_id)
@@ -706,29 +702,11 @@ async def fetch_dataset(req: ReqFetchDataset):
                 description="Deducted funds from wallet"
             )
         # if the user already has this dataset on his profile don't charge him 
-=======
-        # if the user already has this dataset on his profile don't charge him
->>>>>>> 83de7e2 (Resolve merge conflicts)
 
         # if the first query of the full data was successful and returned results
         # deduct money from the user's wallet for the price of this dataset
         # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
-=======
-        get_background_tasks().add_task(_excecute_dataset_plan, req, plan_name)
->>>>>>> 83de7e2 (Resolve merge conflicts)
-=======
-        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name)
->>>>>>> a1cb4af (Modularize the execute_dataset_plan code)
-=======
-        get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
->>>>>>> 4686c4f (Update layer_id on user_profile)
-=======
         skip_flag = False
         plan_progress_ref = db.get_async_client().collection("plan_progress").document(plan_name)
         plan_progress_doc = await plan_progress_ref.get()
@@ -743,7 +721,6 @@ async def fetch_dataset(req: ReqFetchDataset):
 
         if not skip_flag:
             get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
->>>>>>> 2ed9fa9 (Add no. of API calls for each.)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time
