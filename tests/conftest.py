@@ -365,3 +365,28 @@ def producer_catalog_data():
         "catalog_layer_options": {}
     }
 
+
+
+@pytest.fixture
+def req_save_producer_catlog():
+    return {
+        "req_data": {  # Raw Python dict instead of JSON string
+            "message": "string",
+            "request_info": {},
+            "request_body": {
+                "user_id": "string",
+                "prdcer_ctlg_name": "string",
+                "subscription_price": "string",
+                "ctlg_description": "string",
+                "total_records": 0,
+                "lyrs": [{"layer_id": "string", "points_color": "string"}],
+                "display_elements": {},
+                "catalog_layer_options": {},
+                "image": None
+            }
+        },
+        "image": ("test.png")
+    }
+
+
+
