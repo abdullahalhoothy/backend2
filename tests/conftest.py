@@ -344,3 +344,24 @@ def res_layer_matchings_dataset_matching():
 def res_layer_matchings_user_matching():
     return {'le2014eaa-2330-4765-93b6-1800edd4979f': 'qnVMpp2NbpZArKuJuPL0r9luGP13', 'l7e2045b1-d2dc-4361-81a8-23478a772997': 'gPwQrwJJE4XVDDRiwFJIbKCgRPC3', 'l59e8649f-8bbd-4bfb-99f7-9328e28578e2': 'gPwQrwJJE4XVDDRiwFJIbKCgRPC3'}
 
+
+@pytest.fixture
+def producer_catalog_data():
+    return {
+        "prdcer_ctlg_name": "string",
+        "prdcer_ctlg_id": "string",
+        "subscription_price": "string",
+        "ctlg_description": "string",
+        "total_records": 0,
+        "lyrs": [
+            {
+                "layer_id": "string",
+                "points_color": "string"
+            }
+        ],
+        "thumbnail_url": "https://storage.googleapis.com/bucket_name/path/to/file.jpg",
+        "ctlg_owner_user_id": "string",
+        "display_elements": {},
+        "catalog_layer_options": {}
+    }
+
