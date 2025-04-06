@@ -15,12 +15,12 @@ async def async_client():
             yield ac
 
 
-@pytest.fixture
-async def get_auth_header(async_client):  # TODO
-    login_data = {"username": "testuser", "password": "securepassword"}
-    response = await async_client.post("/login", data=login_data)
-    assert response.status_code == 200
-    return {"Authorization": f"Bearer {response.json().get("access_token")}"}
+# @pytest.fixture
+# async def get_auth_header(async_client):  # TODO
+#     login_data = {"username": "testuser", "password": "securepassword"}
+#     response = await async_client.post("/login", data=login_data)
+#     assert response.status_code == 200
+#     return {"Authorization": f"Bearer {response.json().get("access_token")}"}
 
 
 # Add test data fixtures
