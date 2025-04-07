@@ -388,5 +388,28 @@ def req_save_producer_catlog():
         "image": ("test.png")
     }
 
+@pytest.fixture
+def req_cost_calculator():
+    return{
+       "message": "string",
+       "request_info": {
+             "additionalProp1": {}
+         },
+        "request_body": {
+                "lat": 0,
+                "lng": 0,
+                "user_id": "string",
+                "prdcer_lyr_id": "",
+                "city_name": "montreal",
+                "country_name": "canada",
+                "boolean_query": "business_for_rent",
+                "action": "",
+                "page_token": "",
+                "search_type": "default",
+                "text_search": "",
+                "zoom_level": 0,
+                "radius": 30000
+                    }
+                }
 
 
