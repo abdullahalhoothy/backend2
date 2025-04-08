@@ -412,4 +412,20 @@ def req_cost_calculator():
                     }
                 }
 
+@pytest.fixture
+def req_llm_query():
+    return {
+  "message": "string",
+  "request_info": {
+    "additionalProp1": {}
+  },
+  "request_body": {
+    "query": "cafes in Dubai"
+  }
+}
 
+@pytest.fixture
+def res_llm_query():
+    return {
+        "content": '```json\n{\n  "query": "cafes in Dubai",\n  "is_valid": "Valid",\n  "reason": "",\n  "endpoint": "/fastapi/fetch_dataset",\n  "suggestions": [],\n  "body": {\n    "lat": null,\n    "lng": null,\n    "user_id": "",\n    "prdcer_lyr_id": "",\n    "city_name": "Dubai",\n    "country_name": "United Arab Emirates",\n    "boolean_query": "CAFE",\n    "action": "",\n    "page_token": "",\n    "search_type": "default",\n    "text_search": "",\n    "zoom_level": 0,\n    "radius": 30000.0\n  },\n  "cost": ""\n}\n```'
+    }
