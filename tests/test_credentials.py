@@ -53,7 +53,9 @@ async def test_google_maps_api_token_validity():
 
 @pytest.mark.asyncio
 async def test_firebase_api_key():
-    api_key = json.loads(os.getenv('DEV_SECRETS_FIREBASE')).get('firebase_api_key', '')
+    with open('G:\\My Drive\\Personal\\Work\\offline\\Jupyter\\Git\\s_locator\\my_middle_API\\secrets\\secrets_firebase.json', 'r') as file:
+        data = json.load(file)
+    api_key = data.get('firebase_api_key', '')
     if not api_key:
         pytest.fail("FIREBASE_API_KEY environment variable is not set")
 

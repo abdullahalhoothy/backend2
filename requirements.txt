@@ -22,3 +22,4 @@ sympy
 rich
 langchain
 langchain-openai
+pytest-asyncio

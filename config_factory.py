@@ -62,8 +62,12 @@ class ApiConfig(CommonApiConfig):
                 with open("secrets/secrets_gmap.json", "r", encoding="utf-8") as config_file:
                     data = json.load(config_file)
                     conf.api_key = data.get("gmaps_api", "")
-                    conf.openai_api_key = data.get("openai_api_key", "")
-                    conf.gemini_api_key = data.get("gemini_api_key", "")
+
+            if os.path.exists("secrets/secret_LLM_api_key.json"):
+                with open("secrets/secret_LLM_api_key.json", "r", encoding="utf-8") as config_file:
+                    data = json.load(config_file)
+                    conf.openai_api_key = data.get("OPENAI_API_KEY", "")
+                    conf.gemini_api_key = data.get("GEMINI_API_KEY", "")
 
             return conf
         except Exception as e:
