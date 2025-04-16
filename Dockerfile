@@ -1,8 +1,6 @@
 # Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-ENV DATABASE_URL=postgresql://scraper_user:scraper_password@db:5432/aqar_scraper
-
 WORKDIR /app
 
 COPY requirements.txt requirements.txt

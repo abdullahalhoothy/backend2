@@ -15,12 +15,12 @@ async def async_client():
             yield ac
 
 
-@pytest.fixture
-async def get_auth_header(async_client):  # TODO
-    login_data = {"username": "testuser", "password": "securepassword"}
-    response = await async_client.post("/login", data=login_data)
-    assert response.status_code == 200
-    return {"Authorization": f"Bearer {response.json().get("access_token")}"}
+# @pytest.fixture
+# async def get_auth_header(async_client):  # TODO
+#     login_data = {"username": "testuser", "password": "securepassword"}
+#     response = await async_client.post("/login", data=login_data)
+#     assert response.status_code == 200
+#     return {"Authorization": f"Bearer {response.json().get("access_token")}"}
 
 
 # Add test data fixtures
@@ -388,5 +388,96 @@ def req_save_producer_catlog():
         "image": ("test.png")
     }
 
+@pytest.fixture
+def req_cost_calculator():
+    return{
+       "message": "string",
+       "request_info": {
+             "additionalProp1": {}
+         },
+        "request_body": {
+                "lat": 0,
+                "lng": 0,
+                "user_id": "string",
+                "prdcer_lyr_id": "",
+                "city_name": "montreal",
+                "country_name": "canada",
+                "boolean_query": "business_for_rent",
+                "action": "",
+                "page_token": "",
+                "search_type": "default",
+                "text_search": "",
+                "zoom_level": 0,
+                "radius": 30000
+                    }
+                }
 
+@pytest.fixture
+def req_llm_query():
+    return {
+  "message": "string",
+  "request_info": {
+    "additionalProp1": {}
+  },
+  "request_body": {
+    "query": "cafes in Dubai"
+  }
+}
+
+@pytest.fixture
+def res_llm_query():
+    return {
+        "content": '```json\n{\n  "query": "cafes in Dubai",\n  "is_valid": "Valid",\n  "reason": "",\n  "endpoint": "/fastapi/fetch_dataset",\n  "suggestions": [],\n  "body": {\n    "lat": null,\n    "lng": null,\n    "user_id": "",\n    "prdcer_lyr_id": "",\n    "city_name": "Dubai",\n    "country_name": "United Arab Emirates",\n    "boolean_query": "CAFE",\n    "action": "",\n    "page_token": "",\n    "search_type": "default",\n    "text_search": "",\n    "zoom_level": 0,\n    "radius": 30000.0\n  },\n  "cost": ""\n}\n```'
+    }
+import pytest
+from typing import Optional, List
+
+@pytest.fixture
+def req_GradientColorBasedOnZone():
+    return {
+        "message": "request from front end",
+        "request_info" : {},
+        "request_body":{
+        "color_grid_choice": ["#FF0000", "#00FF00", "#0000FF"],
+        "change_lyr_id": "le2014eaa-2330-4765-93b6-1800edd4979f",
+        "change_lyr_name": "Layer Name",
+        "change_lyr_orginal_color": "#CCCCCC",  
+        "change_lyr_new_color": "#FFFFFF",      
+        "based_on_lyr_id": "le2014eaa-2330-4765-93b6-1800edd4979f",
+        "based_on_lyr_name": "Base Layer",
+        "coverage_value": 300.0,                
+        "coverage_property": "Radius",          
+        "color_based_on": "rating",             
+        "list_names": []  }                     
+    }
+
+
+
+@pytest.fixture
+def req_check_street_view():
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "lat": 37.7749,    
+            "lng": -122.4194   
+        }
+    }
+
+@pytest.fixture
+def invalid_prompt_validation_response():
+    return {
+        "message": "Request received.",
+        "request_id": "req-b8e738f8-6388-466c-8f79-2643c02a2c71",
+        "data": {
+            "is_valid": False,
+            "reason": "Request is incomplete. It needs to specify the layers, operation (recolor/filter), and parameters for the operation.",
+            "suggestions": [
+                "Specify which layer you want to recolor or filter.",
+                "Specify the type of operation you want to perform (e.g., recolor, filter).",
+                "Provide the parameters for the operation, such as distance, color, or names to filter by."
+            ],
+            "endpoint": None
+        }
+    }
 
