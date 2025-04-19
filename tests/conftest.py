@@ -481,3 +481,103 @@ def invalid_prompt_validation_response():
         }
     }
 
+@pytest.fixture
+def req_auth_user_data():
+    return {
+        'localId': 'Ox67BapY2ddZ2K3DSCVVgqARGna2',
+        'email': 'sharif@gmail.com',
+        'displayName': 'string',
+        'emailVerified': True,
+        'disabled': False,
+        'lastLoginAt': '1744814953948',
+        'createdAt': '1740336918877',
+        'lastRefreshAt': '2025-04-16T14:49:13.948Z',
+        'providerUserInfo': [
+            {
+                'providerId': 'password',
+                'displayName': 'string',
+                'federatedId': 'sharif@gmail.com',
+                'email': 'sharif@gmail.com',
+                'rawId': 'sharif@gmail.com'
+            }
+        ]
+    }
+
+@pytest.fixture
+def firebase_api_request_refresh_token():
+    return {'access_token': 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ijg1NzA4MWNhOWNiYjM3YzIzNDk4ZGQzOTQzYmYzNzFhMDU4ODNkMjgiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoic3RyaW5nIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2Rldi1zLWxvY2F0b3IiLCJhdWQiOiJkZXYtcy1sb2NhdG9yIiwiYXV0aF90aW1lIjoxNzQ0ODkzNTg2LCJ1c2VyX2lkIjoiT3g2N0JhcFkyZGRaMkszRFNDVlZncUFSR25hMiIsInN1YiI6Ik94NjdCYXBZMmRkWjJLM0RTQ1ZWZ3FBUkduYTIiLCJpYXQiOjE3NDQ4OTM2NjIsImV4cCI6MTc0NDg5NzI2MiwiZW1haWwiOiJzaGFyaWZkZXJoZW1AZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsic2hhcmlmZGVyaGVtQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.XWKD0SKhhGBW2nZ1a85S1B_icXc3ujWd8SPe3QS9XS9sFAjAMCaLpVoV5TKx1t38SD9uo033cfTlpmCRHOFk_ESVGCF5ap2SKLumn42viTUcFuG5cUXDbh_7upROJTl0ICFKHHN_0I12qph4pbeKdTVOW0HRt59eoxKGTw4Ph3YN642FkOgm5WCClstiFv5A7Hk_Q11LFY9L1Qnyev_3-xQAKlD2QJt7QfZFfuHayE3gy08FC5RsEQMoUoOeQIsxQNZbs-n4Rr9teI-q5COoq7Yd_dpXE_jsggj45TZAcl-2FLPhbmCo9j9D1O1l10t_miiz-vEUsKzINxrAtc7_CA', 'expires_in': '3600', 'token_type': 'Bearer', 'refresh_token': 'AMf-vBzoT0GbO4IENbpBjyUugPWV7jsOMYrvPi7gutTXCsp7KDzTmpApkUXnmnlgzw42Lbb3jQcPDhFhlKD_sKiRRNHQgyM3hYoMkg1KrpegEeKMupLaz6pEuE3IB80CQfZwfUdIYnFaA4RxhIoREoAYiiWMIANQDNEjeHZQn6JO5m8mGHVErdwXzDWxlBxBUMVn3hRyGmK-alChKCaP-KvaXxEUVfa5Lgu_A77JkE89-kw0gbgVUkU', 'id_token': 'eyJhbGciOiJSUzI1NiIsImtpZCI6Ijg1NzA4MWNhOWNiYjM3YzIzNDk4ZGQzOTQzYmYzNzFhMDU4ODNkMjgiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoic3RyaW5nIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2Rldi1zLWxvY2F0b3IiLCJhdWQiOiJkZXYtcy1sb2NhdG9yIiwiYXV0aF90aW1lIjoxNzQ0ODkzNTg2LCJ1c2VyX2lkIjoiT3g2N0JhcFkyZGRaMkszRFNDVlZncUFSR25hMiIsInN1YiI6Ik94NjdCYXBZMmRkWjJLM0RTQ1ZWZ3FBUkduYTIiLCJpYXQiOjE3NDQ4OTM2NjIsImV4cCI6MTc0NDg5NzI2MiwiZW1haWwiOiJzaGFyaWZkZXJoZW1AZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnsiZW1haWwiOlsic2hhcmlmZGVyaGVtQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.XWKD0SKhhGBW2nZ1a85S1B_icXc3ujWd8SPe3QS9XS9sFAjAMCaLpVoV5TKx1t38SD9uo033cfTlpmCRHOFk_ESVGCF5ap2SKLumn42viTUcFuG5cUXDbh_7upROJTl0ICFKHHN_0I12qph4pbeKdTVOW0HRt59eoxKGTw4Ph3YN642FkOgm5WCClstiFv5A7Hk_Q11LFY9L1Qnyev_3-xQAKlD2QJt7QfZFfuHayE3gy08FC5RsEQMoUoOeQIsxQNZbs-n4Rr9teI-q5COoq7Yd_dpXE_jsggj45TZAcl-2FLPhbmCo9j9D1O1l10t_miiz-vEUsKzINxrAtc7_CA', 'user_id': 'Ox67BapY2ddZ2K3DSCVVgqARGna2', 'project_id': '379100953236'}
+
+@pytest.fixture
+def req_update_stripe_customer():
+    return{
+  "message": "string",
+  "request_info": {
+    "additionalProp1": {}
+  },
+  "request_body": {
+    "user_id": "user_id",
+    "phone": "string",
+    "address": {
+      "city": "string",
+      "country": "string",
+      "line1": "string",
+      "line2": "string",
+      "postal_code": "string",
+      "state": "string"
+    },
+    "balance": 0,
+    "currency": "string",
+    "default_source": "string",
+    "delinquent": True,
+    "description": "string",
+    "discount": "string",
+    "name": "string",
+    "email": "personofpersons@gmail.com",
+    "invoice_prefix": "string",
+    "invoice_settings": {
+      "additionalProp1": {}
+    },
+    "metadata": {
+      "additionalProp1": {}
+    }
+  }
+}
+import pytest
+
+@pytest.fixture
+def res_list_stripe_customers():
+    return {
+        "data": [
+            {
+                "address": None,
+                "balance": 0,
+                "created": 1744839861,
+                "currency": None,
+                "default_source": None,
+                "delinquent": False,
+                "description": None,
+                "discount": None,
+                "email": "frontend1@traz.xyz",
+                "id": "cus_S8vcPMuIxktXCr",
+                "invoice_prefix": "136159B3",
+                "invoice_settings": {
+                    "custom_fields": None,
+                    "default_payment_method": None,
+                    "footer": None,
+                    "rendering_options": None
+                },
+                "livemode": False,
+                "metadata": {
+                    "user_id": "WIhoMP52pkbHgwkDQNB3Y0qWOED3"
+                },
+                "name": "frontend dev",
+                "next_invoice_sequence": 1,
+                "object": "customer",
+                "phone": None,
+                "preferred_locales": [],
+                "shipping": None,
+                "tax_exempt": "none",
+                "test_clock": None
+            },
+        ]
+    }
