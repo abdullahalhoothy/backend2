@@ -9,7 +9,8 @@ import certifi
 
 @pytest.mark.asyncio
 async def test_google_maps_api_token_validity():
-    api_key = json.loads(os.getenv('DEV_SECRETS_GMAP')).get('gmaps_api')
+    with open('secrets/secrets_gmap.json') as f:
+        api_key = json.load(f)["gmaps_api"]
     if not api_key:
         pytest.fail("GOOGLE_MAPS_API_KEY environment variable is not set")
     base_url = "https://places.googleapis.com/v1/places:searchNearby"
@@ -53,9 +54,8 @@ async def test_google_maps_api_token_validity():
 
 @pytest.mark.asyncio
 async def test_firebase_api_key():
-    with open('G:\\My Drive\\Personal\\Work\\offline\\Jupyter\\Git\\s_locator\\my_middle_API\\secrets\\secrets_firebase.json', 'r') as file:
-        data = json.load(file)
-    api_key = data.get('firebase_api_key', '')
+    with open('secrets/secrets_firebase.json') as f:
+      api_key = json.load(f)['firebase_api_key']
     if not api_key:
         pytest.fail("FIREBASE_API_KEY environment variable is not set")
 
