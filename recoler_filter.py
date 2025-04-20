@@ -477,13 +477,18 @@ def filter_by_property(
 
 
 # filet by distance (radius)
-def filter_CL_distance_from_BoL(
+def filter_cl_distance_property_from_bol(
     change_layer_dataset: Dict[str, Any],
     based_on_coordinates,
     to_be_changed_coordinates,
     radius: float,
+    color_based_on="",
+    threshold=0,
 ) -> Dict[str, List[Dict]]:
     filtred_cl_coord = []
+    for cl_feature in change_layer_dataset["features"]:
+        changed_coord = cl_feature["geometry"]["coordinates"]
+        prop_value = cl_feature["properties"][color_based_on]
     for changed_coord in to_be_changed_coordinates:
         for basedon_coord in based_on_coordinates:
             if changed_coord != basedon_coord:
@@ -494,15 +499,15 @@ def filter_CL_distance_from_BoL(
     matched_within_radius = []
     unmatched_outside_radius = []
 
-    for feature in change_layer_dataset["features"]:
+    for cl_feature in change_layer_dataset["features"]:
         feature_coordinates = {
-            "latitude": feature["geometry"]["coordinates"][1],
-            "longitude": feature["geometry"]["coordinates"][0],
+            "latitude": cl_feature["geometry"]["coordinates"][1],
+            "longitude": cl_feature["geometry"]["coordinates"][0],
         }
         if feature_coordinates in filtred_cl_coord:
-            matched_within_radius.append(assign_point_properties(feature))
+            matched_within_radius.append(assign_point_properties(cl_feature))
         else:
-            unmatched_outside_radius.append(assign_point_properties(feature))
+            unmatched_outside_radius.append(assign_point_properties(cl_feature))
 
     return {
         "matched_within_radius": matched_within_radius,
@@ -567,7 +572,7 @@ async def filter_by_property_and_coverage_property(
             )
         )["within_time"]
     elif req.coverage_property == "radius":
-        filtered_features_cp = filter_CL_distance_from_BoL(
+        filtered_features_cp = filter_cl_distance_property_from_bol(
             change_layer_dataset=change_layer_dataset,
             based_on_coordinates=based_on_coordinates,
             to_be_changed_coordinates=to_be_changed_coordinates,
@@ -600,10 +605,7 @@ async def filter_by_property_and_coverage_property(
     return filtered_features_cp
 
 
-# process_based on
-async def process_color_based_on(
-    req: ReqGradientColorBasedOnZone,
-) -> List[ResGradientColorBasedOnZone]:
+async def coverage_filter_layers(req: ReqGradientColorBasedOnZone):
     change_layer_dataset, change_layer_metadata = (
         await given_layer_fetch_dataset(req.change_lyr_id)
     )
@@ -643,10 +645,9 @@ async def process_color_based_on(
             change_layer_metadata=change_layer_metadata,
         )
 
-        return new_layers
     elif req.coverage_property == "radius":
         # filter by drive time
-        filtered_features = filter_CL_distance_from_BoL(
+        filtered_features = filter_cl_distance_property_from_bol(
             change_layer_dataset=change_layer_dataset,
             based_on_coordinates=based_on_coordinates,
             to_be_changed_coordinates=to_be_changed_coordinates,
@@ -659,8 +660,27 @@ async def process_color_based_on(
             req=req,
             change_layer_metadata=change_layer_metadata,
         )
-        return new_layers
 
+    return (
+        new_layers,
+        change_layer_dataset,
+        change_layer_metadata,
+        based_on_layer_dataset,
+        based_on_layer_metadata,
+    )
+
+
+# process_based on
+async def process_color_based_on(
+    req: ReqGradientColorBasedOnZone,
+) -> List[ResGradientColorBasedOnZone]:
+    (
+        new_layers,
+        change_layer_dataset,
+        change_layer_metadata,
+        based_on_layer_dataset,
+        based_on_layer_metadata,
+    ) = await coverage_filter_layers(req=req)
     if req.color_based_on == "name":
         # Validate input conditions
         if not req.list_names:
@@ -669,8 +689,7 @@ async def process_color_based_on(
             )
         if req.based_on_lyr_id != req.change_lyr_id:
             raise ValueError(
-                "Based_on and change layers must be identical for name-based coloring"
-            )
+                "based_on_lyr_id and change_lyr_id must not be the same")
 
         # use filter by name function
         filtered_features = filter_by_name(
