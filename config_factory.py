@@ -51,6 +51,7 @@ class ApiConfig(CommonApiConfig):
     process_llm_query:str = backend_base_uri + "process_llm_query"
     openai_api_key:str=""
     gemini_api_key:str=""
+    distance_drive_time_polygon = backend_base_uri + "distance_drive_time_polygon"
 
     @classmethod
     def get_conf(cls):
