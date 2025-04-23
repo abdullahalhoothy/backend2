@@ -55,7 +55,8 @@ from all_types.myapi_dtypes import (
     ReqLLMFetchDataset,
     ReqPrompt,
     ValidationResult,
-    ReqFilter
+    ReqFilter, 
+    Req_src_distination
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -86,6 +87,7 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
     LayerInfo,
     ResLLMFetchDataset,
+    Res_src_distination
 )
 
 from google_api_connector import check_street_view_availability
@@ -110,7 +112,8 @@ from data_fetcher import (
     # fetch_nearest_points_Gmap,
     fetch_dataset,
     load_area_intelligence_categories,
-    update_profile
+    update_profile,
+    load_distance_drive_time_polygon
     
 )
 from backend_common.dtypes.stripe_dtypes import (
@@ -1065,3 +1068,15 @@ async def filter_based_on_(
         wrap_output=True,
     )
     return response
+
+@app.post(CONF.distance_drive_time_polygon, response_model=ResModel[Res_src_distination])
+async def distance_drivetime_polygon(req:ReqModel[Req_src_distination]):
+    response = await request_handling(
+        req.request_body,
+        Req_src_distination,
+        ResModel[Res_src_distination],
+        load_distance_drive_time_polygon,
+        wrap_output = True
+    )
+    return response
+
