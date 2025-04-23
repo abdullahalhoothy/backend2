@@ -37,6 +37,7 @@ from cost_calculator import calculate_cost
 from google_api_connector import (
     fetch_from_google_maps_api,
     text_fetch_from_google_maps_api,
+    calculate_distance_traffic_route
 )
 from backend_common.logging_wrapper import (
     apply_decorator_to_module,
@@ -1237,8 +1238,36 @@ async def get_user_profile(req):
 
 async def update_profile(req):
     return await update_user_profile_settings(req)
+async def load_distance_drive_time_polygon(req: Req_src_distination) -> dict:
+    """
+    Returns: {
+        "distance in km": float,
+        "duration in minutes": float,         # e.g. "1 hour 23 mins"
+        "polyline": str          # Encoded route shape
+    }
+    """
+    route_info = await calculate_distance_traffic_route(
+        origin=f"{req.source.lat},{req.source.lng}",
+        destination=f"{req.destination.lat},{req.destination.lng}"
+    )
 
+    leg = route_info.route[0]
+    if not leg:  # Check if leg is empty
+      raise HTTPException(
+            status_code=400,
+            detail="No route found",
+        )
+    # time from str to float and to minutes   
+    drive_time_seconds = float(leg.duration.replace("s", "")) if isinstance(leg.duration, str) else float(leg.duration)
+    drive_time_minutes = drive_time_seconds / 60
 
+    # Convert meters to kilometers
+    distance_km = float(leg.distance) / 1000
+    return {
+        "distance_in_km": round(distance_km, 2),
+        "drive_time_in_min": round(drive_time_minutes, 2),
+        "drive_polygon": leg.polyline
+    }
 # llm agent call
 
 
