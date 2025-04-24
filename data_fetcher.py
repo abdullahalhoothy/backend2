@@ -1092,6 +1092,7 @@ async def fetch_ctlg_lyrs(req: ReqFetchCtlgLyrs) -> List[ResLyrMapData]:
                     records_count=len(trans_dataset["features"]),
                     city_name=lyr_metadata["city_name"],
                     is_zone_lyr="false",
+                    progress=None,
                 )
             )
         return ctlg_lyrs_map_data
