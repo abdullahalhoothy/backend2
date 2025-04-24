@@ -3,7 +3,7 @@ from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional, Union
 from pydantic import BaseModel, Field
 
 from all_types.internal_types import LyrInfoInCtlgSave
-from all_types.myapi_dtypes import ReqFetchDataset
+from all_types.myapi_dtypes import ReqFetchDataset, ReqSavePrdcerCtlg
 
 T = TypeVar("T")
 
@@ -65,15 +65,10 @@ class ResFetchDataset(BaseModel):
     next_page_token: Optional[str] = ""
 
 
-class UserCatalogInfo(BaseModel):
+class UserCatalogInfo(ReqSavePrdcerCtlg):
     prdcer_ctlg_id: str
-    prdcer_ctlg_name: str
-    ctlg_description: str
-    thumbnail_url: str
-    subscription_price: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     ctlg_owner_user_id: str
+    thumbnail_url: str
 
 
 class LayerInfo(BaseModel):

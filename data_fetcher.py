@@ -928,6 +928,7 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
         user_data = await load_user_profile(req["user_id"])
         new_ctlg_id = str(uuid.uuid4())
 
+        thumbnail_url = ""
         req["thumbnail_url"] = ""
         if req["image"]:
             try:

@@ -43,8 +43,7 @@ class ReqSavePrdcerCtlg(ReqUserId):
     ctlg_description: str
     total_records: int
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
-    # thumbnail_url: str
-    display_elements: dict
+    display_elements: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
     catalog_layer_options: dict
 
 
