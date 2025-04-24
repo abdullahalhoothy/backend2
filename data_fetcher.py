@@ -1019,9 +1019,11 @@ async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
                     ctlg_description=ctlg_data["ctlg_description"],
                     thumbnail_url=ctlg_data.get("thumbnail_url", ""),
                     subscription_price=ctlg_data["subscription_price"],
-                    total_records=ctlg_data["total_records"],
                     lyrs=ctlg_data["lyrs"],
                     ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
+                    display_elements=ctlg_data.get("display_elements", {}),
+                    catalog_layer_options=ctlg_data.get("catalog_layer_options", {}),
+                    total_records=ctlg_data.get("total_records", 0),
                 )
             )
         return validated_catalogs

@@ -2,7 +2,7 @@ from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
-from all_types.internal_types import LyrInfoInCtlgSave
+from all_types.internal_types import PrdcerCtlg
 
 U = TypeVar("U")
 
@@ -37,14 +37,9 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class ReqSavePrdcerCtlg(ReqUserId):
-    prdcer_ctlg_name: str
-    subscription_price: str
-    ctlg_description: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
-    display_elements: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
-    catalog_layer_options: dict
+class ReqSavePrdcerCtlg(PrdcerCtlg):
+    pass
+
 
 
 class ReqDeletePrdcerCtlg(ReqUserId):
