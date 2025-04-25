@@ -171,3 +171,8 @@ class ResLLMFetchDataset(BaseModel):
         default = '',
         description = "The cost value returned by calculate_cost_tool"
     )
+
+class Res_src_distination(BaseModel):
+    distance_in_km : float 
+    drive_time_in_min : float
+    drive_polygon: str
