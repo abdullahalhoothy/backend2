@@ -30,14 +30,13 @@ from backend_common.dtypes.auth_dtypes import (
     ReqConfirmReset,
     ReqCreateFirebaseUser,
     ReqResetPassword,
-    ReqUserId,
     ReqUserLogin,
     ReqUserProfile,
     ReqRefreshToken,
     ReqCreateUserProfile,
     UserProfileSettings
 )
-
+from all_types.internal_types import UserId
 from all_types.myapi_dtypes import (
     ReqModel,
     ReqFetchDataset,
@@ -138,6 +137,7 @@ from backend_common.stripe_backend import (
     create_stripe_customer,
     update_customer,
     list_customers,
+    get_customer_spending,
     fetch_customer,
     create_subscription,
     update_subscription,
@@ -151,7 +151,7 @@ from backend_common.stripe_backend import (
     testing_create_card_payment_source,
     top_up_wallet,
     fetch_wallet,
-    deduct_from_wallet
+    deduct_from_wallet,
 )
 from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
 
@@ -380,10 +380,10 @@ async def delete_layer_ep(req: ReqModel[ReqDeletePrdcerLayer], request: Request)
 
 
 @app.post(CONF.user_layers, response_model=ResModel[list[LayerInfo]])
-async def user_layers(req: ReqModel[ReqUserId]):
+async def user_layers(req: ReqModel[UserId]):
     response = await request_handling(
         req.request_body,
-        ReqUserId,
+        UserId,
         ResModel[list[LayerInfo]],
         aquire_user_lyrs,
         wrap_output=True,
@@ -468,10 +468,10 @@ async def ep_delete_producer_catalog(req: ReqModel[ReqDeletePrdcerCtlg], request
 
 
 @app.post(CONF.user_catalogs, response_model=ResModel[list[UserCatalogInfo]])
-async def user_catalogs(req: ReqModel[ReqUserId]):
+async def user_catalogs(req: ReqModel[UserId]):
     response = await request_handling(
         req.request_body,
-        ReqUserId,
+        UserId,
         ResModel[list[UserCatalogInfo]],
         fetch_prdcer_ctlgs,
         wrap_output=True,
@@ -689,6 +689,21 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
     return response
 
 
+# Add an endpoint using POST request
+@app.post(
+    CONF.get_customer_spending,  # Add this path to your CONF
+    response_model=ResModel[dict],
+    description="Get all spending history for a specific customer",
+    tags=["stripe customers"],
+)
+async def get_customer_spending_endpoint(req: UserId):
+    response = await request_handling(
+        req, UserId, ResModel[dict], 
+        get_customer_spending,
+        wrap_output=True
+    )
+    return response
+
 @app.put(
     CONF.update_stripe_customer,
     response_model=ResModel[dict],
@@ -721,9 +736,9 @@ async def list_stripe_customers_endpoint():
     description="Fetch a customer in stripe",
     tags=["stripe customers"],
 )
-async def fetch_stripe_customer_endpoint(req: ReqModel[ReqUserId]):
+async def fetch_stripe_customer_endpoint(req: ReqModel[UserId]):
     response = await request_handling(
-        req.request_body, ReqUserId, ResModel[dict], fetch_customer, wrap_output=True
+        req.request_body, UserId, ResModel[dict], fetch_customer, wrap_output=True
     )
     return response
 

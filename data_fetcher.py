@@ -12,6 +12,7 @@ from collections import defaultdict
 from fastapi import HTTPException
 from fastapi import status
 import stripe
+from all_types.internal_types import UserId
 from backend_common.auth import (
     load_user_profile,
     update_user_profile,
@@ -833,7 +834,7 @@ async def delete_layer(req: ReqDeletePrdcerLayer) -> str:
 
 @preserve_validate_decorator
 @log_and_validate(logger, validate_output=True, output_model=List[LayerInfo])
-async def aquire_user_lyrs(req: ReqUserId) -> List[LayerInfo]:
+async def aquire_user_lyrs(req: UserId) -> List[LayerInfo]:
     """
     Retrieves all producer layers associated with a specific user. It reads the
     user's data file and the dataset-layer matching file to compile a list of
@@ -1003,7 +1004,7 @@ async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
         raise e
 
 
-async def fetch_prdcer_ctlgs(req: ReqUserId) -> List[UserCatalogInfo]:
+async def fetch_prdcer_ctlgs(req: UserId) -> List[UserCatalogInfo]:
     """
     Retrieves all producer catalogs associated with a specific user.
     """

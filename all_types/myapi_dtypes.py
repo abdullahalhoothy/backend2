@@ -2,7 +2,7 @@ from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
 
 from pydantic import BaseModel, Field
 
-from all_types.internal_types import PrdcerCtlg
+from all_types.internal_types import PrdcerCtlg, UserId
 
 U = TypeVar("U")
 
@@ -10,10 +10,6 @@ U = TypeVar("U")
 class Coordinate(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
-
-
-class ReqUserId(BaseModel):
-    user_id: str
 
 
 class ReqModel(BaseModel, Generic[U]):
@@ -42,7 +38,7 @@ class ReqSavePrdcerCtlg(PrdcerCtlg):
 
 
 
-class ReqDeletePrdcerCtlg(ReqUserId):
+class ReqDeletePrdcerCtlg(UserId):
     prdcer_ctlg_id: str
 
 
@@ -55,7 +51,7 @@ class ReqCatalogId(BaseModel):
     catalogue_dataset_id: str
 
 
-class ReqPrdcerLyrMapData(ReqUserId):
+class ReqPrdcerLyrMapData(UserId):
     prdcer_lyr_id: Optional[str] = ""
 
 
