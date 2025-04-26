@@ -33,7 +33,7 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class ReqSavePrdcerCtlg(PrdcerCtlg):
+class ReqSavePrdcerCtlg(PrdcerCtlg, UserId):
     pass
 
 
