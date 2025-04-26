@@ -1258,13 +1258,9 @@ async def load_distance_drive_time_polygon(req: Req_src_distination) -> dict:
         origin=f"{req.source.lat},{req.source.lng}",
         destination=f"{req.destination.lat},{req.destination.lng}"
     )
-
+    if not route_info.route:
+        raise HTTPException(status_code=400 , detail="No route found") 
     leg = route_info.route[0]
-    if not leg:  # Check if leg is empty
-      raise HTTPException(
-            status_code=400,
-            detail="No route found",
-        )
     # time from str to float and to minutes   
     drive_time_seconds = float(leg.duration.replace("s", "")) if isinstance(leg.duration, str) else float(leg.duration)
     drive_time_minutes = drive_time_seconds / 60
