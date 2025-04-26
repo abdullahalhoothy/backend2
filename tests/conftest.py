@@ -581,3 +581,75 @@ def res_list_stripe_customers():
             },
         ]
     }
+
+@pytest.fixture
+def req_route_info():
+    return {
+  "message": "Requesting short distance route",
+  "request_info": {},
+  "request_body": {
+    "source": {
+      "lat": 40.730610,
+      "lng": -73.935242
+    },
+    "destination": {
+      "lat": 40.732610,
+      "lng": -73.937242
+    }
+  }
+ }
+
+
+@pytest.fixture
+def res_route_info():
+    leg_info_mock = MagicMock()
+    leg_info_mock.start_location = {
+        "latLng": {"latitude": 40.7304541, "longitude": -73.9350043}
+    }
+    leg_info_mock.end_location = {
+        "latLng": {"latitude": 40.7326421, "longitude": -73.9371842}
+    }
+    leg_info_mock.distance = 432.0
+    leg_info_mock.duration = "109s"
+    leg_info_mock.static_duration = "109s"
+    leg_info_mock.polyline = "idrwFvlgbMa@c@Y_@IIQUIKQY_BlCW`@e@r@QRuCxCi@f@R`@LXLZ?BBF@F@DAB?BABA@CB"
+    leg_info_mock.traffic_conditions = [
+        {"start_index": 0, "end_index": 27, "speed": "NORMAL"}
+    ]
+
+    route_info_mock = MagicMock()
+    route_info_mock.origin = "40.73061,-73.935242"
+    route_info_mock.destination = "40.73261,-73.937242"
+    route_info_mock.route = [leg_info_mock]
+
+    return route_info_mock
+
+@pytest.fixture
+def res_route_info_duplicate():
+    route_info_mock = MagicMock()
+    route_info_mock.origin = "40.73061,-73.935242"
+    route_info_mock.destination = "40.73261,-73.937242"
+    route_info_mock.route = []  # Empty list to trigger the exception!
+    
+    return route_info_mock
+    leg_info_mock = MagicMock()
+    leg_info_mock.start_location = {
+        "latLng": {"latitude": 40.7304541, "longitude": -73.9350043}
+    }
+    leg_info_mock.end_location = {
+        "latLng": {"latitude": 40.7326421, "longitude": -73.9371842}
+    }
+    leg_info_mock.distance = 432.0
+    leg_info_mock.duration = "109s"
+    leg_info_mock.static_duration = "109s"
+    leg_info_mock.polyline = "idrwFvlgbMa@c@Y_@IIQUIKQY_BlCW`@e@r@QRuCxCi@f@R`@LXLZ?BBF@F@DAB?BABA@CB"
+    leg_info_mock.traffic_conditions = [
+        {"start_index": 0, "end_index": 27, "speed": "NORMAL"}
+    ]
+
+    route_info_mock = MagicMock()
+    route_info_mock.origin = "40.73061,-73.935242"
+    route_info_mock.destination = "40.73261,-73.937242"
+    route_info_mock.route = [leg_info_mock]
+
+    return route_info_mock
