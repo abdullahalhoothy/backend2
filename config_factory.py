@@ -45,9 +45,9 @@ class ApiConfig(CommonApiConfig):
     gradient_color_based_on_zone :str = backend_base_uri + "gradient_color_based_on_zone"
     filter_based_on :str = backend_base_uri + "filter_based_on"
     
-    gcloud_slocator_bucket_name:str = "s-locator-dev"
+    gcloud_slocator_bucket_name:str = "dev-s-locator"
     gcloud_images_bucket_path:str = "postgreSQL/dbo_operational/raw_schema_marketplace/catalog_thumbnails"
-    gcloud_bucket_credentials_json_path:str = "secrets/google_cloud_keys.json"
+    gcloud_bucket_credentials_json_path:str = "secrets/ggl_bucket_sa.json"
     process_llm_query:str = backend_base_uri + "process_llm_query"
     openai_api_key:str=""
     gemini_api_key:str=""
