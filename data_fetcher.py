@@ -954,6 +954,7 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
             "ctlg_owner_user_id": req["user_id"],
             "display_elements": req["display_elements"],
             "catalog_layer_options": req["catalog_layer_options"],
+            "addtional_info": req["addtional_info"],
         }
         user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
         # serializable_user_data = convert_to_serializable(user_data)
@@ -1025,6 +1026,7 @@ async def fetch_prdcer_ctlgs(req: UserId) -> List[UserCatalogInfo]:
                     display_elements=ctlg_data.get("display_elements", {}),
                     catalog_layer_options=ctlg_data.get("catalog_layer_options", {}),
                     total_records=ctlg_data.get("total_records", 0),
+                    addtional_info=ctlg_data.get("addtional_info", {}),
                 )
             )
         return validated_catalogs

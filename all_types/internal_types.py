@@ -17,6 +17,7 @@ class PrdcerCtlg(BaseModel):
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     display_elements: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
     catalog_layer_options:  dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
+    addtional_info: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
 
 
 class UserId(BaseModel):
