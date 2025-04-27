@@ -431,7 +431,7 @@ async def prdcer_lyr_map_data(req: ReqModel[ReqPrdcerLyrMapData]):
     dependencies=[Depends(JWTBearer())],
 )
 async def ep_save_producer_catalog(
-    req: Union[str, dict[str, Any]] = Form(
+    req: Union[str, ReqSavePrdcerCtlg] = Form(
         ...,
         description=(
             "Expected request format:\n\n"
@@ -447,10 +447,11 @@ async def ep_save_producer_catalog(
         req = json.loads(req)
     req_model = ReqModel(**req)
     req_model.request_body["image"] = image
+    request_body = ReqSavePrdcerCtlg(**req_model.request_body)
 
     response = await request_handling(
-        req_model.request_body,
-        None,
+        request_body,
+        ReqSavePrdcerCtlg,
         ResModel[str],
         save_prdcer_ctlg,
         wrap_output=True,

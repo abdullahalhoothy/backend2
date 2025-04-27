@@ -361,8 +361,7 @@ def producer_catalog_data():
         ],
         "thumbnail_url": "https://storage.googleapis.com/bucket_name/path/to/file.jpg",
         "ctlg_owner_user_id": "string",
-        "display_elements": {},
-        "catalog_layer_options": {}
+        "display_elements": {}
     }
 
 
@@ -382,6 +381,7 @@ def req_save_producer_catlog():
                 "lyrs": [{"layer_id": "string", "points_color": "string"}],
                 "display_elements": {},
                 "catalog_layer_options": {},
+                "addtional_info": {},
                 "image": None
             }
         },

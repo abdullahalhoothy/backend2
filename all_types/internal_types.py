@@ -1,6 +1,5 @@
-from typing import Any, List
 from pydantic import BaseModel, Field
-
+from typing import Dict, List, Optional, Any, Union
 
 class LyrInfoInCtlgSave(BaseModel):
     layer_id: str
@@ -16,8 +15,6 @@ class PrdcerCtlg(BaseModel):
     total_records: int
     lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     display_elements: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
-    catalog_layer_options:  dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
-    addtional_info: dict[str, Any] = Field(default_factory=dict, description="Flexible field for frontend to store arbitrary key-value pairs")
 
 
 class UserId(BaseModel):

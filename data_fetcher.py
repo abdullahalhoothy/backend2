@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from geopy.distance import geodesic
 from geopy.geocoders import Nominatim
 from collections import defaultdict
-
+import base64
 from fastapi import HTTPException
 from fastapi import status
 import stripe
@@ -927,39 +927,39 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
     # add display elements key value pair display_elements:{"polygons":[]}
     # catalog should have "catlog_layer_options":{} extra configurations for the layers with their display options (point,grid:{"size":3, color:#FFFF45},heatmap:{"proeprty":rating})
     try:
-        user_data = await load_user_profile(req["user_id"])
+        user_data = await load_user_profile(req.user_id)
         new_ctlg_id = str(uuid.uuid4())
 
-        thumbnail_url = ""
-        req["thumbnail_url"] = ""
-        if req["image"]:
+        if req.image:
             try:
                 thumbnail_url = upload_file_to_google_cloud_bucket(
-                    req["image"],
+                    req.image,
                     CONF.gcloud_slocator_bucket_name,
                     CONF.gcloud_images_bucket_path,
                     CONF.gcloud_bucket_credentials_json_path,
                 )
+                # serialize url to be saved in firestore safely using base64
+                thumbnail_url = base64.b64encode(thumbnail_url.encode()).decode()
+
             except Exception as e:
                 logger.error(f"Error uploading image: {str(e)}")
                 # Keep the original thumbnail_url if upload fails
 
-        new_catalog = {
-            "prdcer_ctlg_name": req["prdcer_ctlg_name"],
-            "prdcer_ctlg_id": new_ctlg_id,
-            "subscription_price": req["subscription_price"],
-            "ctlg_description": req["ctlg_description"],
-            "total_records": req["total_records"],
-            "lyrs": req["lyrs"],
-            "thumbnail_url": thumbnail_url,
-            "ctlg_owner_user_id": req["user_id"],
-            "display_elements": req["display_elements"],
-            "catalog_layer_options": req["catalog_layer_options"],
-            "addtional_info": req["addtional_info"],
-        }
-        user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog
+        # Create new catalog using Pydantic model
+        new_catalog = UserCatalogInfo(
+            prdcer_ctlg_name=req.prdcer_ctlg_name,
+            prdcer_ctlg_id=new_ctlg_id,
+            subscription_price=req.subscription_price,
+            ctlg_description=req.ctlg_description,
+            total_records=req.total_records,
+            lyrs=req.lyrs,
+            thumbnail_url=thumbnail_url,
+            ctlg_owner_user_id=req.user_id,
+            display_elements=req.display_elements
+        )
+        user_data["prdcer"]["prdcer_ctlgs"][new_ctlg_id] = new_catalog.model_dump()
         # serializable_user_data = convert_to_serializable(user_data)
-        await update_user_profile(req["user_id"], user_data)
+        await update_user_profile(req.user_id, user_data)
         return new_ctlg_id
     except Exception as e:
         raise e
@@ -1025,9 +1025,7 @@ async def fetch_prdcer_ctlgs(req: UserId) -> List[UserCatalogInfo]:
                     lyrs=ctlg_data["lyrs"],
                     ctlg_owner_user_id=ctlg_data["ctlg_owner_user_id"],
                     display_elements=ctlg_data.get("display_elements", {}),
-                    catalog_layer_options=ctlg_data.get("catalog_layer_options", {}),
                     total_records=ctlg_data.get("total_records", 0),
-                    addtional_info=ctlg_data.get("addtional_info", {}),
                 )
             )
         return validated_catalogs

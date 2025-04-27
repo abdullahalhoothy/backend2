@@ -1,4 +1,5 @@
 from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
+from fastapi import UploadFile
 
 from pydantic import BaseModel, Field
 
@@ -34,7 +35,7 @@ class boxmapProperties(BaseModel):
 
 
 class ReqSavePrdcerCtlg(PrdcerCtlg, UserId):
-    pass
+    image: Optional[UploadFile] = None
 
 
 
