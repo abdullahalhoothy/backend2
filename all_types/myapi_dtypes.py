@@ -1,8 +1,9 @@
-from typing import Dict, List, TypeVar, Generic, Optional
+from typing import Dict, List, TypeVar, Generic, Optional, Any, Literal
+from fastapi import UploadFile
 
 from pydantic import BaseModel, Field
 
-from all_types.response_dtypes import LyrInfoInCtlgSave
+from all_types.internal_types import PrdcerCtlg, UserId
 
 U = TypeVar("U")
 
@@ -12,10 +13,6 @@ class Coordinate(BaseModel):
     lng: Optional[float] = None
 
 
-class ReqUserId(BaseModel):
-    user_id: str
-
-
 class ReqModel(BaseModel, Generic[U]):
     message: str
     request_info: Dict
@@ -23,7 +20,7 @@ class ReqModel(BaseModel, Generic[U]):
 
 
 class ReqCityCountry(BaseModel):
-    city_name: str
+    city_name: Optional[str] = None
     country_name: str
 
 
@@ -37,15 +34,13 @@ class boxmapProperties(BaseModel):
     user_ratings_total: int
 
 
-class ReqSavePrdcerCtlg(ReqUserId):
-    prdcer_ctlg_name: str
-    subscription_price: str
-    ctlg_description: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
-    # thumbnail_url: str
-    display_elements: dict
-    catalog_layer_options: dict
+class ReqSavePrdcerCtlg(PrdcerCtlg, UserId):
+    image: Optional[UploadFile] = None
+
+
+
+class ReqDeletePrdcerCtlg(UserId):
+    prdcer_ctlg_id: str
 
 
 class ReqDeletePrdcerCtlg(ReqUserId):
@@ -61,7 +56,7 @@ class ReqCatalogId(BaseModel):
     catalogue_dataset_id: str
 
 
-class ReqPrdcerLyrMapData(ReqUserId):
+class ReqPrdcerLyrMapData(UserId):
     prdcer_lyr_id: Optional[str] = ""
 
 
@@ -145,3 +140,32 @@ class ReqGradientColorBasedOnZone(BaseModel):
     color_based_on: str  # ["rating" or "user_ratings_total"]
     list_names: Optional[List[str]] = []
     
+# User prompt -> llm
+class ReqPrompt(BaseModel):
+    user_id: str
+    layers: List[Dict[str, Any]]
+    prompt: str
+
+class ValidationResult(BaseModel):
+    is_valid: bool
+    reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None
+    endpoint: Optional[str] = None
+    body: ReqGradientColorBasedOnZone = None
+
+
+
+class ReqLLMFetchDataset(BaseModel):
+    """Extract Location Based Information from the Query"""
+
+    query: str = Field(
+        default = "",
+        description = "Original query passed by the user."
+    )
+
+class ReqFilter(ReqGradientColorBasedOnZone):
+    threshold: float|str
+    
+class Req_src_distination(BaseModel):
+    source : Coordinate
+    destination : Coordinate

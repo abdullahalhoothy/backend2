@@ -116,28 +116,26 @@ async def calculate_cost(req: ReqFetchDataset):
     #     plan = json.load(f)
     #     total_circles = len([x for x in plan if x != "end of search plan"])
 
-    total_circles = 5200  # Example default
+    total_circles = 500  # Example default
 
-    total_api_calls = 0
-    optimized_queries = optimize_query_sequence(req.boolean_query, flattened_categories)
-    
-    for included_types, excluded_types in optimized_queries:
-        # Calculate density score for this query combination
-        density_score = min(1.0, sum(
-            flattened_categories.get(cat, 0.1) 
-            for cat in included_types
-        ) / len(included_types))
+    if "default" in req.search_type or "category_search" in req.search_type:
+        total_api_calls = 0
+        optimized_queries = optimize_query_sequence(req.boolean_query, flattened_categories)
         
-        # Estimate actually active circles based on density
-        active_circles = estimate_active_circles(density_score, total_circles)
-        
-        logger.info(f"Query: {included_types}")
-        logger.info(f"Density score: {density_score}")
-        logger.info(f"Total possible circles: {total_circles}")
-        logger.info(f"Estimated active circles: {active_circles}")
-        
-        total_api_calls += active_circles
+        for included_types, excluded_types in optimized_queries:
+            # Calculate density score for this query combination
+            density_score = min(1.0, sum(
+                flattened_categories.get(cat, 0.1) 
+                for cat in included_types
+            ) / len(included_types))
+            
+            # Estimate actually active circles based on density
+            active_circles = estimate_active_circles(density_score, total_circles)            
+            total_api_calls += active_circles
 
+    if "keyword_search" in req.search_type:
+        total_api_calls = 500 *0.5 # arbtrary discount
+        
     cost = (total_api_calls / 1000) * COST_PER_1000_CALLS
-    
+        
     return ResCostEstimate(cost=cost, api_calls=total_api_calls)
