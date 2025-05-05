@@ -2,6 +2,9 @@ from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from all_types.internal_types import LyrInfoInCtlgSave, PrdcerCtlg
+from all_types.myapi_dtypes import ReqFetchDataset
+
 T = TypeVar("T")
 
 
@@ -25,13 +28,6 @@ class Feature(BaseModel):
     type: Literal["Feature"]
     properties: dict
     geometry: Geometry
-
-
-class LyrInfoInCtlgSave(BaseModel):
-    layer_id: str
-    points_color: str = Field(
-        ..., description="Color name for the layer points, e.g., 'red'"
-    )
 
 
 class card_metadata(BaseModel):
@@ -64,18 +60,15 @@ class ResFetchDataset(BaseModel):
     bknd_dataset_id: str
     prdcer_lyr_id: str
     records_count: int
+    delay_before_next_call: Optional[int] = 0
+    progress: Optional[int] = 0
     next_page_token: Optional[str] = ""
 
 
-class UserCatalogInfo(BaseModel):
+class UserCatalogInfo(PrdcerCtlg):
     prdcer_ctlg_id: str
-    prdcer_ctlg_name: str
-    ctlg_description: str
-    thumbnail_url: str
-    subscription_price: str
-    total_records: int
-    lyrs: List[LyrInfoInCtlgSave] = Field(..., description="list of layer objects.")
     ctlg_owner_user_id: str
+    thumbnail_url: str
 
 
 class LayerInfo(BaseModel):
@@ -88,6 +81,7 @@ class LayerInfo(BaseModel):
     records_count: int
     city_name: str
     is_zone_lyr: str
+    progress: Optional[int]
 
 
 class ResLyrMapData(MapData, LayerInfo):
@@ -138,3 +132,47 @@ class PaymentMethod(BaseModel):
 
 class ResGetPaymentMethods(BaseModel):
     payment_methods: List[PaymentMethod]
+
+# types for llm agents
+class ResGradientColorBasedOnZoneLLM(BaseModel):
+    layers: List[ResGradientColorBasedOnZone]
+    explanation: str  # This is the additional property
+
+
+class ResLLMFetchDataset(BaseModel):
+    """Extract Location Based Information from the Query"""
+
+    query: str = Field(
+        default = "",
+        description = "Original query passed by the user."
+    )
+    is_valid: Literal["Valid", "Invalid"] = Field(
+        default="",
+        description="Status is valid if the user query is from approved categories and cities. Otherwise, it is invalid."
+    )
+    reason: str = Field(
+        default = "",
+        description = """Response message for the User after processing the query. It helps user to identify issues in the query like if city and 
+                          place is an approved city or place or not."""
+    )
+
+    endpoint: Literal["/fastapi/fetch_dataset"] = "/fastapi/fetch_dataset"
+
+    suggestions : List[str] = Field(
+        default = [],
+        description = "List of suggestions to improve the query."
+    )
+
+    body: Optional[ReqFetchDataset] = Field(
+        default=None,
+        description="An object containing detailed request parameters for fetching dataset"
+    )
+    cost: str = Field(
+        default = '',
+        description = "The cost value returned by calculate_cost_tool"
+    )
+
+class Res_src_distination(BaseModel):
+    distance_in_km : float 
+    drive_time_in_min : float
+    drive_polygon: str

@@ -677,9 +677,14 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     
     if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
-        plan_name, page_number = dataset_id.split("@#$")
-        dataset_prefix, plan_name = plan_name.split("page_token=")
-        page_number = int(page_number)
+        if "@#$" in dataset_id:
+            plan_name, page_number = dataset_id.split("@#$")
+            dataset_prefix, plan_name = plan_name.split("page_token=")
+            page_number = int(page_number)
+        else:
+            plan_name= dataset_id
+            #TODO bad assumption below to say it's at max 100 different paginations but this is for perrformance now
+            page_number = 100
         # Load the plan
         plan = await get_plan(plan_name)
         if not plan:
@@ -726,11 +731,11 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
             if json_content:
                 created_at = json_content.get("created_at")
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=timezone.utc)
-            if created_at and created_at < three_months_ago:
-                await Database.execute(SqlObject.delete_dataset, dataset_id)
-                json_content= None
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                if created_at and created_at < three_months_ago:
+                    await Database.execute(SqlObject.delete_dataset, dataset_id)
+                    json_content= None
             if json_content:
                 dataset = orjson.loads(json_content.get("response_data", "{}")) 
                 all_features.extend(dataset.get("features", [])) 
