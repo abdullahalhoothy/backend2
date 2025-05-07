@@ -653,3 +653,81 @@ def res_route_info_duplicate():
     route_info_mock.route = [leg_info_mock]
 
     return route_info_mock
+
+@pytest.fixture
+def req_gadientcolorBasedOnZone():
+    return {
+        "message": "request from front end",
+        "request_info" : {},
+        "request_body":{
+            "change_lyr_id": "change_lyr_id",
+            "based_on_lyr_id": "base_lyr_id",
+            "color_based_on": "rating" # or user_ratings_total
+        
+        }                     
+    }
+
+@pytest.fixture
+def res_gradientcolor_based_on_zone():
+    return {
+        "data": {
+            "ResGradientColorBasedOnZone": [
+                # Layer 1 (Lowest values)
+                {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [12.34, 56.78]},
+                        "properties": {"rating": 1.2, "name": "Place A"}
+                    }],
+                    "properties": ["rating"],
+                    "prdcer_layer_name": "Rating 1.0-1.7",
+                    "prdcer_lyr_id": "lyr_123:gradient1",
+                    "sub_lyr_id": "gradient_segment_1",
+                    "bknd_dataset_id": "dataset_123",
+                    "points_color": "#FF0000",
+                    "layer_legend": "1.0-1.7",
+                    "layer_description": "Bottom 14% of ratings",
+                    "records_count": 1,
+                    "city_name": "TestCity",
+                    "is_zone_lyr": "true"
+                },
+                # Layer 2
+                {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature", 
+                        "geometry": {"type": "Point", "coordinates": [12.35, 56.79]},
+                        "properties": {"rating": 1.8, "name": "Place B"}
+                    }],
+                    "properties": ["rating"],
+                    "prdcer_layer_name": "Rating 1.7-2.4",
+                    "prdcer_lyr_id": "lyr_123:gradient2",
+                    "sub_lyr_id": "gradient_segment_2",
+                    "points_color": "#FF5500",
+                    "layer_legend": "1.7-2.4",
+                    "records_count": 1,
+                    # ... other required fields ...
+                },
+                # Layers 3-6 (similar structure with different ranges/colors)
+                # ...
+                # Layer 7 (Highest values)
+                {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature",
+                        "geometry": {"type": "Point", "coordinates": [12.40, 56.85]},
+                        "properties": {"rating": 4.8, "name": "Place G"}
+                    }],
+                    "properties": ["rating"],
+                    "prdcer_layer_name": "Rating 4.3-5.0",
+                    "prdcer_lyr_id": "lyr_123:gradient7", 
+                    "sub_lyr_id": "gradient_segment_7",
+                    "points_color": "#00FF00",
+                    "layer_legend": "4.3-5.0",
+                    "records_count": 1,
+                    # ... other required fields ...
+                }
+            ]
+        }
+    }
