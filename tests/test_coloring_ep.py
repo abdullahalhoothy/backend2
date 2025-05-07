@@ -8,25 +8,17 @@ def get_document_side_effect(collection, document, res_layer_matchings_user_matc
     elif (collection,document) == ("layer_matchings" , "user_matching"):
         return res_layer_matchings_user_matching
     return None
-@pytest.fixture
-def req_gadientcolorBasedOnZone():
-    return {
-        "message": "request from front end",
-        "request_info" : {},
-        "request_body":{
-            "change_lyr_id": "change_lyr_id",
-            "based_on_lyr_id": "base_lyr_id",
-            "color_based_on": "rating" # or user_ratings_total
-        
-        }                     
-    }
+
 @pytest.mark.asyncio
 async def test_gradient_color_based_on_zone(async_client, 
                                            user_profile_data,
                                            res_layer_matchings_dataset_matching,
                                            res_layer_matchings_user_matching,
                                            sample_google_category_search_response,
-                                           req_gadientcolorBasedOnZone):  # Add the fixture as parameter
+                            #This is the request_body
+                                           req_gadientcolorBasedOnZone,
+                            #This is expected response body               
+                                           res_gradientcolor_based_on_zone):  # Add the fixture as parameter
     
     with (patch("storage.db", new_callable=AsyncMock) as user_layers,
           patch("backend_common.auth.db", new_callable=AsyncMock) as user_profile,
