@@ -654,79 +654,309 @@ def res_route_info_duplicate():
 
     return route_info_mock
 
+
 @pytest.fixture
 def req_gadientcolorBasedOnZone():
     return {
-        "message": "request from front end",
-        "request_info" : {},
-        "request_body":{
-            "change_lyr_id": "change_lyr_id",
-            "based_on_lyr_id": "base_lyr_id",
-            "color_based_on": "rating" # or user_ratings_total
-        
-        }                     
-    }
+                {
+        "message": "Update layer color based on another layer",
+        "request_info": {},
+        "request_body": {
+            "color_grid_choice": ["#28A745", "#FF0000", "#0000FF"],
+            "change_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+            "change_lyr_name": "UAE-DUB-fitness center",
+            "based_on_lyr_id": "l0ffa9369-5292-4d01-b550-a4d5180ccbae",
+            "based_on_lyr_name": "UAE-DUB-athletic field",
+            "coverage_value": 10,
+            "coverage_property": "radius",
+            "color_based_on": "rating"
+        }
+        }
+                
+        }     
 
+                
 @pytest.fixture
 def res_gradientcolor_based_on_zone():
     return {
+        "message": "Request processed successfully",
+        "request_id": "req-ec434683-edf0-46e3-9f6c-8454803a4194",
         "data": {
             "ResGradientColorBasedOnZone": [
-                # Layer 1 (Lowest values)
                 {
-                    "type": "FeatureCollection",
-                    "features": [{
-                        "type": "Feature",
-                        "geometry": {"type": "Point", "coordinates": [12.34, 56.78]},
-                        "properties": {"rating": 1.2, "name": "Place A"}
-                    }],
-                    "properties": ["rating"],
                     "prdcer_layer_name": "Rating 1.0-1.7",
-                    "prdcer_lyr_id": "lyr_123:gradient1",
-                    "sub_lyr_id": "gradient_segment_1",
-                    "bknd_dataset_id": "dataset_123",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
                     "points_color": "#FF0000",
-                    "layer_legend": "1.0-1.7",
-                    "layer_description": "Bottom 14% of ratings",
+                    "layer_legend": "Values 1.0-1.7",
+                    "layer_description": "Gradient layer based on rating",
                     "records_count": 1,
-                    "city_name": "TestCity",
-                    "is_zone_lyr": "true"
-                },
-                # Layer 2
-                {
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
                     "type": "FeatureCollection",
-                    "features": [{
-                        "type": "Feature", 
-                        "geometry": {"type": "Point", "coordinates": [12.35, 56.79]},
-                        "properties": {"rating": 1.8, "name": "Place B"}
-                    }],
-                    "properties": ["rating"],
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJBasic1",
+                                "name": "Simple Fitness",
+                                "rating": 1.5,
+                                "address": "Al Qusais, Dubai"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.35, 25.25]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_1"
+                },
+                {
                     "prdcer_layer_name": "Rating 1.7-2.4",
-                    "prdcer_lyr_id": "lyr_123:gradient2",
-                    "sub_lyr_id": "gradient_segment_2",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
                     "points_color": "#FF5500",
-                    "layer_legend": "1.7-2.4",
+                    "layer_legend": "Values 1.7-2.4",
+                    "layer_description": "Gradient layer based on rating",
                     "records_count": 1,
-                    # ... other required fields ...
-                },
-                # Layers 3-6 (similar structure with different ranges/colors)
-                # ...
-                # Layer 7 (Highest values)
-                {
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
                     "type": "FeatureCollection",
-                    "features": [{
-                        "type": "Feature",
-                        "geometry": {"type": "Point", "coordinates": [12.40, 56.85]},
-                        "properties": {"rating": 4.8, "name": "Place G"}
-                    }],
-                    "properties": ["rating"],
-                    "prdcer_layer_name": "Rating 4.3-5.0",
-                    "prdcer_lyr_id": "lyr_123:gradient7", 
-                    "sub_lyr_id": "gradient_segment_7",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJBasic2",
+                                "name": "Neighborhood Gym",
+                                "rating": 2.0,
+                                "address": "Al Nahda, Dubai"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.38, 25.28]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_2"
+                },
+                {
+                    "prdcer_layer_name": "Rating 2.4-3.1",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "points_color": "#FFAA00",
+                    "layer_legend": "Values 2.4-3.1",
+                    "layer_description": "Gradient layer based on rating",
+                    "records_count": 2,
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJMid1",
+                                "name": "City Sports Club",
+                                "rating": 2.7,
+                                "address": "Deira, Dubai"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.32, 25.27]
+                            }
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJMid2",
+                                "name": "Community Fitness",
+                                "rating": 3.0,
+                                "address": "Bur Dubai"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.30, 25.26]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_3"
+                },
+                {
+                    "prdcer_layer_name": "Rating 3.1-3.8",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "points_color": "#FFFF00",
+                    "layer_legend": "Values 3.1-3.8",
+                    "layer_description": "Gradient layer based on rating",
+                    "records_count": 2,
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJUpper1",
+                                "name": "Metro Fitness",
+                                "rating": 3.3,
+                                "address": "Business Bay"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.27, 25.18]
+                            }
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJUpper2",
+                                "name": "Dubai Sports Center",
+                                "rating": 3.7,
+                                "address": "Al Quoz"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.23, 25.15]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_4"
+                },
+                {
+                    "prdcer_layer_name": "Rating 3.8-4.5",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "points_color": "#AAFF00",
+                    "layer_legend": "Values 3.8-4.5",
+                    "layer_description": "Gradient layer based on rating",
+                    "records_count": 3,
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJHigh1",
+                                "name": "Elite Fitness",
+                                "rating": 4.0,
+                                "address": "Jumeirah"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.24, 25.20]
+                            }
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJHigh2",
+                                "name": "Premium Gym",
+                                "rating": 4.2,
+                                "address": "Marina"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.14, 25.09]
+                            }
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJHigh3",
+                                "name": "Gold's Gym",
+                                "rating": 4.4,
+                                "address": "Sheikh Zayed Road"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.26, 25.22]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_5"
+                },
+                {
+                    "prdcer_layer_name": "Rating 4.5-5.2",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "points_color": "#55FF00",
+                    "layer_legend": "Values 4.5-5.2",
+                    "layer_description": "Gradient layer based on rating",
+                    "records_count": 2,
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJTop1",
+                                "name": "Platinum Fitness",
+                                "rating": 4.7,
+                                "address": "Downtown Dubai"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.27, 25.20]
+                            }
+                        },
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJTop2",
+                                "name": "Luxury Sports Club",
+                                "rating": 5.0,
+                                "address": "Palm Jumeirah"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.13, 25.12]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_6"
+                },
+                {
+                    "prdcer_layer_name": "Rating 5.2-6.0",
+                    "prdcer_lyr_id": "le6734693-83f8-4049-b319-02235382b7f7",
+                    "bknd_dataset_id": "le6734693-83f8-4049-b319-02235382b7f7",
                     "points_color": "#00FF00",
-                    "layer_legend": "4.3-5.0",
+                    "layer_legend": "Values 5.2-6.0",
+                    "layer_description": "Gradient layer based on rating",
                     "records_count": 1,
-                    # ... other required fields ...
+                    "city_name": "Dubai",
+                    "is_zone_lyr": "true",
+                    "progress": 0,
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {
+                                "id": "ChIJElite1",
+                                "name": "Seven Stars Fitness",
+                                "rating": 5.5,
+                                "address": "Burj Khalifa Area"
+                            },
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [55.27, 25.19]
+                            }
+                        }
+                    ],
+                    "properties": ["id", "name", "rating", "address"],
+                    "sub_lyr_id": "gradient_7"
                 }
             ]
         }
