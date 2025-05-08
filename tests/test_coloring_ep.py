@@ -34,21 +34,4 @@ async def test_gradient_color_based_on_zone(async_client,
         print("mocked", user_layers.get_document.call_count)
         assert response.status_code == 200
         response_data = response.json()
-        # Basic response structure validation           
-        assert "data" in response_data
-        
-        data_returned = response_data['data']['ResGradientColorBasedOnZone']
-        
-        assert "type" in data_returned
-        assert "features" in data_returned
-        assert "properties" in data_returned
-        assert "prdcer_layer_name" in data_returned
-        assert "prdcer_lyr_id" in data_returned
-        assert "sub_lyr_id" in data_returned
-        assert "bknd_dataset_id" in data_returned
-        assert "points_color" in data_returned
-        assert "layer_legend" in data_returned
-        assert "layer_description" in data_returned
-        assert "records_count" in data_returned
-        assert "city_name" in data_returned
-        assert "is_zone_lyr" in data_returned
+        assert response_data == res_gradientcolor_based_on_zone
