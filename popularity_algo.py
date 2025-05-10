@@ -1,5 +1,9 @@
+from all_types.myapi_dtypes import List, ReqFetchDataset
+from fastapi import HTTPException
+from typing import List
 from geo_std_utils import get_point_at_distance
 from parrallel_create_duplicate_rules import create_duplicate_rules
+from utils import make_ggl_layer_filename
 from use_json import use_json
 import asyncio
 from backend_common.database import Database
@@ -527,6 +531,126 @@ async def save_plan(plan_name, plan):
         f"Backend/layer_category_country_city_matching/full_data_plans/{plan_name}.json"
     )
     await use_json(file_path, "w", plan)
+
+
+
+async def process_req_plan(req: ReqFetchDataset):
+    action = req.action
+    plan: List[str] = []
+    current_plan_index = 0
+    bknd_dataset_id = ""
+
+    if req.page_token == "" and action == "full data":
+        if req.radius > 750:
+            string_list_plan = await create_plan(
+                req.lng, req.lat, req.radius, req.boolean_query, req.text_search
+            )
+
+        # TODO creating the name of the file should be moved to storage
+        tcc_string = make_ggl_layer_filename(req)
+        plan_name = f"plan_{tcc_string}"
+        if req.text_search != "" and req.text_search is not None:
+            plan_name = plan_name + "_text_search="
+        await save_plan(plan_name, string_list_plan)
+        plan = string_list_plan
+
+        next_search = string_list_plan[0]
+        first_search = next_search.split("_")
+        req.lng, req.lat, req.radius = (
+            float(first_search[0]),
+            float(first_search[1]),
+            float(first_search[2]),
+        )
+
+        bknd_dataset_id = plan[current_plan_index]
+        next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
+
+    elif req.page_token != "":
+
+        plan_name, current_plan_index = req.page_token.split("@#$")
+        _, plan_name = plan_name.split("page_token=")
+
+        current_plan_index = int(current_plan_index)
+
+        # limit to 30 calls per plan
+        if current_plan_index > 30:
+            raise HTTPException(
+                status_code=488, detail="temporarely disabled for more than 30 searches"
+            )
+        plan = await get_plan(plan_name)
+
+        if (
+            plan is None
+            or current_plan_index is None
+            or len(plan) <= current_plan_index
+        ):
+            return req, plan_name, "", current_plan_index, bknd_dataset_id
+
+        search_info = plan[current_plan_index].split("_")
+        req.lng, req.lat, req.radius = (
+            float(search_info[0]),
+            float(search_info[1]),
+            float(search_info[2]),
+        )
+        next_plan_index = current_plan_index + 1
+        if plan[next_plan_index] == "end of search plan":
+            next_page_token = ""  # End of search plan
+            await process_plan_popularity(plan_name)
+        else:
+            next_page_token = f"page_token={plan_name}@#${next_plan_index}"
+
+        # TODO: Remove this after testing Process plan at index 5
+        if current_plan_index == 5:
+            await process_plan_popularity(plan_name)
+
+    return req, plan_name, next_page_token, current_plan_index, bknd_dataset_id
+
+
+def add_skip_to_subcircles(plan: list, token_plan_index: str):
+    circle_string = plan[token_plan_index]
+    # Extract the circle number from the input string
+
+    circle_number = circle_string.split("_circle=")[1].split("_")[0].replace("*", "")
+
+    def is_subcircle(circle):
+        circle = "_circle=" + circle.split("_circle=")[1]
+        return circle.startswith(f"_circle={circle_number}.")
+
+    # Add "_skip" to subcircles
+    modified_plan = []
+    for circle in plan[:-1]:
+        if is_subcircle(circle):
+            if not circle.endswith("_skip"):
+                circle += "_skip"
+        modified_plan.append(circle)
+    # Add the last item separately
+    modified_plan.append(plan[-1])
+
+    return modified_plan
+
+
+def get_next_non_skip_index(rectified_plan, current_plan_index):
+    for i in range(current_plan_index + 1, len(rectified_plan)):
+        if (
+            not rectified_plan[i].endswith("_skip")
+            and rectified_plan[i] != "end of search plan"
+        ):
+            # Return the new token with the found index
+            return i
+
+    # If no non-skipped item is found, return None or a special token
+    return ""
+
+
+async def rectify_plan(plan_name, current_plan_index):
+    plan = await get_plan(plan_name)
+    rectified_plan = add_skip_to_subcircles(plan, current_plan_index)
+    await save_plan(plan_name, rectified_plan)
+    next_plan_index = get_next_non_skip_index(rectified_plan, current_plan_index)
+
+    return next_plan_index
+
+
 
 
 # Apply the decorator to all functions in this module

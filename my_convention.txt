@@ -1,8 +1,0 @@
-function name starts with
-
-"fetch" when it returns a str or int
-"load" when it returns loaded file as dict
-
-
-fastapi_app must only call functions from data_fetcher
-data_fetcher does not interact with any storage file directly and must call functions from storage.py

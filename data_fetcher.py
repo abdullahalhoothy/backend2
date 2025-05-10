@@ -5,8 +5,6 @@ import re
 from urllib.parse import unquote, urlparse
 import uuid
 from typing import List, Dict, Any, Tuple, Optional
-from geopy.distance import geodesic
-from geopy.geocoders import Nominatim
 from collections import defaultdict
 import base64
 from fastapi import HTTPException
@@ -35,8 +33,10 @@ from all_types.response_dtypes import (
     UserCatalogInfo
 )
 from cost_calculator import calculate_cost
+from geo_std_utils import fetch_lat_lng_bounding_box
 from google_api_connector import (
     fetch_from_google_maps_api,
+    fetch_ggl_nearby,
     text_fetch_from_google_maps_api,
     calculate_distance_traffic_route
 )
@@ -45,6 +45,7 @@ from backend_common.logging_wrapper import (
     preserve_validate_decorator,
 )
 from backend_common.logging_wrapper import log_and_validate
+from constants import load_country_city
 from mapbox_connector import MapBoxConnector
 from storage import (
     GOOGLE_CATEGORIES,
@@ -67,14 +68,10 @@ from storage import (
     fetch_user_layers,
     load_store_catalogs,
     convert_to_serializable,
-    make_dataset_filename,
-    generate_layer_id,
-    # load_google_categories,
-    load_country_city,
-    make_ggl_layer_filename,
+    generate_layer_id
+    # load_google_categories,,
 )
 from boolean_query_processor import reduce_to_single_query
-from popularity_algo import create_plan, get_plan, process_plan_popularity, save_plan
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,11 +79,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-EXPANSION_DISTANCE_KM = 60.0  # for each side from the center of the bounding box
-# Global cache dictionary to store previously fetched locations
-_LOCATION_CACHE = {}
-
 
 def print_circle_hierarchy(circle: dict, number=""):
     center_marker = "*" if circle["is_center"] else ""
@@ -119,119 +111,6 @@ def count_circles(circle: dict):
 #         circles_to_process.extend(circle.get("sub_circles", []))
 
 #     return result
-
-
-def expand_bounding_box(
-    lat: float, lon: float, expansion_distance_km: float = EXPANSION_DISTANCE_KM
-) -> list:
-    try:
-        center_point = (lat, lon)
-
-        # Calculate the distance in degrees
-        north_expansion = geodesic(kilometers=expansion_distance_km).destination(
-            center_point, 0
-        )  # North
-        south_expansion = geodesic(kilometers=expansion_distance_km).destination(
-            center_point, 180
-        )  # South
-        east_expansion = geodesic(kilometers=expansion_distance_km).destination(
-            center_point, 90
-        )  # East
-        west_expansion = geodesic(kilometers=expansion_distance_km).destination(
-            center_point, 270
-        )  # West
-
-        expanded_bbox = [
-            south_expansion[0],
-            north_expansion[0],
-            west_expansion[1],
-            east_expansion[1],
-        ]
-
-        return expanded_bbox
-    except Exception as e:
-        logger.error(f"Error expanding bounding box: {str(e)}")
-        return None
-
-
-def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
-    # Create cache key
-    cache_key = f"{city_name},{country_name}"
-
-    # Check if result exists in cache
-    if cache_key in _LOCATION_CACHE:
-        return _LOCATION_CACHE[cache_key]
-
-    try:
-        geolocator = Nominatim(user_agent="city_country_search")
-        location = geolocator.geocode(f"{city_name}, {country_name}", exactly_one=True)
-
-        if not location:
-            logger.warning(f"No location found for {city_name}, {country_name}")
-            _LOCATION_CACHE[cache_key] = None
-            return None
-
-        bounding_box = expand_bounding_box(location.latitude, location.longitude)
-        if bounding_box is None:
-            logger.warning(f"No bounding box found for {city_name}, {country_name}")
-            _LOCATION_CACHE[cache_key] = None
-            return None
-
-        result = ReqGeodata(
-            lat=float(location.latitude),
-            lng=float(location.longitude),
-            bounding_box=bounding_box,
-        )
-
-        # Store in cache before returning
-        _LOCATION_CACHE[cache_key] = result
-        return result
-
-    except Exception as e:
-        logger.error(f"Error getting geodata for {city_name}, {country_name}: {str(e)}")
-        _LOCATION_CACHE[cache_key] = None
-        return None
-
-
-def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
-    # If lat and lng are provided directly, use them
-    if req.lat is not None and req.lng is not None:
-        req._bounding_box = expand_bounding_box(req.lat, req.lng)
-        return req
-
-    # Load country/city data
-    country_city_data = load_country_city()
-
-    # Find the city coordinates
-    city_data = None
-    
-    if not req.city_name:
-        raise ValueError("Either city_name or lat/lng coordinates must be provided")
-
-    if req.country_name in country_city_data:
-        for city in country_city_data[req.country_name]:
-            if city["name"] == req.city_name:
-                if (
-                    city.get("lat") is None
-                    or city.get("lng") is None
-                    or city.get("bounding_box") is None
-                ):
-                    raise ValueError(
-                        f"Invalid city data for {req.city_name} in {req.country_name}"
-                    )
-                req._bounding_box = expand_bounding_box(
-                    city.get("lat"), city.get("lng")
-                )
-                req.lat = city.get("lat")
-                req.lng = city.get("lng")
-    else:
-        # if city not found in country_city_data, use geocoding to get city_data
-        city_data = get_req_geodata(req.city_name, req.country_name)
-        req._bounding_box = city_data.bounding_box
-        req.lat = city_data.lat
-        req.lng = city_data.lng
-
-    return req
 
 
 async def fetch_census_realestate(
@@ -274,174 +153,6 @@ async def fetch_census_realestate(
             # )
 
     return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-async def fetch_ggl_nearby(req: ReqFetchDataset):
-    search_type = req.search_type
-    action = req.action
-    plan_name = ""
-
-    # try 30 times to get non empty dataset
-    for _ in range(30):
-        next_page_token = req.page_token
-
-        if req.action == "full data":
-            req, plan_name, next_page_token, current_plan_index, bknd_dataset_id = (
-                await process_req_plan(req)
-            )
-        else:
-            req = fetch_lat_lng_bounding_box(req)
-
-        bknd_dataset_id = make_dataset_filename(req)
-
-        if "default" in search_type or "category_search" in search_type:
-            dataset = await fetch_from_google_maps_api(req)
-        elif "keyword_search" in search_type:
-            ggl_api_resp, _ = await text_fetch_from_google_maps_api(req)
-            dataset = await MapBoxConnector.new_ggl_to_boxmap(ggl_api_resp, req.radius)
-            if ggl_api_resp:
-                dataset = convert_strings_to_ints(dataset)
-
-        if req.action == "full data" and len(dataset.get("features", "")) == 0:
-            new_page_index = await rectify_plan(plan_name, current_plan_index)
-            if new_page_index == "":
-                break
-            else:
-                req.page_token = (
-                    req.page_token.split("@#$")[0] + "@#$" + str(new_page_index)
-                )
-        else:
-            # continue as usual
-            break
-        
-    # if dataset is less than 20 or none and action is full data
-    if len(dataset.get("features", "")) < 20 and action == "full data":
-        next_plan_index = await rectify_plan(plan_name, current_plan_index)
-        if next_plan_index == "":
-            next_page_token = ""
-        else:
-            next_page_token = (
-                next_page_token.split("@#$")[0] + "@#$" + str(next_plan_index)
-            )
-
-    return dataset, bknd_dataset_id, next_page_token, plan_name
-
-
-async def rectify_plan(plan_name, current_plan_index):
-    plan = await get_plan(plan_name)
-    rectified_plan = add_skip_to_subcircles(plan, current_plan_index)
-    await save_plan(plan_name, rectified_plan)
-    next_plan_index = get_next_non_skip_index(rectified_plan, current_plan_index)
-
-    return next_plan_index
-
-
-def get_next_non_skip_index(rectified_plan, current_plan_index):
-    for i in range(current_plan_index + 1, len(rectified_plan)):
-        if (
-            not rectified_plan[i].endswith("_skip")
-            and rectified_plan[i] != "end of search plan"
-        ):
-            # Return the new token with the found index
-            return i
-
-    # If no non-skipped item is found, return None or a special token
-    return ""
-
-
-def add_skip_to_subcircles(plan: list, token_plan_index: str):
-    circle_string = plan[token_plan_index]
-    # Extract the circle number from the input string
-
-    circle_number = circle_string.split("_circle=")[1].split("_")[0].replace("*", "")
-
-    def is_subcircle(circle):
-        circle = "_circle=" + circle.split("_circle=")[1]
-        return circle.startswith(f"_circle={circle_number}.")
-
-    # Add "_skip" to subcircles
-    modified_plan = []
-    for circle in plan[:-1]:
-        if is_subcircle(circle):
-            if not circle.endswith("_skip"):
-                circle += "_skip"
-        modified_plan.append(circle)
-    # Add the last item separately
-    modified_plan.append(plan[-1])
-
-    return modified_plan
-
-
-async def process_req_plan(req: ReqFetchDataset):
-    action = req.action
-    plan: List[str] = []
-    current_plan_index = 0
-    bknd_dataset_id = ""
-
-    if req.page_token == "" and action == "full data":
-        if req.radius > 750:
-            string_list_plan = await create_plan(
-                req.lng, req.lat, req.radius, req.boolean_query, req.text_search
-            )
-
-        # TODO creating the name of the file should be moved to storage
-        tcc_string = make_ggl_layer_filename(req)
-        plan_name = f"plan_{tcc_string}"
-        if req.text_search != "" and req.text_search is not None:
-            plan_name = plan_name + "_text_search="
-        await save_plan(plan_name, string_list_plan)
-        plan = string_list_plan
-
-        next_search = string_list_plan[0]
-        first_search = next_search.split("_")
-        req.lng, req.lat, req.radius = (
-            float(first_search[0]),
-            float(first_search[1]),
-            float(first_search[2]),
-        )
-
-        bknd_dataset_id = plan[current_plan_index]
-        next_page_token = f"page_token={plan_name}@#${1}"  # Start with the first search
-
-    elif req.page_token != "":
-
-        plan_name, current_plan_index = req.page_token.split("@#$")
-        _, plan_name = plan_name.split("page_token=")
-
-        current_plan_index = int(current_plan_index)
-
-        # limit to 30 calls per plan
-        if current_plan_index > 30:
-            raise HTTPException(
-                status_code=488, detail="temporarely disabled for more than 30 searches"
-            )
-        plan = await get_plan(plan_name)
-
-        if (
-            plan is None
-            or current_plan_index is None
-            or len(plan) <= current_plan_index
-        ):
-            return req, plan_name, "", current_plan_index, bknd_dataset_id
-
-        search_info = plan[current_plan_index].split("_")
-        req.lng, req.lat, req.radius = (
-            float(search_info[0]),
-            float(search_info[1]),
-            float(search_info[2]),
-        )
-        next_plan_index = current_plan_index + 1
-        if plan[next_plan_index] == "end of search plan":
-            next_page_token = ""  # End of search plan
-            await process_plan_popularity(plan_name)
-        else:
-            next_page_token = f"page_token={plan_name}@#${next_plan_index}"
-
-        # TODO: Remove this after testing Process plan at index 5
-        if current_plan_index == 5:
-            await process_plan_popularity(plan_name)
-
-    return req, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
 
 async def fetch_catlog_collection():
@@ -585,8 +296,17 @@ def determine_data_type(boolean_query: str, categories: Dict) -> Optional[str]:
     - "google_categories" if ANY terms are Google or custom terms
     - Raises error if mixing Google/custom with special categories
     """
+    contains_text_search = False
     if not boolean_query:
         return None
+    
+    # check if text search is in the boolean query. indicated by @ sign wrapping the search term like @auto parts@ OR @car repair@ OR قطع غيار السيارات NOT بنشر
+    # if so remove it from the boolean query and add it to the text search text_search_terms
+    text_search_terms = re.findall(r"@([^@]+)@", boolean_query)
+    for term in text_search_terms:
+        boolean_query = boolean_query.replace(f"@{term}@", "")
+        contains_text_search = True
+
 
     # Extract just the terms
     terms = set(
@@ -638,6 +358,9 @@ async def fetch_dataset(req: ReqFetchDataset):
         ReqCityCountry(country_name=req.country_name, city_name=req.city_name)
     )
 
+    # if search type contains "category_search" and "keyword_search", need to escape the spaces in the keyword items
+
+
     # Now using boolean_query instead of included_types
     data_type = determine_data_type(req.boolean_query, categories)
 
@@ -661,7 +384,7 @@ async def fetch_dataset(req: ReqFetchDataset):
         req.lat = city_data.lat
         req.lng = city_data.lng
         req._bounding_box = city_data._bounding_box
-        geojson_dataset, bknd_dataset_id, next_page_token, plan_name = (
+        geojson_dataset, bknd_dataset_id, next_page_token, plan_name, next_plan_index = (
             await fetch_ggl_nearby(req)
         )
 
@@ -669,8 +392,13 @@ async def fetch_dataset(req: ReqFetchDataset):
     # the name of the dataset will be the action + cct_layer name
     # make_ggl_layer_filename
     if req.action == "full data":
-        estimated_cost, _ = await calculate_cost(req)
-        estimated_cost = int(round(estimated_cost[1], 2) * 100)
+        contains_text_search = False
+        if "@" in req.boolean_query:
+            contains_text_search = True
+            estimated_cost = 100
+        else:
+            estimated_cost, _ = await calculate_cost(req,text_search=contains_text_search)
+            estimated_cost = int(round(estimated_cost[1], 2) * 100)
         user_data = await load_user_profile(req.user_id)
         admin_id = user_data["admin_id"]
         user_owns_this_dataset = False
@@ -679,6 +407,10 @@ async def fetch_dataset(req: ReqFetchDataset):
             user_owns_this_dataset = True
 
         # if the user already has this dataset on his profile don't charge him 
+        # if the user already has this dataset on his profile don't charge him 
+        # if the first query of the full data was successful and returned results
+        # deduct money from the user's wallet for the price of this dataset
+        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
         if not user_owns_this_dataset:
             
             if not admin_id:
@@ -703,11 +435,7 @@ async def fetch_dataset(req: ReqFetchDataset):
                 currency="usd",
                 description="Deducted funds from wallet"
             )
-        # if the user already has this dataset on his profile don't charge him 
 
-        # if the first query of the full data was successful and returned results
-        # deduct money from the user's wallet for the price of this dataset
-        # if the user doesn't have funds return a specific error to the frontend to prompt the user to add funds
 
         skip_flag = False
         plan_progress_ref = db.get_async_client().collection("plan_progress").document(plan_name)
@@ -722,7 +450,7 @@ async def fetch_dataset(req: ReqFetchDataset):
                 skip_flag = True
 
         if not skip_flag:
-            get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id)
+            get_background_tasks().add_task(excecute_dataset_plan, req, plan_name, layer_id, next_page_token)
 
         # if the first query of the full data was successful and returned results continue the fetch data plan in the background
         # when the user has made a purchase as a background task we should finish the plan, the background taks should execute calls within the same level at the same time in a batch of 5 at a time

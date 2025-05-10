@@ -36,9 +36,7 @@ METASTORE_PATH = "Backend/layer_category_country_city_matching"
 STORAGE_DIR = "Backend/storage"
 COLOR_PATH = "Backend/gradient_colors.json"
 USERS_INFO_PATH = "Backend/users_info.json"
-RIYADH_VILLA_ALLROOMS = (
-    "Backend/riyadh_villa_allrooms.json"  # to be change to real estate id needed
-)
+RIYADH_VILLA_ALLROOMS = "Backend/riyadh_villa_allrooms.json"  # to be change to real estate id needed
 GOOGLE_CATEGORIES_PATH = "Backend/google_categories.json"
 REAL_ESTATE_CATEGORIES_PATH = "Backend/real_estate_categories.json"
 # Add a new constant for census categories path
@@ -64,8 +62,6 @@ with open(area_intelligence_categories_PATH, "r") as f:
     AREA_INTELLIGENCE_CATEGORIES = json.load(f)
 with open(COLOR_PATH, "r") as f:
     GRADIENT_COLORS = json.load(f)
-
-
 
 
 def to_serializable(obj: Any) -> Any:
@@ -127,57 +123,40 @@ def make_ggl_dataset_cord_string(lng: str, lat: str, radius: str):
     return f"{lng}_{lat}_{radius}"
 
 
-def make_ggl_layer_filename(req: ReqFetchDataset) -> str:
-    # type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
-    type_string = req.boolean_query.replace(" ", "_")
-    tcc_string = f"{type_string}_{req.country_name}_{req.city_name}"
-    return tcc_string
+def make_dataset_filename(req: ReqFetchDataset, text_search=False) -> str:
+    if req:
+        cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
+        # type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
+        type_string = req.boolean_query.replace(" ", "_")
+        try:
+            name = f"{cord_string}_{type_string}_token={req.page_token}"
+            if text_search:
+                name = name + f"_text_search=true_"
+
+        except AttributeError as e:
+            raise ValueError(f"Invalid location request object: {str(e)}")
+
+    return name
 
 
-def make_dataset_filename(req) -> str:
+def make_dataset_filename_part(
+    req: ReqFetchDataset, included_types: List[str], excluded_types: List[str]
+) -> str:
+    """Generate unique dataset ID based on query terms."""
     cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
-    # type_string = make_include_exclude_name(req.includedTypes, req.excludedTypes)
-    type_string = req.boolean_query.replace(" ", "_")
-    try:
-        name = f"{cord_string}_{type_string}_token={req.page_token}"
-        if req.text_search != "" and req.text_search is not None:
-            name = name + f"_text_search={req.text_search}_"
-        return name
-    except AttributeError as e:
-        raise ValueError(f"Invalid location request object: {str(e)}")
-
-def make_dataset_filename_part(req: ReqFetchDataset, included_types: List[str], excluded_types: List[str]) -> str:
-    """ Generate unique dataset ID based on query terms. """
-    cord_string = make_ggl_dataset_cord_string(req.lng, req.lat, req.radius)
-    include_str = "_".join(sorted(included_types))
-    exclude_str = "_".join(sorted(excluded_types))
-    type_string = f"{include_str}_excluding_{exclude_str}" if exclude_str else include_str
+    type_string = ""
+    if included_types:
+        include_str = "_".join(sorted(included_types))
+        type_string = type_string + f"including_{include_str}"
+    if excluded_types:
+        exclude_str = "_".join(sorted(excluded_types))
+        type_string = type_string + f"excluding_{exclude_str}"
     return f"{cord_string}_{type_string}"
-async def search_metastore_for_string(string_search: str) -> Optional[Dict]:
-    """
-    Searches the metastore for a given string and returns the corresponding data if found.
-    """
-    meta_file_path = os.path.join(METASTORE_PATH, string_search)
-    try:
-        if os.path.exists(meta_file_path):
-            with open(meta_file_path, "r") as f:
-                return json.load(f)
-        return None
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error parsing metastore file",
-        )
-    except IOError:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error reading metastore file",
-        )
 
 
 async def fetch_dataset_id(lyr_id: str) -> Tuple[str, Dict]:
     """
-    Searches for the dataset ID associated with a given layer ID. 
+    Searches for the dataset ID associated with a given layer ID.
     """
     dataset_layer_matching = await load_dataset_layer_matching()
 
@@ -198,7 +177,8 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
     layer_owner_id = user_layer_matching.get(prdcer_lyr_id)
     if not layer_owner_id:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Layer owner not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Layer owner not found",
         )
     return layer_owner_id
 
@@ -283,7 +263,9 @@ async def update_dataset_layer_matching(
     document_id = "dataset_matching"
 
     try:
-        dataset_layer_matching = await db.get_document(collection_name, document_id)
+        dataset_layer_matching = await db.get_document(
+            collection_name, document_id
+        )
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             dataset_layer_matching = {}
@@ -296,8 +278,13 @@ async def update_dataset_layer_matching(
             "prdcer_lyrs": [],
         }
 
-    if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
-        dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(prdcer_lyr_id)
+    if (
+        prdcer_lyr_id
+        not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]
+    ):
+        dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].append(
+            prdcer_lyr_id
+        )
 
     dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
 
@@ -306,13 +293,14 @@ async def update_dataset_layer_matching(
 
     async def _background_update():
         doc_ref = (
-            db.get_async_client().collection(collection_name).document(document_id)
+            db.get_async_client()
+            .collection(collection_name)
+            .document(document_id)
         )
         await doc_ref.set(dataset_layer_matching)
 
     get_background_tasks().add_task(_background_update)
     return dataset_layer_matching
-
 
 
 async def delete_dataset_layer_matching(
@@ -322,7 +310,9 @@ async def delete_dataset_layer_matching(
     document_id = "dataset_matching"
 
     try:
-        dataset_layer_matching = await db.get_document(collection_name, document_id)
+        dataset_layer_matching = await db.get_document(
+            collection_name, document_id
+        )
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             dataset_layer_matching = {}
@@ -336,10 +326,13 @@ async def delete_dataset_layer_matching(
         }
 
     # Check if the producer layer exists in the dataset
-    if prdcer_lyr_id not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]:
+    if (
+        prdcer_lyr_id
+        not in dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"]
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Layer {prdcer_lyr_id} not found in dataset {bknd_dataset_id}"
+            detail=f"Layer {prdcer_lyr_id} not found in dataset {bknd_dataset_id}",
         )
 
     # Remove the layer ID from the dataset's 'prdcer_lyrs' list
@@ -350,14 +343,19 @@ async def delete_dataset_layer_matching(
 
     async def _background_update():
         # Update the dataset layer matching document in the database
-        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        doc_ref = (
+            db.get_async_client()
+            .collection(collection_name)
+            .document(document_id)
+        )
         await doc_ref.set(dataset_layer_matching)
 
     # Run background task to persist the changes in the database
     get_background_tasks().add_task(_background_update)
 
-    return {"message": f"Layer {prdcer_lyr_id} removed from dataset {bknd_dataset_id} successfully"}
-
+    return {
+        "message": f"Layer {prdcer_lyr_id} removed from dataset {bknd_dataset_id} successfully"
+    }
 
 
 async def load_user_layer_matching() -> Dict:
@@ -375,7 +373,9 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
     document_id = "user_matching"
 
     try:
-        user_layer_matching = await db.get_document(collection_name, document_id)
+        user_layer_matching = await db.get_document(
+            collection_name, document_id
+        )
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             user_layer_matching = {}
@@ -389,7 +389,9 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
 
     async def _background_update():
         doc_ref = (
-            db.get_async_client().collection(collection_name).document(document_id)
+            db.get_async_client()
+            .collection(collection_name)
+            .document(document_id)
         )
         await doc_ref.set(user_layer_matching)
 
@@ -403,13 +405,15 @@ async def delete_user_layer_matching(layer_id: str):
 
     try:
         # Fetch the current layer matching data
-        user_layer_matching = await db.get_document(collection_name, document_id)
+        user_layer_matching = await db.get_document(
+            collection_name, document_id
+        )
     except HTTPException as e:
         # Handle cases where the document is not found
         if e.status_code == status.HTTP_404_NOT_FOUND:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User layer matching document not found"
+                detail="User layer matching document not found",
             )
         else:
             raise e
@@ -418,7 +422,7 @@ async def delete_user_layer_matching(layer_id: str):
     if layer_id not in user_layer_matching:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Layer {layer_id} not found in the user layer matching."
+            detail=f"Layer {layer_id} not found in the user layer matching.",
         )
 
     # Remove the layer from the user_layer_matching
@@ -429,12 +433,15 @@ async def delete_user_layer_matching(layer_id: str):
 
     # Background update to persist the change in the database
     async def _background_update():
-        doc_ref = db.get_async_client().collection(collection_name).document(document_id)
+        doc_ref = (
+            db.get_async_client()
+            .collection(collection_name)
+            .document(document_id)
+        )
         await doc_ref.set(user_layer_matching)
 
     get_background_tasks().add_task(_background_update)
     return {"message": f"Layer {layer_id} removed successfully."}
-
 
 
 async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
@@ -444,7 +451,9 @@ async def fetch_user_layers(user_id: str) -> Dict[str, Any]:
         return user_layers
     except FileNotFoundError as fnfe:
         logger.error(f"User layers not found for user_id: {user_id}")
-        raise HTTPException(status_code=404, detail="User layers not found") from fnfe
+        raise HTTPException(
+            status_code=404, detail="User layers not found"
+        ) from fnfe
 
 
 async def fetch_user_catalogs(user_id: str) -> Dict[str, Any]:
@@ -504,110 +513,12 @@ def update_metastore(ccc_filename: str, bknd_dataset_id: str):
 
 
 def get_country_code(country_name: str) -> str:
-    country_codes = {"United Arab Emirates": "AE", "Saudi Arabia": "SA", "Canada": "CA"}
-    return country_codes.get(country_name, "")
-
-
-def load_country_city():
-    data = {
-        "United Arab Emirates": [
-            {
-                "name": "Dubai",
-                "lat": 25.2048,
-                "lng": 55.2708,
-                "bounding_box": [25.1053471, 25.4253471, 55.1324914, 55.4524914],
-                "borders": {
-                    "northeast": {"lat": 25.3960, "lng": 55.5643},
-                    "southwest": {"lat": 24.7921, "lng": 54.8911},
-                },
-            },
-            {
-                "name": "Abu Dhabi",
-                "lat": 24.4539,
-                "lng": 54.3773,
-                "bounding_box": [24.2810331, 24.6018540, 54.2971553, 54.7659108],
-                "borders": {
-                    "northeast": {"lat": 24.5649, "lng": 54.5485},
-                    "southwest": {"lat": 24.3294, "lng": 54.2783},
-                },
-            },
-            {
-                "name": "Sharjah",
-                "lat": 25.3573,
-                "lng": 55.4033,
-                "bounding_box": [24.7572612, 25.6989797, 53.9777051, 56.6024458],
-                "borders": {
-                    "northeast": {"lat": 25.4283, "lng": 55.5843},
-                    "southwest": {"lat": 25.2865, "lng": 55.2723},
-                },
-            },
-        ],
-        "Saudi Arabia": [
-            {
-                "name": "Riyadh",
-                "lat": 24.7136,
-                "lng": 46.6753,
-                "bounding_box": [19.2083336, 27.7020999, 41.6811300, 48.2582000],
-                "borders": {
-                    "northeast": {"lat": 24.9182, "lng": 46.8482},
-                    "southwest": {"lat": 24.5634, "lng": 46.5023},
-                },
-            },
-            {
-                "name": "Jeddah",
-                "lat": 21.5433,
-                "lng": 39.1728,
-                "bounding_box": [21.3904432, 21.7104432, 39.0142363, 39.3342363],
-                "borders": {
-                    "northeast": {"lat": 21.7432, "lng": 39.2745},
-                    "southwest": {"lat": 21.3234, "lng": 39.0728},
-                },
-            },
-            {
-                "name": "Mecca",
-                "lat": 21.4225,
-                "lng": 39.8262,
-                "bounding_box": [21.1198192, 21.8480401, 39.5058552, 40.4756100],
-                "borders": {
-                    "northeast": {"lat": 21.5432, "lng": 39.9283},
-                    "southwest": {"lat": 21.3218, "lng": 39.7241},
-                },
-            },
-        ],
-        "Canada": [
-            {
-                "name": "Toronto",
-                "lat": 43.6532,
-                "lng": -79.3832,
-                "bounding_box": [43.5796082, 43.8554425, -79.6392832, -79.1132193],
-                "borders": {
-                    "northeast": {"lat": 43.8554, "lng": -79.1168},
-                    "southwest": {"lat": 43.5810, "lng": -79.6396},
-                },
-            },
-            {
-                "name": "Vancouver",
-                "lat": 49.2827,
-                "lng": -123.1207,
-                "bounding_box": [49.1989306, 49.3161714, -123.2249611, -123.0232419],
-                "borders": {
-                    "northeast": {"lat": 49.3932, "lng": -122.9856},
-                    "southwest": {"lat": 49.1986, "lng": -123.2642},
-                },
-            },
-            {
-                "name": "Montreal",
-                "lat": 45.5017,
-                "lng": -73.5673,
-                "bounding_box": [45.4100756, 45.7047897, -73.9741567, -73.4742952],
-                "borders": {
-                    "northeast": {"lat": 45.7058, "lng": -73.4734},
-                    "southwest": {"lat": 45.4139, "lng": -73.7089},
-                },
-            },
-        ],
+    country_codes = {
+        "United Arab Emirates": "AE",
+        "Saudi Arabia": "SA",
+        "Canada": "CA",
     }
-    return data
+    return country_codes.get(country_name, "")
 
 
 def generate_layer_id() -> str:
@@ -623,13 +534,17 @@ def generate_layer_id() -> str:
 #     files = [file.split(".json")[0] for file in files]
 #     return files
 
+
 def remove_exclusions_from_id(dataset_id: str) -> str:
-    """ Removes 'excluding_*' from the dataset ID to find a broader match. """
+    """Removes 'excluding_*' from the dataset ID to find a broader match."""
     parts = dataset_id.split("_")
     filtered_parts = [p for p in parts if not p.startswith("excluding")]
     return "_".join(filtered_parts)
 
-async def store_data_resp(req: ReqFetchDataset, dataset: Dict, file_name: str) -> str:
+
+async def store_data_resp(
+    req: ReqFetchDataset, dataset: Dict, file_name: str
+) -> str:
     """
     Stores Google Maps data in the database, creating the table if needed.
 
@@ -672,9 +587,7 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
     # each dataset is a list of dictionaries , so just extend the list  and save the big final list into dataset variable
     # else load dataset with dataset id
     three_months_ago = datetime.now(timezone.utc) - timedelta(days=90)
-    
 
-    
     if "plan" in dataset_id and fetch_full_plan_datasets:
         # Extract plan name and page number
         if "@#$" in dataset_id:
@@ -682,8 +595,8 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
             dataset_prefix, plan_name = plan_name.split("page_token=")
             page_number = int(page_number)
         else:
-            plan_name= dataset_id
-            #TODO bad assumption below to say it's at max 100 different paginations but this is for perrformance now
+            plan_name = dataset_id
+            # TODO bad assumption below to say it's at max 100 different paginations but this is for perrformance now
             page_number = 100
         # Load the plan
         plan = await get_plan(plan_name)
@@ -704,22 +617,21 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         #         lng, lat, radius, boolean_query, text_search
         #     )
 
-
-        #TODO this is a temp fix because this whole thing needs to be redone
+        # TODO this is a temp fix because this whole thing needs to be redone
         new_plan = []
         for i, item in enumerate(plan):
             if item == "end of search plan":
                 continue
-                
-            first_parts = item.split('_', 3)
+
+            first_parts = item.split("_", 3)
             lat, lon, value, rest = first_parts
-            category = rest.split('_circle=')[0].replace(" ", "_")
-            
+            category = rest.split("_circle=")[0].replace(" ", "_")
+
             if i == 0:
                 new_item = f"{lat}_{lon}_{value}_{category}_token="
             else:
                 new_item = f"{lat}_{lon}_{value}_{category}_token=page_token={plan_name}@#${i}"
-            
+
             new_plan.append(new_item)
 
         # Initialize an empty list to store all datasets
@@ -728,36 +640,40 @@ async def load_dataset(dataset_id: str, fetch_full_plan_datasets=False) -> Dict:
         properties_set = set()  # Initialize a set to store unique properties
         for i in range(page_number):
             dataset_id = new_plan[i]  # Get the formatted item for this page
-            json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+            json_content = await Database.fetchrow(
+                SqlObject.load_dataset_with_timestamp, dataset_id
+            )
             if json_content:
                 created_at = json_content.get("created_at")
                 if created_at.tzinfo is None:
                     created_at = created_at.replace(tzinfo=timezone.utc)
                 if created_at and created_at < three_months_ago:
                     await Database.execute(SqlObject.delete_dataset, dataset_id)
-                    json_content= None
+                    json_content = None
             if json_content:
-                dataset = orjson.loads(json_content.get("response_data", "{}")) 
-                all_features.extend(dataset.get("features", [])) 
-                properties_set.update(dataset.get("properties", []))            
+                dataset = orjson.loads(json_content.get("response_data", "{}"))
+                all_features.extend(dataset.get("features", []))
+                properties_set.update(dataset.get("properties", []))
         if all_features:
             # Create the final combined GeoJSON
             feat_collec["features"] = all_features
             feat_collec["properties"] = list(properties_set)
     else:
-        feat_collec=None
-        json_content = await Database.fetchrow(SqlObject.load_dataset_with_timestamp, dataset_id)
+        feat_collec = None
+        json_content = await Database.fetchrow(
+            SqlObject.load_dataset_with_timestamp, dataset_id
+        )
         if json_content:
             created_at = json_content.get("created_at")
             if created_at.tzinfo is None:
                 created_at = created_at.replace(tzinfo=timezone.utc)
             if created_at and created_at < three_months_ago:
                 await Database.execute(SqlObject.delete_dataset, dataset_id)
-                json_content= None
+                json_content = None
 
         if json_content:
-            feat_collec = orjson.loads(json_content.get("response_data", "{}")) 
-        
+            feat_collec = orjson.loads(json_content.get("response_data", "{}"))
+
     return feat_collec
 
 
@@ -784,9 +700,7 @@ async def get_census_dataset_from_storage(
     #     query = SqlObject.economic_w_bounding_box
 
     city_data = await Database.fetch(
-        query, 
-        *request_location._bounding_box, 
-        request_location.zoom_level
+        query, *request_location._bounding_box, request_location.zoom_level
     )
     city_df = pd.DataFrame([dict(record) for record in city_data], dtype=object)
     # city_df = pd.DataFrame(city_data, dtype=object)

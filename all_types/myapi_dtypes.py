@@ -43,7 +43,7 @@ class ReqDeletePrdcerCtlg(UserId):
     prdcer_ctlg_id: str
 
 
-class ReqDeletePrdcerCtlg(ReqUserId):
+class ReqDeletePrdcerCtlg(UserId):
     prdcer_ctlg_id: str
 
 

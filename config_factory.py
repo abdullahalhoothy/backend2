@@ -38,7 +38,7 @@ class ApiConfig(CommonApiConfig):
     cost_calculator: str = backend_base_uri + "cost_calculator"
     check_street_view: str = backend_base_uri + "check_street_view"
     google_fields: str = (
-        "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.takeout,places.delivery,places.paymentOptions"
+        "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber"
     )
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
     fetch_gradient_colors :str = backend_base_uri + "fetch_gradient_colors"
