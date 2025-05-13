@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 from geopy.geocoders import Nominatim
-from all_types.myapi_dtypes import ReqFetchDataset, ReqGeodata
+from all_types.request_dtypes import ReqFetchDataset, ReqGeodata
 from constants import load_country_city
 
 logging.basicConfig(
@@ -156,3 +156,15 @@ def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
         req.lng = city_data.lng
 
     return req
+
+
+def cover_circle_with_seven_circles_helper(center, radius_km):
+    distance = radius_km * math.sqrt(3) / 2
+
+    outer_centers = []
+    for i in range(6):
+        angle = i * 60  # 6 circles around at equal angles
+        outer_center = get_point_at_distance(center[::-1], angle, distance)
+        outer_centers.append((outer_center.longitude, outer_center.latitude))
+
+    return [center] + outer_centers

@@ -1,4 +1,4 @@
-from all_types.myapi_dtypes import ReqFetchDataset
+from all_types.request_dtypes import ReqFetchDataset
 
 
 def make_ggl_layer_filename(req: ReqFetchDataset) -> str:

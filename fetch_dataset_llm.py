@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, model_validator
 import requests
 from all_types.response_dtypes import ResLLMFetchDataset
-from all_types.myapi_dtypes import ReqLLMFetchDataset
+from all_types.request_dtypes import ReqLLMFetchDataset
 from cost_calculator import calculate_cost
 from config_factory import CONF
 

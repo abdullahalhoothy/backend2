@@ -3,7 +3,7 @@ from typing import Dict, List, TypeVar, Generic, Literal, Any, Optional, Union
 from pydantic import BaseModel, Field
 
 from all_types.internal_types import LyrInfoInCtlgSave, PrdcerCtlg
-from all_types.myapi_dtypes import ReqFetchDataset
+from all_types.request_dtypes import ReqFetchDataset
 
 T = TypeVar("T")
 
@@ -20,8 +20,8 @@ class ResCostEstimate(BaseModel):
 
 
 class Geometry(BaseModel):
-    type: Literal["Point"]
-    coordinates: List[float]
+    type: Literal["Point", "Polygon", "MultiPolygon"]
+    coordinates: Any
 
 
 class Feature(BaseModel):
@@ -129,6 +129,12 @@ class PaymentMethod(BaseModel):
     type: str
     details: Dict[str, Any]
 
+class GglPlaceDetails(BaseModel):
+    id: str
+    name: str
+    location: Dict[str, float]
+    types: List[str]
+    photos: Optional[List[Dict[str, Any]]] = None
 
 class ResGetPaymentMethods(BaseModel):
     payment_methods: List[PaymentMethod]
@@ -172,7 +178,18 @@ class ResLLMFetchDataset(BaseModel):
         description = "The cost value returned by calculate_cost_tool"
     )
 
-class Res_src_distination(BaseModel):
+class ResSrcDistination(BaseModel):
     distance_in_km : float 
     drive_time_in_min : float
     drive_polygon: str
+
+class PopulationViewportData(BaseModel):
+    type: str = "FeatureCollection"
+    features: List[dict]  # Use dict instead of Feature for flexibility
+    properties: list[str] = []
+    records_count: int
+    zoom_level: int
+    min_lng: Optional[float] = None
+    min_lat: Optional[float] = None
+    max_lng: Optional[float] = None
+    max_lat: Optional[float] = None

@@ -9,9 +9,14 @@ from backend_common.common_config import CommonApiConfig
 class ApiConfig(CommonApiConfig):
     backend_base_uri: str = "/fastapi/"
     ggl_base_url: str = "https://places.googleapis.com/v1/places:"
-    nearby_search: str = ggl_base_url + "searchNearby"
-    search_text: str = ggl_base_url + "searchText"
-    place_details: str = ggl_base_url + "details/json"
+    nearby_search_url: str = ggl_base_url + "searchNearby"
+    search_text_url: str = ggl_base_url + "searchText"
+    place_details_url: str = ggl_base_url[0:-1] + "/"
+    
+    legacy_nearby_search_url: str = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    legacy_search_text_url: str = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+    legacy_place_details_url: str = ggl_base_url[0:-1] + "/details"
+
     enable_CORS_url: str = "http://localhost:3000"
     catlog_collection: str = backend_base_uri + "catlog_collection"
     layer_collection: str = backend_base_uri + "layer_collection"
@@ -37,9 +42,14 @@ class ApiConfig(CommonApiConfig):
     apply_zone_layers: str = backend_base_uri + "apply_zone_layers"
     cost_calculator: str = backend_base_uri + "cost_calculator"
     check_street_view: str = backend_base_uri + "check_street_view"
-    google_fields: str = (
+    ggl_enterprise_sku_fields: str = (
         "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber"
     )
+    ggl_pro_sku_fields: str =(
+        "places.id,places.types,places.location,places.displayName,places.primaryType,places.formattedAddress,places.googleMapsUri,places.photos"
+    )
+    ggl_txt_search_ids_only_essential:str = "places.id,places.name"
+    ggl_details_fields: str ="id,name,photos,location,types"
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"
     fetch_gradient_colors :str = backend_base_uri + "fetch_gradient_colors"
     gradient_color_based_on_zone :str = backend_base_uri + "gradient_color_based_on_zone"
@@ -52,6 +62,7 @@ class ApiConfig(CommonApiConfig):
     openai_api_key:str=""
     gemini_api_key:str=""
     distance_drive_time_polygon = backend_base_uri + "distance_drive_time_polygon"
+    fetch_population_by_viewport = backend_base_uri +  "fetch_population_by_viewport"
 
     @classmethod
     def get_conf(cls):

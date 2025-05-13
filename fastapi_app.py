@@ -37,7 +37,7 @@ from backend_common.dtypes.auth_dtypes import (
     UserProfileSettings
 )
 from all_types.internal_types import UserId
-from all_types.myapi_dtypes import (
+from all_types.request_dtypes import (
     ReqModel,
     ReqFetchDataset,
     ReqPrdcerLyrMapData,
@@ -55,7 +55,8 @@ from all_types.myapi_dtypes import (
     ReqPrompt,
     ValidationResult,
     ReqFilter,
-    Req_src_distination
+    Req_src_distination,
+    ReqViewportData
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -86,7 +87,8 @@ from all_types.response_dtypes import (
     UserCatalogInfo,
     LayerInfo,
     ResLLMFetchDataset,
-    Res_src_distination
+    ResSrcDistination,
+    PopulationViewportData
 )
 
 from google_api_connector import check_street_view_availability
@@ -157,6 +159,7 @@ from backend_common.stripe_backend import (
     deduct_from_wallet,
 )
 from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
+from storage import fetch_population_by_viewport
 
 # TODO: Add stripe secret key
 
@@ -1085,14 +1088,29 @@ async def filter_based_on_(
     )
     return response
 
-@app.post(CONF.distance_drive_time_polygon, response_model=ResModel[Res_src_distination])
+@app.post(CONF.distance_drive_time_polygon, response_model=ResModel[ResSrcDistination])
 async def distance_drivetime_polygon(req:ReqModel[Req_src_distination]):
     response = await request_handling(
         req.request_body,
         Req_src_distination,
-        ResModel[Res_src_distination],
+        ResModel[ResSrcDistination],
         load_distance_drive_time_polygon,
         wrap_output = True
     )
     return response
 
+
+@app.post(
+    CONF.fetch_population_by_viewport,
+    response_model=ResModel[dict],  # Use Dict instead of specific model
+    dependencies=[Depends(JWTBearer())]
+)
+async def ep_fetch_population_by_viewport(req: ReqModel[ReqViewportData], request: Request):
+    response = await request_handling(
+        req.request_body,
+        ReqViewportData,
+        ResModel[dict],  # Changed from ResModel[ResViewportData]
+        fetch_population_by_viewport,
+        wrap_output=True,
+    )
+    return response

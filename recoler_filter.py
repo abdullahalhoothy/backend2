@@ -6,7 +6,7 @@ from all_types.response_dtypes import (
 
 from google_api_connector import calculate_distance_traffic_route
 from geo_std_utils import calculate_distance
-from all_types.myapi_dtypes import *
+from all_types.request_dtypes import *
 from data_fetcher import given_layer_fetch_dataset
 
 from geopy.distance import geodesic

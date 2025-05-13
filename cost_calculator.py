@@ -1,4 +1,4 @@
-from all_types.myapi_dtypes import ReqFetchDataset
+from all_types.request_dtypes import ReqFetchDataset
 from all_types.response_dtypes import ResCostEstimate
 from use_json import use_json
 import logging

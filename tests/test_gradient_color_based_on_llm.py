@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 # from myapi_dtypes import ValidationResult
-from all_types.myapi_dtypes import ValidationResult
+from all_types.request_dtypes import ValidationResult
 
 @pytest.mark.asyncio
 async def test_gradient_color_based_on_llm(async_client, 

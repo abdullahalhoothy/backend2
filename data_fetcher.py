@@ -1,4 +1,4 @@
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import logging
 import random
 import re
@@ -26,7 +26,7 @@ from backend_common.gbucket import (
     delete_file_from_google_cloud_bucket,
 )
 from config_factory import CONF
-from all_types.myapi_dtypes import *
+from all_types.request_dtypes import *
 from all_types.response_dtypes import (
     ResLyrMapData,
     LayerInfo,
@@ -35,9 +35,9 @@ from all_types.response_dtypes import (
 from cost_calculator import calculate_cost
 from geo_std_utils import fetch_lat_lng_bounding_box
 from google_api_connector import (
-    fetch_from_google_maps_api,
+    fetch_cat_google_maps_api,
     fetch_ggl_nearby,
-    text_fetch_from_google_maps_api,
+    # text_fetch_from_google_maps_api,
     calculate_distance_traffic_route
 )
 from backend_common.logging_wrapper import (
@@ -446,7 +446,13 @@ async def fetch_dataset(req: ReqFetchDataset):
             progress = plan_progress_data.get("progress", 0)
             completed_at = plan_progress_data.get("completed_at", datetime.min)
 
-            if progress >= 100 and completed_at < datetime.now() + timedelta(days=90):
+            if progress >= 100 and completed_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc) + timedelta(days=90):
+                skip_flag = True
+
+            # check if this plan is currently being fetched in the background by checking that last_updated is more than 30 seconds ago
+            # last_updated was saved like this firestore.SERVER_TIMESTAMP
+            last_updated = plan_progress_data.get("last_updated", datetime.min)
+            if last_updated.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc) - timedelta(seconds=30):
                 skip_flag = True
 
         if not skip_flag:

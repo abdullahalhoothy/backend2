@@ -1,7 +1,7 @@
-from all_types.myapi_dtypes import List, ReqFetchDataset
+from all_types.request_dtypes import List, ReqFetchDataset
 from fastapi import HTTPException
 from typing import List
-from geo_std_utils import get_point_at_distance
+from geo_std_utils import cover_circle_with_seven_circles_helper
 from parrallel_create_duplicate_rules import create_duplicate_rules
 from utils import make_ggl_layer_filename
 from use_json import use_json
@@ -9,7 +9,6 @@ import asyncio
 from backend_common.database import Database
 import json
 import numpy as np
-import math
 import pandas as pd
 from backend_common.logging_wrapper import apply_decorator_to_module
 import logging
@@ -237,18 +236,6 @@ async def process_plan_popularity(plan_name: str):
 
     except Exception as e:
         print(f"An error occurred during execution: {e}")
-
-
-def cover_circle_with_seven_circles_helper(center, radius_km):
-    distance = radius_km * math.sqrt(3) / 2
-
-    outer_centers = []
-    for i in range(6):
-        angle = i * 60  # 6 circles around at equal angles
-        outer_center = get_point_at_distance(center[::-1], angle, distance)
-        outer_centers.append((outer_center.longitude, outer_center.latitude))
-
-    return [center] + outer_centers
 
 
 def cover_circle_with_seven_circles(
@@ -572,11 +559,11 @@ async def process_req_plan(req: ReqFetchDataset):
 
         current_plan_index = int(current_plan_index)
 
-        # limit to 30 calls per plan
-        if current_plan_index > 30:
-            raise HTTPException(
-                status_code=488, detail="temporarely disabled for more than 30 searches"
-            )
+        # # limit to 30 calls per plan
+        # if current_plan_index > 30:
+        #     raise HTTPException(
+        #         status_code=488, detail="temporarely disabled for more than 30 searches"
+        #     )
         plan = await get_plan(plan_name)
 
         if (
@@ -587,10 +574,12 @@ async def process_req_plan(req: ReqFetchDataset):
             return req, plan_name, "", current_plan_index, bknd_dataset_id
 
         search_info = plan[current_plan_index].split("_")
+        if "end" in search_info[0]:
+            pause=1
         req.lng, req.lat, req.radius = (
-            float(search_info[0]),
-            float(search_info[1]),
-            float(search_info[2]),
+        float(search_info[0]),
+        float(search_info[1]),
+        float(search_info[2]),
         )
         next_plan_index = current_plan_index + 1
         if plan[next_plan_index] == "end of search plan":
@@ -599,9 +588,8 @@ async def process_req_plan(req: ReqFetchDataset):
         else:
             next_page_token = f"page_token={plan_name}@#${next_plan_index}"
 
-        # TODO: Remove this after testing Process plan at index 5
-        if current_plan_index == 5:
-            await process_plan_popularity(plan_name)
+
+
 
     return req, plan_name, next_page_token, current_plan_index, bknd_dataset_id
 
@@ -631,15 +619,13 @@ def add_skip_to_subcircles(plan: list, token_plan_index: str):
 
 def get_next_non_skip_index(rectified_plan, current_plan_index):
     for i in range(current_plan_index + 1, len(rectified_plan)):
-        if (
-            not rectified_plan[i].endswith("_skip")
-            and rectified_plan[i] != "end of search plan"
-        ):
+        # if end of plan end of search plan" return -1
+        if rectified_plan[i] == "end of search plan":
+            return -1
+        if not rectified_plan[i].endswith("_skip"):
             # Return the new token with the found index
             return i
 
-    # If no non-skipped item is found, return None or a special token
-    return ""
 
 
 async def rectify_plan(plan_name, current_plan_index):
@@ -647,8 +633,14 @@ async def rectify_plan(plan_name, current_plan_index):
     rectified_plan = add_skip_to_subcircles(plan, current_plan_index)
     await save_plan(plan_name, rectified_plan)
     next_plan_index = get_next_non_skip_index(rectified_plan, current_plan_index)
+    next_page_token = f"page_token={plan_name}@#${next_plan_index}"
+    if next_plan_index == -1:
+        next_page_token = ""
 
-    return next_plan_index
+    # req.page_token = req.page_token.split("@#$")[0] + "@#$" + str(next_plan_index)
+    # next_page_token = f"page_token={plan_name}@#${next_plan_index}"
+
+    return next_plan_index, next_page_token
 
 
 

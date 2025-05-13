@@ -1,4 +1,4 @@
-from all_types.myapi_dtypes import (ReqGradientColorBasedOnZone,ValidationResult)
+from all_types.request_dtypes import (ReqGradientColorBasedOnZone,ValidationResult)
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser

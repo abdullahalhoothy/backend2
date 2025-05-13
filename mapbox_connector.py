@@ -25,6 +25,9 @@ class MapBoxConnector:
             "heatmap_weight": 1,
         }
 
+        if properties["name"] == "":
+            properties["name"] = place.get("name", "")
+
         # Add the "id" property if with_ids is True
         if with_ids:
             properties["id"] = place.get("id", "")

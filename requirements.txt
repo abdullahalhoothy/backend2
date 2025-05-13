@@ -23,3 +23,4 @@ rich
 langchain
 langchain-openai
 pytest-asyncio
+contextily
