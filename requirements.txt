@@ -24,3 +24,5 @@ langchain
 langchain-openai
 pytest-asyncio
 contextily
+geopandas
+shapely
