@@ -758,6 +758,7 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
     action = req.action
     plan_name = ""
     next_plan_index = 0
+    current_plan_index = 0
 
     # try 30 times to get non empty dataset
     for _ in range(30):
@@ -778,23 +779,28 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
 
         dataset = await query_ggl(req, search_type)
 
-        if req.action == "full data" and dataset:
-            if len(dataset.get("features", "")) == 0:
+        if req.action == "full data":
+            if dataset:
+                if len(dataset.get("features", "")) == 0:
+                    next_plan_index, next_page_token = await rectify_plan(
+                        plan_name, current_plan_index
+                    )
+                    if next_plan_index == -1:
+                        break
+                    else:
+                        req.page_token = next_page_token
+                else:
+                    break
+        if req.action == "sample":
+            break
+
+    # if dataset is less than 20 or none and action is full data
+    if req.action == "full data":
+        if dataset:
+            if len(dataset.get("features", "")) < 20:
                 next_plan_index, next_page_token = await rectify_plan(
                     plan_name, current_plan_index
                 )
-                if next_plan_index == -1:
-                    break
-                else:
-                    req.page_token = next_page_token
-            else:
-                break
-
-    # if dataset is less than 20 or none and action is full data
-    if len(dataset.get("features", "")) < 20 and action == "full data":
-        next_plan_index, next_page_token = await rectify_plan(
-            plan_name, current_plan_index
-        )
 
     # next_plan_index = whichever greater between next_plan_index and current_plan_index+1
     if current_plan_index + 1 > next_plan_index:
