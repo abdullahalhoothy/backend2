@@ -353,7 +353,7 @@ async def build_details_search_payload(place_id: str) -> Dict[str, Any]:
 async def build_text_search_payload(
     req: ReqFetchDataset, textQuery
 ) -> Dict[str, Any]:
-    feilds = CONF.ggl_pro_sku_fields
+    feilds = CONF.ggl_nearby_pro_sku_fields
     if req.ids_and_location_only:
         feilds = CONF.ggl_txt_search_ids_only_essential
     ggl_api_url = CONF.search_text_url
@@ -380,9 +380,9 @@ async def build_text_search_payload(
 async def build_category_search_payload(
     req: ReqFetchDataset, include: List[str], exclude: List[str]
 ) -> Dict[str, Any]:
-    feilds = CONF.ggl_pro_sku_fields
+    feilds = CONF.ggl_nearby_pro_sku_fields
     if req.include_rating_info:
-        feilds = CONF.ggl_enterprise_sku_fields
+        feilds = CONF.ggl_nearby_enterprise_sku_fields
 
     ggl_api_url = CONF.nearby_search_url
     data = {
@@ -484,7 +484,7 @@ async def make_get_api_call(ggl_api_url, headers):
                 if response.status == 200:
                     response_data = await response.json()
                     return response_data
-                elif response.status == 429:
+                elif response.status != 200:
                     # Too many requests - retry with increasing delay
                     retry_count += 1
                     if retry_count < max_retries:
@@ -492,12 +492,12 @@ async def make_get_api_call(ggl_api_url, headers):
                             2**retry_count
                         )  # Double the delay with each retry
                         logger.warning(
-                            f"Rate limit exceeded (429). Retry {retry_count}/{max_retries} in {retry_delay} seconds."
+                            f"Rate limit exceeded ({response.status}). Retry {retry_count}/{max_retries} in {retry_delay} seconds."
                         )
                         await asyncio.sleep(retry_delay)
                     else:
                         logger.error(
-                            f"Rate limit exceeded (429) after {max_retries} retries."
+                            f"Rate limit exceeded ({response.status}) after {max_retries} retries."
                         )
                         return {}
                 else:
@@ -537,7 +537,7 @@ async def make_post_api_call(ggl_api_url, headers, data):
                             2**retry_count
                         )  # Double the delay with each retry
                         logger.warning(
-                            f"Rate limit exceeded (429). Retry {retry_count}/{max_retries} in {retry_delay} seconds."
+                            f"Rate limit exceeded ({response.status}). Retry {retry_count}/{max_retries} in {retry_delay} seconds."
                         )
                         await asyncio.sleep(retry_delay)
                     else:
@@ -606,33 +606,6 @@ async def single_ggl_cat_call(
 
     return results
 
-
-# async def text_fetch_from_google_maps_api(req: ReqFetchDataset,) -> Tuple[List[Dict[str, Any]], Optional[str]]:
-#     headers = {
-#         "Content-Type": "application/json",
-#         "X-Goog-Api-Key": CONF.api_key,
-#         "X-Goog-FieldMask": CONF.google_fields+",nextPageToken",
-#     }
-#     data = {
-#         "textQuery": req.text_search,
-#         "includePureServiceAreaBusinesses": False,
-#         "pageToken": req.page_token,
-#         "locationBias": {
-#             "circle": {
-#                 "center": {"latitude": req.lat, "longitude": req.lng},
-#                 "radius": req.radius,
-#             }
-#         },
-#     }
-#     response = requests.post(CONF.search_text, headers=headers, json=data)
-#     if response.status_code == 200:
-#         response_data = response.json()
-#         results = response_data.get("places", [])
-#         next_page_token = response_data.get("nextPageToken", "")
-#         return results, next_page_token
-#     else:
-#         print("Error:", response.status_code, response.text)
-#         return [], None
 
 
 async def check_street_view_availability(
@@ -813,7 +786,83 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
             filtered_features.append(feature)
     dataset["features"] = filtered_features
 
+
+    if req.include_only_sub_properties:
+        dataset = select_sub_properties(dataset)
+    
+    dataset = filter_ggl_data_valid_locations(req, dataset)
+        
+
     return dataset, bknd_dataset_id, next_page_token, plan_name, next_plan_index
+
+def select_sub_properties(dataset):
+    fields = [
+        "displayName", "rating", "formattedAddress", "internationalPhoneNumber",
+        "types", "priceLevel", "primaryType", "userRatingCount", "location",
+        "name", "id"
+    ]
+    
+    filtered_dataset = []
+    
+    for item in dataset:
+        filtered_item = {}
+        for field in fields:
+            if field in item:
+                filtered_item[field] = item[field]
+        filtered_dataset.append(filtered_item)
+    
+    return filtered_dataset
+
+def filter_ggl_data_valid_locations(req:ReqFetchDataset, dataset):
+    """
+    Filters dataset features based on specific criteria:
+    - If req.include_rating_info is False: keep features that have photos
+    - If req.include_rating_info is True: keep features that have more than 5 reviews OR have a phone number
+    
+    Args:
+        req: An object containing filtering preferences
+        dataset: A GeoJSON dataset with features
+        
+    Returns:
+        A filtered version of the dataset
+    """
+    filtered_features = []
+    
+    for feature in dataset.get('features', []):
+        properties = feature.get('properties', {})
+        
+        if req.include_rating_info:
+            # Check if it has more than 5 reviews or has a phone number
+            user_ratings = properties.get('user_ratings_total', '')
+            phone = properties.get('phone', '')
+            
+            # Convert user_ratings to int if it's not empty
+            try:
+                rating_count = int(user_ratings) if user_ratings else 0
+            except ValueError:
+                rating_count = 0
+                
+            if rating_count > 3 or (phone and phone != ''):
+                filtered_features.append(feature)
+        else:
+            # Check if it has photos
+            photos = properties.get('photos', [])
+            if photos and len(photos) > 0:
+                filtered_features.append(feature)
+    
+    # Create a new dataset with the filtered features
+    filtered_dataset = {
+        'type': dataset.get('type', 'FeatureCollection'),
+        'features': filtered_features
+    }
+    
+    # Copy any other fields from the original dataset
+    for key, value in dataset.items():
+        if key not in filtered_dataset:
+            filtered_dataset[key] = value
+    
+    return filtered_dataset
+
 
 
 # Apply the decorator to all functions in this module

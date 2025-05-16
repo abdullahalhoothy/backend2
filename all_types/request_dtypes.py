@@ -87,6 +87,7 @@ class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
     _excluded_types: Optional[list[str]] = []
     ids_and_location_only: Optional[bool] = False
     include_rating_info: Optional[bool] = False
+    include_only_sub_properties: Optional[bool] = True
 
 
 # class ReqCustomData(ReqCityCountry):
@@ -172,10 +173,12 @@ class Req_src_distination(BaseModel):
     source : Coordinate
     destination : Coordinate
 
-class ReqViewportData(BaseModel):
+class ReqIntelligenceData(BaseModel):
     min_lng: float
     min_lat: float
     max_lng: float
     max_lat: float
     zoom_level: int
     user_id: str
+    population:Optional[bool]
+    income:Optional[bool]

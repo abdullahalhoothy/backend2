@@ -56,7 +56,7 @@ from all_types.request_dtypes import (
     ValidationResult,
     ReqFilter,
     Req_src_distination,
-    ReqViewportData
+    ReqIntelligenceData
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -1102,14 +1102,14 @@ async def distance_drivetime_polygon(req:ReqModel[Req_src_distination]):
 
 @app.post(
     CONF.fetch_population_by_viewport,
-    response_model=ResModel[dict],  # Use Dict instead of specific model
+    response_model=ResModel[dict],
     dependencies=[Depends(JWTBearer())]
 )
-async def ep_fetch_population_by_viewport(req: ReqModel[ReqViewportData], request: Request):
+async def ep_fetch_population_by_viewport(req: ReqModel[ReqIntelligenceData], request: Request):
     response = await request_handling(
         req.request_body,
-        ReqViewportData,
-        ResModel[dict],  # Changed from ResModel[ResViewportData]
+        ReqIntelligenceData,
+        ResModel[dict],
         fetch_population_by_viewport,
         wrap_output=True,
     )

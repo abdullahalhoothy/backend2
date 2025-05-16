@@ -42,12 +42,20 @@ class ApiConfig(CommonApiConfig):
     apply_zone_layers: str = backend_base_uri + "apply_zone_layers"
     cost_calculator: str = backend_base_uri + "cost_calculator"
     check_street_view: str = backend_base_uri + "check_street_view"
-    ggl_enterprise_sku_fields: str = (
-        "places.id,places.types,places.location,places.rating,places.priceLevel,places.userRatingCount,places.displayName,places.primaryType,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber"
+    ggl_nearby_pro_sku_fields: str =(
+        "places.accessibilityOptions,places.addressComponents,places.addressDescriptor,places.adrFormatAddress,places.attributions,places.businessStatus,places.containingPlaces,places.displayName,places.formattedAddress,places.googleMapsLinks,places.googleMapsUri,places.iconBackgroundColor,places.iconMaskBaseUri,places.id,places.location,places.name,places.photos,places.plusCode,places.postalAddress,places.primaryType,places.primaryTypeDisplayName,places.pureServiceAreaBusiness,places.shortFormattedAddress,places.subDestinations,places.types,places.utcOffsetMinutes,places.viewport"
     )
-    ggl_pro_sku_fields: str =(
-        "places.id,places.types,places.location,places.displayName,places.primaryType,places.formattedAddress,places.googleMapsUri,places.photos"
+    ggl_nearby_enterprise_sku_fields: str = (
+        ggl_nearby_pro_sku_fields+"places.currentOpeningHours,places.currentSecondaryOpeningHours,places.internationalPhoneNumber,places.nationalPhoneNumber,places.priceLevel,places.priceRange,places.rating,places.regularOpeningHours,places.regularSecondaryOpeningHours,places.userRatingCount,places.websiteUri"
     )
+    ggl_text_pro_sku_fields: str = (
+        "places.accessibilityOptions,places.addressComponents,places.addressDescriptor*,places.adrFormatAddress,places.businessStatus,places.containingPlaces,places.displayName,places.formattedAddress,places.googleMapsLinks**,places.googleMapsUri,places.iconBackgroundColor,places.iconMaskBaseUri,places.location,places.photos,places.plusCode,places.postalAddress,places.primaryType,places.primaryTypeDisplayName,places.pureServiceAreaBusiness,places.shortFormattedAddress,places.subDestinations,places.types,places.utcOffsetMinutes,places.viewport"
+    )
+    ggl_text_enterprise_sku_feilds:str = (
+        ggl_text_pro_sku_fields + "places.currentOpeningHours,places.currentSecondaryOpeningHours,places.internationalPhoneNumber,places.nationalPhoneNumber,places.priceLevel,places.priceRange,places.rating,places.regularOpeningHours,places.regularSecondaryOpeningHours,places.userRatingCount,places.websiteUri"
+    )
+
+
     ggl_txt_search_ids_only_essential:str = "places.id,places.name"
     ggl_details_fields: str ="id,name,photos,location,types"
     save_draft_catalog: str = backend_base_uri + "save_draft_catalog"

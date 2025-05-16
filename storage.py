@@ -11,7 +11,7 @@ from backend_common.auth import load_user_profile
 from backend_common.database import Database
 import pandas as pd
 from sql_object import SqlObject
-from all_types.request_dtypes import ReqFetchDataset, ReqViewportData
+from all_types.request_dtypes import ReqFetchDataset, ReqIntelligenceData
 from all_types.response_dtypes import PopulationViewportData
 from backend_common.logging_wrapper import apply_decorator_to_module
 from backend_common.auth import db
@@ -909,45 +909,17 @@ async def fetch_db_categories_by_lat_lng(bounding_box: list[float]) -> Dict:
 
 
 
-async def fetch_population_by_viewport(req: ReqViewportData) -> Dict:
+async def fetch_population_by_viewport(req: ReqIntelligenceData) -> Dict:
     """
     Fetches population data from local GeoJSON files based on viewport and zoom level.
     """
-    start_time = time.time()
-    
-    # Determine the appropriate file based on zoom level
-    zoom_folder = f"v{req.zoom_level}"
-    file_path = f"Backend/population_json_files/{zoom_folder}/all_features.json"
+    #TODO first check if the user has purchased intelligence
+
+    # if
+    file_path = f"Backend/population_json_files/v{req.zoom_level}/all_features.json"
     
     # Try to read the file for the exact zoom level
     all_data = await use_json(file_path, "r")
-    
-    # If file not found, try to find closest available zoom level
-    closest_zoom = req.zoom_level
-    if all_data is None:
-        available_zooms = [8, 9, 10, 11, 12, 13, 14, 15, 16]
-        closest_zoom = min(available_zooms, key=lambda x: abs(x - req.zoom_level))
-        zoom_folder = f"v{closest_zoom}"
-        file_path = f"Backend/population_json_files/{zoom_folder}/all_features.json"
-        
-        all_data = await use_json(file_path, "r")
-        if all_data is None:
-            # If still not found, return empty result
-            logger.warning(f"No data found for zoom level {req.zoom_level} or closest alternative")
-            return {
-                "type": "FeatureCollection",
-                "features": [],
-                "properties": [],
-                "records_count": 0,
-                "zoom_level": req.zoom_level,
-                "min_lng": req.min_lng,
-                "min_lat": req.min_lat,
-                "max_lng": req.max_lng,
-                "max_lat": req.max_lat
-            }
-    
-    logger.info(f"File loaded in {time.time() - start_time:.2f}s")
-    filter_start = time.time()
     
     # Load only the required portion from the GeoJSON
     # This avoids creating a full GeoDataFrame which can be slow
@@ -956,10 +928,6 @@ async def fetch_population_by_viewport(req: ReqViewportData) -> Dict:
         # For polygon features, do a basic bounds check (faster than full intersection)
         geom_type = feature.get("geometry", {}).get("type")
         coords = feature.get("geometry", {}).get("coordinates", [])
-        
-        # Skip features with missing or invalid geometry
-        if not geom_type or not coords:
-            continue
             
         # Simple bounding box check (this is much faster than full geometric operations)
         if geom_type == "Polygon":
@@ -1009,19 +977,12 @@ async def fetch_population_by_viewport(req: ReqViewportData) -> Dict:
     if filtered_features and len(filtered_features) > 0:
         properties = list(filtered_features[0].get("properties", {}).keys())
     
-    logger.info(f"Filtering completed in {time.time() - filter_start:.2f}s")
-    
     # Return raw dictionary instead of Pydantic model to avoid validation errors
     return {
         "type": "FeatureCollection",
         "features": filtered_features,
         "properties": properties,
-        "records_count": len(filtered_features),
-        "zoom_level": closest_zoom,
-        "min_lng": req.min_lng,
-        "min_lat": req.min_lat,
-        "max_lng": req.max_lng,
-        "max_lat": req.max_lat
+        "records_count": len(filtered_features)
     }
 
 

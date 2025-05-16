@@ -11,8 +11,8 @@ class MapBoxConnector:
     def assign_point_properties(cls, place, with_ids=True):
         lng = place.get("location", {}).get("longitude", 0)
         lat = place.get("location", {}).get("latitude", 0)
-
-        # Construct the properties dictionary conditionally
+        
+        # Construct the properties dictionary with specifically selected keys
         properties = {
             "name": place.get("displayName", {}).get("text", ""),
             "rating": place.get("rating", ""),
@@ -24,14 +24,26 @@ class MapBoxConnector:
             "user_ratings_total": place.get("userRatingCount", ""),
             "heatmap_weight": 1,
         }
-
+        
         if properties["name"] == "":
             properties["name"] = place.get("name", "")
-
+        
         # Add the "id" property if with_ids is True
         if with_ids:
             properties["id"] = place.get("id", "")
-
+        
+        # Create a set of keys that have already been handled
+        handled_keys = {
+            "displayName", "rating", "formattedAddress", "internationalPhoneNumber", 
+            "types", "priceLevel", "primaryType", "userRatingCount", "location", 
+            "name", "id"
+        }
+        
+        # Add all other keys from place that aren't already handled
+        for key, value in place.items():
+            if key not in handled_keys:
+                properties[key] = value
+        
         return {
             "type": "Feature",
             "properties": properties,
