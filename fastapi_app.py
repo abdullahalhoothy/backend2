@@ -159,7 +159,7 @@ from backend_common.stripe_backend import (
     deduct_from_wallet,
 )
 from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
-from storage import fetch_population_by_viewport
+from storage import fetch_intelligence_by_viewport
 
 # TODO: Add stripe secret key
 
@@ -1110,7 +1110,7 @@ async def ep_fetch_population_by_viewport(req: ReqModel[ReqIntelligenceData], re
         req.request_body,
         ReqIntelligenceData,
         ResModel[dict],
-        fetch_population_by_viewport,
+        fetch_intelligence_by_viewport,
         wrap_output=True,
     )
     return response
