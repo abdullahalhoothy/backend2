@@ -785,12 +785,10 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         if feature["properties"]["id"] != "n/a":
             filtered_features.append(feature)
     dataset["features"] = filtered_features
-
-
     if req.include_only_sub_properties:
         dataset = select_sub_properties(dataset)
-    
-    dataset = filter_ggl_data_valid_locations(req, dataset)
+    if req.action=="full data":
+        dataset = filter_ggl_data_valid_locations(req, dataset)
         
 
     return dataset, bknd_dataset_id, next_page_token, plan_name, next_plan_index
@@ -804,14 +802,19 @@ def select_sub_properties(dataset):
     
     filtered_dataset = []
     
-    for item in dataset:
+    for feature in dataset.get("features",{}):
         filtered_item = {}
-        for field in fields:
-            if field in item:
-                filtered_item[field] = item[field]
+        for property in fields:
+            if property in feature.get("properties",{}).keys():
+                filtered_item = feature
+                filtered_item[property] = feature.get("properties", {}).get(property)
+
         filtered_dataset.append(filtered_item)
     
-    return filtered_dataset
+    dataset["features"] = filtered_dataset
+
+    return dataset
+
 
 def filter_ggl_data_valid_locations(req:ReqFetchDataset, dataset):
     """
