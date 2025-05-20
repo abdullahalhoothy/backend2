@@ -26,3 +26,4 @@ pytest-asyncio
 contextily
 geopandas
 shapely
+python-dateutil

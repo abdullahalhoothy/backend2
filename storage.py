@@ -909,7 +909,7 @@ async def fetch_db_categories_by_lat_lng(bounding_box: list[float]) -> Dict:
 
 
 
-async def fetch_population_by_viewport(req: ReqIntelligenceData) -> Dict:
+async def fetch_intelligence_by_viewport(req: ReqIntelligenceData) -> Dict:
     """
     Fetches population data from local GeoJSON files based on viewport and zoom level.
     """
@@ -947,30 +947,7 @@ async def fetch_population_by_viewport(req: ReqIntelligenceData) -> Dict:
                 poly_min_lat <= req.max_lat and poly_max_lat >= req.min_lat):
                 filtered_features.append(feature)
         
-        # Similar checks for other geometry types
-        elif geom_type == "MultiPolygon":
-            # For MultiPolygon, check each polygon's bounds
-            for polygon in coords:
-                flat_coords = [point for ring in polygon for point in ring]
-                lngs = [p[0] for p in flat_coords]
-                lats = [p[1] for p in flat_coords]
-                
-                poly_min_lng = min(lngs)
-                poly_max_lng = max(lngs)
-                poly_min_lat = min(lats)
-                poly_max_lat = max(lats)
-                
-                if (poly_min_lng <= req.max_lng and poly_max_lng >= req.min_lng and
-                    poly_min_lat <= req.max_lat and poly_max_lat >= req.min_lat):
-                    filtered_features.append(feature)
-                    break  # Include feature if any polygon intersects
-        
-        # Point geometries (simpler)
-        elif geom_type == "Point":
-            lng, lat = coords
-            if (req.min_lng <= lng <= req.max_lng and 
-                req.min_lat <= lat <= req.max_lat):
-                filtered_features.append(feature)
+
     
     # Extract properties from first feature if available
     properties = []
