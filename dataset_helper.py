@@ -111,7 +111,7 @@ async def excecute_dataset_plan(
         except Exception as e:
             logger.error(f"Error in execution loop: {str(e)}", exc_info=True)
             break
-
+        
     # Ensure final progress update
     await db.get_async_client().collection("plan_progress").document(
         plan_name

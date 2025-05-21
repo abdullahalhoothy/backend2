@@ -21,7 +21,7 @@ from boolean_query_processor import (
 )
 from geo_std_utils import fetch_lat_lng_bounding_box
 from mapbox_connector import MapBoxConnector
-from popularity_algo import process_req_plan, rectify_plan
+from popularity_algo import process_req_plan, rectify_plan,mark_plan_result
 from storage import (
     load_dataset,
     make_dataset_filename,
@@ -785,6 +785,16 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
         if feature["properties"]["id"] != "n/a":
             filtered_features.append(feature)
     dataset["features"] = filtered_features
+
+
+    if req.action == "full data":
+        if dataset:
+            # if dataset["features"] is not empty, that means that we did get data from this request
+            # i want to rectify plan like i do for the _skip but this time by adding _success to that plan item and _fail otherwise
+            has_features = len(dataset.get("features", [])) > 0
+            await mark_plan_result(plan_name, current_plan_index, has_features)
+
+
     if req.include_only_sub_properties:
         dataset = select_sub_properties(dataset)
     if req.action=="full data":
@@ -866,7 +876,73 @@ def filter_ggl_data_valid_locations(req:ReqFetchDataset, dataset):
     
     return filtered_dataset
 
+async def transform_plan_items(req:ReqFetchDataset, plan_list: List[str]) -> List[str]:
+    transformed_items = []
+    
+    # Constants for constructing the page_token string
+    page_token_value_prefix = "page_token=plan_"
+    page_token_value_suffix_base = f"_{req.country_name}_{req.city_name}@#$" # The dynamic index will be appended
 
+    for original_index, item_string in enumerate(plan_list):
+        if item_string.endswith("_success"):
+            parts = item_string.split('_')
+
+            # Expecting structure: lat_lng_radius_query_circleInfo..._success
+            # Need at least 5 parts for this: lat, lng, radius, query, circle=...
+            if len(parts) < 5: 
+                print(f"Skipping item due to insufficient parts: {item_string}")
+                continue
+
+            lng_val = float(parts[0])
+            lat_val = float(parts[1])
+            radius_val_str = parts[2] # e.g., "30000.0"
+            radius_val = float(radius_val_str)
+
+            # --- Extract the query string ---
+            # The query is located after "lat_lng_radius_" and before the first "_circle=".
+            # Example: "46.6753_24.7136_30000.0_supermarket_circle=..."
+            # The query part starts after the third underscore.
+            
+            # Calculate the starting index of the query part.
+            # This is the length of "lat_lng_radius_"
+            query_start_index = len(parts[0]) + 1 + len(parts[1]) + 1 + len(parts[2]) + 1
+
+            # Find the end of the query part (start of "_circle=")
+            query_end_index = item_string.find("_circle=", query_start_index)
+            
+            # query_with_underscores is the raw query string from the plan item
+            query_with_underscores = item_string[query_start_index:query_end_index]
+            
+            # For ReqFetchDataset.boolean_query, convert underscores in the extracted query to spaces.
+            # This becomes the base for the `type_string` in `make_dataset_filename`.
+            boolean_query_for_req_object = query_with_underscores.replace("_", " ")
+            
+            # For the `plan_QUERY_` part of the page_token, we use the query_with_underscores.
+            query_part_for_token_construction = query_with_underscores 
+            
+            if original_index ==0 :
+                full_page_token_value = ""
+            else:
+                full_page_token_value = (
+                    f"{page_token_value_prefix}{query_part_for_token_construction}"
+                    f"{page_token_value_suffix_base}{original_index}"
+                )
+
+            # Create the ReqFetchDataset object
+            req = ReqFetchDataset(
+                lat=lat_val,
+                lng=lng_val,
+                radius=radius_val,
+                boolean_query=boolean_query_for_req_object,
+                page_token=full_page_token_value,
+                user_id=req.user_id,
+            )
+
+            # Generate the two versions of the filename and add to results
+            transformed_items.append(make_dataset_filename(req, text_search=False))
+            transformed_items.append(make_dataset_filename(req, text_search=True))
+            
+    return transformed_items
 
 # Apply the decorator to all functions in this module
 apply_decorator_to_module(logger)(__name__)

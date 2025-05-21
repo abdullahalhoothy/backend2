@@ -14,6 +14,9 @@ __pycache__/
 **/__pycache__/** */
 all_types/__pycache__/**
 **plan_*
+#everything that ends with .geojson
+**.geojson
+
 
 # IDE - VSCode
 .vscode/

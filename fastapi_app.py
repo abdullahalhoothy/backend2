@@ -34,7 +34,7 @@ from backend_common.dtypes.auth_dtypes import (
     ReqUserProfile,
     ReqRefreshToken,
     ReqCreateUserProfile,
-    UserProfileSettings
+    UserProfileSettings,
 )
 from all_types.internal_types import UserId
 from all_types.request_dtypes import (
@@ -56,7 +56,8 @@ from all_types.request_dtypes import (
     ValidationResult,
     ReqFilter,
     Req_src_distination,
-    ReqIntelligenceData
+    ReqIntelligenceData,
+    ReqClustersForSalesManData,
 )
 from backend_common.request_processor import request_handling
 from backend_common.auth import (
@@ -70,7 +71,7 @@ from backend_common.auth import (
     change_email,
     db,
     JWTBearer,
-    create_user_profile
+    create_user_profile,
 )
 
 from all_types.response_dtypes import (
@@ -88,7 +89,7 @@ from all_types.response_dtypes import (
     LayerInfo,
     ResLLMFetchDataset,
     ResSrcDistination,
-    PopulationViewportData
+    PopulationViewportData,
 )
 
 from google_api_connector import check_street_view_availability
@@ -114,8 +115,7 @@ from data_fetcher import (
     fetch_dataset,
     load_area_intelligence_categories,
     update_profile,
-    load_distance_drive_time_polygon
-    
+    load_distance_drive_time_polygon,
 )
 from backend_common.dtypes.stripe_dtypes import (
     ProductReq,
@@ -130,7 +130,7 @@ from backend_common.dtypes.stripe_dtypes import (
     PaymentMethodRes,
     PaymentMethodAttachReq,
     TopUpWalletReq,
-    DeductWalletReq
+    DeductWalletReq,
 )
 from backend_common.database import Database
 from backend_common.logging_wrapper import log_and_validate
@@ -158,8 +158,13 @@ from backend_common.stripe_backend import (
     fetch_wallet,
     deduct_from_wallet,
 )
-from recoler_filter import (process_color_based_on_agent,process_color_based_on,filter_based_on)
+from recoler_filter import (
+    process_color_based_on_agent,
+    process_color_based_on,
+    filter_based_on,
+)
 from storage import fetch_intelligence_by_viewport
+from sales_man_problem import get_clusters_for_sales_man
 
 # TODO: Add stripe secret key
 
@@ -195,7 +200,8 @@ def create_formatted_example(model_class):
                     ref_schema = schema["$defs"][ref_name]
                     example[field_name] = [
                         create_example_from_properties(
-                            ref_schema["properties"], ref_schema.get("required", [])
+                            ref_schema["properties"],
+                            ref_schema.get("required", []),
                         )
                     ]
                 else:
@@ -259,7 +265,9 @@ async def shutdown_event():
 
 @app.get(CONF.fetch_acknowlg_id, response_model=ResModel[str])
 async def fetch_acknowlg_id():
-    response = await request_handling(None, None, ResModel[str], None, wrap_output=True)
+    response = await request_handling(
+        None, None, ResModel[str], None, wrap_output=True
+    )
     return response
 
 
@@ -346,12 +354,15 @@ async def fetch_dataset_ep(req: ReqModel[ReqFetchDataset], request: Request):
     )
     return response
 
+
 @app.post(
     CONF.process_llm_query,
     response_model=ResModel[ResLLMFetchDataset],
     dependencies=[Depends(JWTBearer())],
 )
-async def process_llm_query_ep(req: ReqModel[ReqLLMFetchDataset], request: Request):
+async def process_llm_query_ep(
+    req: ReqModel[ReqLLMFetchDataset], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqLLMFetchDataset,
@@ -363,26 +374,37 @@ async def process_llm_query_ep(req: ReqModel[ReqLLMFetchDataset], request: Reque
 
 
 @app.post(
-    CONF.save_layer, response_model=ResModel[str], dependencies=[Depends(JWTBearer())]
+    CONF.save_layer,
+    response_model=ResModel[str],
+    dependencies=[Depends(JWTBearer())],
 )
 async def save_layer_ep(req: ReqModel[ReqSavePrdcerLyer], request: Request):
     response = await request_handling(
-        req.request_body, ReqSavePrdcerLyer, ResModel[str], save_lyr, wrap_output=True
+        req.request_body,
+        ReqSavePrdcerLyer,
+        ResModel[str],
+        save_lyr,
+        wrap_output=True,
     )
     return response
 
 
 @app.delete(
-    CONF.delete_layer,  
+    CONF.delete_layer,
     response_model=ResModel[str],
-    dependencies=[Depends(JWTBearer())]
+    dependencies=[Depends(JWTBearer())],
 )
-async def delete_layer_ep(req: ReqModel[ReqDeletePrdcerLayer], request: Request):
+async def delete_layer_ep(
+    req: ReqModel[ReqDeletePrdcerLayer], request: Request
+):
     response = await request_handling(
-        req.request_body, ReqDeletePrdcerLayer, ResModel[str], delete_layer, wrap_output=True
+        req.request_body,
+        ReqDeletePrdcerLayer,
+        ResModel[str],
+        delete_layer,
+        wrap_output=True,
     )
     return response
-
 
 
 @app.post(CONF.user_layers, response_model=ResModel[list[LayerInfo]])
@@ -395,9 +417,6 @@ async def user_layers(req: ReqModel[UserId]):
         wrap_output=True,
     )
     return response
-
-
-
 
 
 @app.post(CONF.prdcer_lyr_map_data, response_model=ResModel[ResLyrMapData])
@@ -461,17 +480,23 @@ async def ep_save_producer_catalog(
     )
     return response
 
+
 @app.delete(
-    CONF.delete_producer_catalog,  
+    CONF.delete_producer_catalog,
     response_model=ResModel[str],
-    dependencies=[Depends(JWTBearer())]
+    dependencies=[Depends(JWTBearer())],
 )
-async def ep_delete_producer_catalog(req: ReqModel[ReqDeletePrdcerCtlg], request: Request):
+async def ep_delete_producer_catalog(
+    req: ReqModel[ReqDeletePrdcerCtlg], request: Request
+):
     response = await request_handling(
-        req.request_body, ReqDeletePrdcerCtlg, ResModel[str], delete_prdcer_ctlg, wrap_output=True
+        req.request_body,
+        ReqDeletePrdcerCtlg,
+        ResModel[str],
+        delete_prdcer_ctlg,
+        wrap_output=True,
     )
     return response
-
 
 
 @app.post(CONF.user_catalogs, response_model=ResModel[list[UserCatalogInfo]])
@@ -499,20 +524,24 @@ async def fetch_catalog_layers(req: ReqModel[ReqFetchCtlgLyrs]):
 
 
 # Authentication
-@app.post(CONF.login, response_model=ResModel[dict[str, Any]], tags=["Authentication"])
+@app.post(
+    CONF.login, response_model=ResModel[dict[str, Any]], tags=["Authentication"]
+)
 async def login(req: ReqModel[ReqUserLogin]):
     response = await request_handling(
-            req.request_body,
-            ReqUserLogin,
-            ResModel[dict[str, Any]],
-            login_user,
-            wrap_output=True,
-        )
+        req.request_body,
+        ReqUserLogin,
+        ResModel[dict[str, Any]],
+        login_user,
+        wrap_output=True,
+    )
     return response
 
 
 @app.post(
-    CONF.refresh_token, response_model=ResModel[dict[str, Any]], tags=["Authentication"]
+    CONF.refresh_token,
+    response_model=ResModel[dict[str, Any]],
+    tags=["Authentication"],
 )
 async def refresh_token(req: ReqModel[ReqRefreshToken]):
     try:
@@ -562,7 +591,9 @@ async def reset_password_endpoint(req: ReqModel[ReqResetPassword]):
 
 
 @app.post(
-    CONF.confirm_reset, response_model=ResModel[dict[str, Any]], tags=["Authentication"]
+    CONF.confirm_reset,
+    response_model=ResModel[dict[str, Any]],
+    tags=["Authentication"],
 )
 async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
     response = await request_handling(
@@ -581,7 +612,9 @@ async def confirm_reset_endpoint(req: ReqModel[ReqConfirmReset]):
     dependencies=[Depends(JWTBearer())],
     tags=["Authentication"],
 )
-async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Request):
+async def change_password_endpoint(
+    req: ReqModel[ReqChangePassword], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqChangePassword,
@@ -598,7 +631,9 @@ async def change_password_endpoint(req: ReqModel[ReqChangePassword], request: Re
     dependencies=[Depends(JWTBearer())],
     tags=["Authentication"],
 )
-async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request):
+async def change_email_endpoint(
+    req: ReqModel[ReqChangeEmail], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqChangeEmail,
@@ -614,7 +649,9 @@ async def change_email_endpoint(req: ReqModel[ReqChangeEmail], request: Request)
     response_model=ResModel[dict[str, Any]],
     dependencies=[Depends(JWTBearer())],
 )
-async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Request):
+async def get_user_profile_endpoint(
+    req: ReqModel[ReqUserProfile], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqUserProfile,
@@ -626,7 +663,9 @@ async def get_user_profile_endpoint(req: ReqModel[ReqUserProfile], request: Requ
 
 
 @app.post(CONF.cost_calculator, response_model=ResModel[ResCostEstimate])
-async def cost_calculator_endpoint(req: ReqModel[ReqFetchDataset], request: Request):
+async def cost_calculator_endpoint(
+    req: ReqModel[ReqFetchDataset], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqFetchDataset,
@@ -658,7 +697,11 @@ async def save_draft_catalog_endpoint(
 @app.get(CONF.fetch_gradient_colors, response_model=ResModel[list[list[str]]])
 async def ep_fetch_gradient_colors():
     response = await request_handling(
-        None, None, ResModel[list[list[str]]], fetch_gradient_colors, wrap_output=True
+        None,
+        None,
+        ResModel[list[list[str]]],
+        fetch_gradient_colors,
+        wrap_output=True,
     )
     return response
 
@@ -705,11 +748,10 @@ async def check_street_view(req: ReqModel[ReqStreeViewCheck]):
 )
 async def get_customer_spending_endpoint(req: UserId):
     response = await request_handling(
-        req, UserId, ResModel[dict], 
-        get_customer_spending,
-        wrap_output=True
+        req, UserId, ResModel[dict], get_customer_spending, wrap_output=True
     )
     return response
+
 
 @app.put(
     CONF.update_stripe_customer,
@@ -719,7 +761,11 @@ async def get_customer_spending_endpoint(req: UserId):
 )
 async def update_stripe_customer_endpoint(req: ReqModel[CustomerReq]):
     response = await request_handling(
-        req.request_body, CustomerReq, ResModel[dict], update_customer, wrap_output=True
+        req.request_body,
+        CustomerReq,
+        ResModel[dict],
+        update_customer,
+        wrap_output=True,
     )
     return response
 
@@ -745,7 +791,11 @@ async def list_stripe_customers_endpoint():
 )
 async def fetch_stripe_customer_endpoint(req: ReqModel[UserId]):
     response = await request_handling(
-        req.request_body, UserId, ResModel[dict], fetch_customer, wrap_output=True
+        req.request_body,
+        UserId,
+        ResModel[dict],
+        fetch_customer,
+        wrap_output=True,
     )
     return response
 
@@ -759,7 +809,11 @@ async def fetch_stripe_customer_endpoint(req: ReqModel[UserId]):
 )
 async def top_up_wallet_endpoint(req: ReqModel[TopUpWalletReq]):
     response = await request_handling(
-        req.request_body, TopUpWalletReq, ResModel[dict], top_up_wallet, wrap_output=True
+        req.request_body,
+        TopUpWalletReq,
+        ResModel[dict],
+        top_up_wallet,
+        wrap_output=True,
     )
     return response
 
@@ -779,6 +833,7 @@ async def fetch_wallet_endpoint(user_id: str):
     )
     return response
 
+
 @app.post(
     CONF.deduct_wallet,
     description="Deduct amount from customer's wallet in stripe",
@@ -787,9 +842,14 @@ async def fetch_wallet_endpoint(user_id: str):
 )
 async def deduct_from_wallet_endpoint(req: ReqModel[DeductWalletReq]):
     response = await request_handling(
-        req.request_body, DeductWalletReq, ResModel[dict], deduct_from_wallet, wrap_output=True
+        req.request_body,
+        DeductWalletReq,
+        ResModel[dict],
+        deduct_from_wallet,
+        wrap_output=True,
     )
     return response
+
 
 # Stripe Subscriptions
 @app.post(
@@ -798,7 +858,9 @@ async def deduct_from_wallet_endpoint(req: ReqModel[DeductWalletReq]):
     tags=["stripe subscriptions"],
     response_model=ResModel[dict],
 )
-async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateReq]):
+async def create_stripe_subscription_endpoint(
+    req: ReqModel[SubscriptionCreateReq],
+):
     subscription = await create_subscription(req.request_body)
     response = ResModel(
         data=subscription,
@@ -817,7 +879,9 @@ async def create_stripe_subscription_endpoint(req: ReqModel[SubscriptionCreateRe
 async def update_stripe_subscription_endpoint(
     subscription_id: str, req: ReqModel[SubscriptionUpdateReq]
 ):
-    subscription = await update_subscription(subscription_id, req.request_body.seats)
+    subscription = await update_subscription(
+        subscription_id, req.request_body.seats
+    )
     response = ResModel(
         data=subscription,
         message="Subscription updated successfully",
@@ -851,7 +915,9 @@ async def deactivate_stripe_subscription_endpoint(subscription_id: str):
 async def update_stripe_payment_method_endpoint(
     payment_method_id: str, req: ReqModel[PaymentMethodUpdateReq]
 ):
-    payment_method = await update_payment_method(payment_method_id, req.request_body)
+    payment_method = await update_payment_method(
+        payment_method_id, req.request_body
+    )
     response = ResModel(
         data=payment_method,
         message="Payment method updated successfully",
@@ -866,7 +932,9 @@ async def update_stripe_payment_method_endpoint(
     description="Add an existing stripe payment method to a customer",
     tags=["stripe payment methods"],
 )
-async def attach_stripe_payment_method_endpoint(req: ReqModel[PaymentMethodAttachReq]):
+async def attach_stripe_payment_method_endpoint(
+    req: ReqModel[PaymentMethodAttachReq],
+):
     data = await attach_payment_method(
         req.request_body.user_id, req.request_body.payment_method_id
     )
@@ -916,7 +984,9 @@ async def list_stripe_payment_methods_endpoint(user_id: str):
     description="Set a default payment method in stripe",
     tags=["stripe payment methods"],
 )
-async def set_default_payment_method_endpoint(user_id: str, payment_method_id: str):
+async def set_default_payment_method_endpoint(
+    user_id: str, payment_method_id: str
+):
     default_payment_method = await set_default_payment_method(
         user_id, payment_method_id
     )
@@ -951,7 +1021,9 @@ async def create_stripe_product_endpoint(req: ReqModel[ProductReq]):
     description="Update an existing subscription product in stripe",
     tags=["stripe products"],
 )
-async def update_stripe_product_endpoint(product_id: str, req: ReqModel[ProductReq]):
+async def update_stripe_product_endpoint(
+    product_id: str, req: ReqModel[ProductReq]
+):
     product = await update_stripe_product(product_id, req.request_body)
     response = ResModel(
         data=product,
@@ -1034,7 +1106,7 @@ async def create_user_profile_endpoint(req: ReqModel[ReqCreateUserProfile]):
 @app.post(
     "/fastapi/update_user_profile",
     response_model=ResModel[dict[str, Any]],
-    dependencies=[Depends(JWTBearer())]
+    dependencies=[Depends(JWTBearer())],
 )
 async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     response = await request_handling(
@@ -1046,12 +1118,14 @@ async def update_user_profile_endpoint(req: ReqModel[UserProfileSettings]):
     )
     return response
 
+
 @app.post(
-        CONF.gradient_color_based_on_zone+"_llm",
-        response_model=ResModel[ValidationResult],   
+    CONF.gradient_color_based_on_zone + "_llm",
+    response_model=ResModel[ValidationResult],
 )
 async def ep_process_color_based_on_agent(
-    req:ReqModel[ReqPrompt], request: Request):
+    req: ReqModel[ReqPrompt], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqPrompt,
@@ -1060,6 +1134,7 @@ async def ep_process_color_based_on_agent(
         wrap_output=True,
     )
     return response
+
 
 # from LLM import BusinessPromptRequest, BusinessPromptResponse, analyze_prompt_completeness,create_vector_store
 
@@ -1072,13 +1147,12 @@ async def ep_process_color_based_on_agent(
 #     response = await analyze_prompt_completeness(request.user_prompt, vector_store=vector_store)
 #     return response
 
+
 @app.post(
     CONF.filter_based_on,
     response_model=ResModel[list[ResGradientColorBasedOnZone]],
 )
-async def filter_based_on_(
-    req: ReqModel[ReqFilter], request: Request
-):
+async def filter_based_on_(req: ReqModel[ReqFilter], request: Request):
     response = await request_handling(
         req.request_body,
         ReqFilter,
@@ -1088,14 +1162,17 @@ async def filter_based_on_(
     )
     return response
 
-@app.post(CONF.distance_drive_time_polygon, response_model=ResModel[ResSrcDistination])
-async def distance_drivetime_polygon(req:ReqModel[Req_src_distination]):
+
+@app.post(
+    CONF.distance_drive_time_polygon, response_model=ResModel[ResSrcDistination]
+)
+async def distance_drivetime_polygon(req: ReqModel[Req_src_distination]):
     response = await request_handling(
         req.request_body,
         Req_src_distination,
         ResModel[ResSrcDistination],
         load_distance_drive_time_polygon,
-        wrap_output = True
+        wrap_output=True,
     )
     return response
 
@@ -1103,14 +1180,34 @@ async def distance_drivetime_polygon(req:ReqModel[Req_src_distination]):
 @app.post(
     CONF.fetch_population_by_viewport,
     response_model=ResModel[dict],
-    dependencies=[Depends(JWTBearer())]
+    dependencies=[Depends(JWTBearer())],
 )
-async def ep_fetch_population_by_viewport(req: ReqModel[ReqIntelligenceData], request: Request):
+async def ep_fetch_population_by_viewport(
+    req: ReqModel[ReqIntelligenceData], request: Request
+):
     response = await request_handling(
         req.request_body,
         ReqIntelligenceData,
         ResModel[dict],
         fetch_intelligence_by_viewport,
+        wrap_output=True,
+    )
+    return response
+
+
+@app.post(
+    CONF.temp_sales_man_problem,
+    response_model=ResModel[dict],
+    dependencies=[Depends(JWTBearer())],
+)
+async def ep_fetch_clusters_for_sales_man(
+    req: ReqModel[ReqClustersForSalesManData], request: Request
+):
+    response = await request_handling(
+        req.request_body,
+        ReqClustersForSalesManData,
+        ResModel[dict],
+        get_clusters_for_sales_man,
         wrap_output=True,
     )
     return response

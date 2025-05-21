@@ -117,7 +117,11 @@ def get_req_geodata(city_name: str, country_name: str) -> Optional[ReqGeodata]:
 
 def fetch_lat_lng_bounding_box(req: ReqFetchDataset) -> ReqFetchDataset:
     # If lat and lng are provided directly, use them
-    if req.lat is not None and req.lng is not None:
+    if req.lat and req.lng:
+        # This block will only execute if:
+        # - req.lat is not None AND req.lat is not 0 AND req.lat is not 0.0
+        # AND
+        # - req.lng is not None AND req.lng is not 0 AND req.lng is not 0.0
         req._bounding_box = expand_bounding_box(req.lat, req.lng)
         return req
 

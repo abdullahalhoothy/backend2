@@ -150,6 +150,8 @@ def make_dataset_filename(req: ReqFetchDataset, text_search=False) -> str:
     return name
 
 
+
+
 def make_dataset_filename_part(
     req: ReqFetchDataset, included_types: List[str], excluded_types: List[str]
 ) -> str:
@@ -907,6 +909,37 @@ async def fetch_db_categories_by_lat_lng(bounding_box: list[float]) -> Dict:
     pass
 
 
+def combine_income_and_population_data(population_data, income_data):
+    # Create a lookup dictionary from income data using Main_ID as key
+    income_lookup = {}
+    for feature in income_data['features']:
+        main_id = feature['properties']['Main_ID']
+        income_lookup[main_id] = feature['properties']['income']  # Only store the income value
+    
+    # Create a copy of population data to avoid modifying the original
+    combined_data = population_data.copy()
+    combined_data['features'] = []
+    combined_data['properties'].append("Income") 
+
+    # Loop through population features and add income data
+    for pop_feature in population_data['features']:
+        # Create a copy of the population feature
+        combined_feature = pop_feature.copy()
+        combined_feature['properties'] = pop_feature['properties'].copy()
+        
+        # Get the Main_ID
+        main_id = pop_feature['properties']['Main_ID']
+        
+        # Add income property if matching Main_ID exists
+        if main_id in income_lookup:
+            combined_feature['properties']['income'] = income_lookup[main_id]
+        else:
+            combined_feature['properties']['income'] = None
+        
+        combined_data['features'].append(combined_feature)
+    
+    return combined_data
+
 
 
 async def fetch_intelligence_by_viewport(req: ReqIntelligenceData) -> Dict:
@@ -915,16 +948,14 @@ async def fetch_intelligence_by_viewport(req: ReqIntelligenceData) -> Dict:
     """
     #TODO first check if the user has purchased intelligence
 
-    # if
-    file_path = f"Backend/population_json_files/v{req.zoom_level}/all_features.json"
-    
-    # Try to read the file for the exact zoom level
-    all_data = await use_json(file_path, "r")
-    
+    file_path = f"Backend/population_json_files/v{req.zoom_level}/all_features.geojson"
+    population_data = await use_json(file_path, "r")
+
+
     # Load only the required portion from the GeoJSON
     # This avoids creating a full GeoDataFrame which can be slow
     filtered_features = []
-    for feature in all_data.get("features", []):
+    for feature in population_data.get("features", []):
         # For polygon features, do a basic bounds check (faster than full intersection)
         geom_type = feature.get("geometry", {}).get("type")
         coords = feature.get("geometry", {}).get("coordinates", [])
@@ -945,23 +976,100 @@ async def fetch_intelligence_by_viewport(req: ReqIntelligenceData) -> Dict:
             # If polygon bounding box overlaps viewport, include it
             if (poly_min_lng <= req.max_lng and poly_max_lng >= req.min_lng and
                 poly_min_lat <= req.max_lat and poly_max_lat >= req.min_lat):
-                filtered_features.append(feature)
-        
+                filtered_features.append(feature)    
 
-    
+
     # Extract properties from first feature if available
     properties = []
     if filtered_features and len(filtered_features) > 0:
         properties = list(filtered_features[0].get("properties", {}).keys())
     
     # Return raw dictionary instead of Pydantic model to avoid validation errors
-    return {
+    intelligence_geojson = {
         "type": "FeatureCollection",
         "features": filtered_features,
         "properties": properties,
         "records_count": len(filtered_features)
     }
+    # if income is also true load income
+    if req.income:
+        income_file_path = f"Backend/zad_income_geojson/v{req.zoom_level}/all_features.geojson"
+        income_data = await use_json(income_file_path, "r")
+        intelligence_geojson = combine_income_and_population_data(intelligence_geojson, income_data)
 
+    return intelligence_geojson
+
+async def get_full_load_geojson(filenames: list[str]) -> str:
+
+    formatted_filenames_list = []
+    for fname in filenames:
+        escaped_fname = fname.replace("'", "''")  # Escape single quotes for SQL
+        formatted_filenames_list.append(f"'{escaped_fname}'")
+    
+
+
+    sql_query = """
+WITH FileList AS (
+    SELECT unnest($1::text[]) AS filename
+),
+DistinctFeatureIds AS (
+    SELECT
+        jsonb_extract_path_text(features.feature -> 'properties', 'id') as feature_id,
+        FIRST_VALUE(features.feature) OVER (
+            PARTITION BY jsonb_extract_path_text(features.feature -> 'properties', 'id')
+            ORDER BY d.created_at DESC, (d.filename NOT LIKE '%_text_search=true_') DESC, d.filename DESC
+        ) as geojson_feature_obj
+    FROM
+        schema_marketplace.datasets d
+        JOIN FileList fl ON d.filename = fl.filename,
+        LATERAL jsonb_array_elements(d.response_data -> 'features') AS features(feature)
+    WHERE
+        d.response_data IS NOT NULL
+        AND jsonb_typeof(d.response_data) = 'object'
+        AND jsonb_typeof(d.response_data -> 'features') = 'array'
+        AND jsonb_array_length(d.response_data -> 'features') > 0
+        AND jsonb_typeof(features.feature) = 'object'
+        AND jsonb_typeof(features.feature -> 'properties') = 'object'
+        AND (features.feature -> 'properties' ->> 'id') IS NOT NULL
+),
+AggregatedUniqueFeatures AS (
+    SELECT DISTINCT geojson_feature_obj
+    FROM DistinctFeatureIds
+)
+SELECT
+    jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features', COALESCE(jsonb_agg(auf.geojson_feature_obj), '[]'::jsonb),
+        'properties', (
+            SELECT response_data -> 'properties'
+            FROM schema_marketplace.datasets d
+            JOIN FileList fl ON d.filename = fl.filename
+            ORDER BY (d.filename NOT LIKE '%_text_search=true_') DESC, d.created_at DESC, d.filename DESC
+            LIMIT 1
+        )
+    ) AS merged_geojson
+FROM
+    AggregatedUniqueFeatures auf;
+"""
+    # merged_deduplicated_data = await Database.fetch(sql_query, filenames)
+
+    # # Check if we have results
+    # if not merged_deduplicated_data:
+    #     return {"type": "FeatureCollection", "features": []}
+    
+    # # Extract the merged_geojson field from the first record
+    # merged_geojson = merged_deduplicated_data[0]['merged_geojson']
+    
+    # # If the result is a string (JSON), parse it into a Python dict
+    # if isinstance(geojson_data, str):
+    #     import json
+    #     geojson_data = json.loads(geojson_data)
+    
+
+    merged_deduplicated_data = await Database.fetchrow(sql_query, filenames)
+    if merged_deduplicated_data:
+        merged_geojson = orjson.loads(merged_deduplicated_data.get("merged_geojson", "{}"))
+    return merged_geojson
 
 
 # Apply the decorator to all functions in this module

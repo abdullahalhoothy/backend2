@@ -21,7 +21,7 @@ class ReqModel(BaseModel, Generic[U]):
 
 class ReqCityCountry(BaseModel):
     city_name: Optional[str] = None
-    country_name: str
+    country_name: Optional[str] = None
 
 
 class boxmapProperties(BaseModel):
@@ -88,23 +88,8 @@ class ReqFetchDataset(ReqCityCountry, ReqPrdcerLyrMapData, Coordinate):
     ids_and_location_only: Optional[bool] = False
     include_rating_info: Optional[bool] = False
     include_only_sub_properties: Optional[bool] = True
+    full_load: Optional[bool] = False
 
-
-# class ReqCustomData(ReqCityCountry):
-#     boolean_query: Optional[str] = ""
-#     page_token: Optional[str] = ""
-#     included_types: list[str] = []
-#     excluded_types: list[str] = []
-#     zoom_level: Optional[int] = 0
-
-
-# class ReqLocation(Coordinate):
-#     radius: float
-#     bounding_box: list[float]
-#     page_token: Optional[str] = ""
-#     text_search: Optional[str] = ""
-#     boolean_query: Optional[str] = ""
-#     zoom_level: Optional[int] = 0
 
 
 class ReqFetchCtlgLyrs(BaseModel):
@@ -182,3 +167,9 @@ class ReqIntelligenceData(BaseModel):
     user_id: str
     population:Optional[bool]
     income:Optional[bool]
+
+class ReqClustersForSalesManData(ReqFetchDataset):
+    num_sales_man: int
+    places: dict[str, Any] = {}
+    income_gdf: Optional[Any] = None
+    distance_limit: float

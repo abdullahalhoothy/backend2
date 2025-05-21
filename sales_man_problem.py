@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 from shapely.geometry import box, Polygon
 import shapely
-from all_types.request_dtypes import ReqIntelligenceData
+from all_types.request_dtypes import ReqIntelligenceData, ReqFetchDataset, ReqClustersForSalesManData
 from storage import fetch_intelligence_by_viewport
+from data_fetcher import fetch_country_city_data, fetch_dataset
 import contextily as ctx
 from typing import Tuple
-
+import asyncio
 
 def define_boundary(bounding_box: list[tuple[float, float]]) -> Polygon:
     """
@@ -66,7 +67,7 @@ async def get_population_and_income(
     )
 
     # Fetch both datasets concurrently
-    import asyncio
+    
 
     population_task = fetch_intelligence_by_viewport(population_request)
     income_task = fetch_intelligence_by_viewport(income_request)
@@ -361,14 +362,7 @@ def select_nbrs_with_sum(
     return nbrs
 
 
-async def get_clusters_for_sales_man(
-    num_sales_man: int,
-    places: gpd.GeoDataFrame,
-    income_gdf: gpd.GeoDataFrame,
-    bounding_box: list[tuple[float, float]],
-    distance_limit: float = 2.5,
-    zoom_level: int = 5,
-) -> gpd.GeoDataFrame:
+async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoDataFrame:
     """
     Main funtion to produce the clusters for the salesman problem
     args:
@@ -386,10 +380,36 @@ async def get_clusters_for_sales_man(
     A geodataframe constaining gridcells (polygons) under geometry column
     each grid cell is classfied by cluster index under group column
     """
+    
+    # get city bounds
+    all_cities = await fetch_country_city_data()
+
+    found_city = None
+    for city in all_cities.get(req.country_name, []):
+        if city["name"] == req.city_name:
+            found_city = city
+            break
+    
+    bounding_box = found_city.get("bounding_box",[])
     # Load the correct population data file directly inside this function
     population_gdf, income_gdf = await get_population_and_income(
-        bounding_box=bounding_box, zoom_level=zoom_level
+        bounding_box, zoom_level=req.zoom_level
     )
+
+    #temp variables 
+    user_id = "JnaGDCKoSoWtj6NWEVW8MDMBCiA2"
+
+    # get city data from backend using fetch_dataset for the entire city (to be improved in fetch_dataset)
+    page_token = ""
+    req = ReqFetchDataset(
+        boolean_query=req.boolean_query,
+        action = "full data",
+        page_token=page_token,
+        city_name = req.city_name,
+        country_name = req.country_name,
+        user_id = req.user_id
+    )
+    places =  await fetch_dataset(req)
 
     places = filter_data_by_bounding_box(
         places_data=places, bounding_box=bounding_box
@@ -518,3 +538,5 @@ def plot_results(
         if show_title:
             ax.set_title(f"{column} per Grid Cell (Log scaled)", fontsize=14)
     plt.show()
+
+

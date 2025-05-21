@@ -642,7 +642,32 @@ async def rectify_plan(plan_name, current_plan_index):
 
     return next_plan_index, next_page_token
 
-
+async def mark_plan_result(plan_name, current_plan_index, has_features):
+    """
+    Mark a plan item with _success or _fail based on whether data was retrieved.
+    
+    Args:
+        plan_name (str): Name of the plan
+        current_plan_index (int): Current index in the plan
+        has_features (bool): Whether the request returned features
+    """
+    plan = await get_plan(plan_name)
+    
+    # Only modify if we have a valid index and it's not the "end of search plan" item
+    if current_plan_index < len(plan) - 1:
+        current_item = plan[current_plan_index]
+        
+        # Remove any existing success/fail markers first to avoid duplicates
+        current_item = current_item.replace("_success", "").replace("_fail", "")
+        
+        if has_features:
+            plan[current_plan_index] = current_item + "_success"
+        else:
+            plan[current_plan_index] = current_item + "_fail"
+        
+        await save_plan(plan_name, plan)
+    
+    return plan
 
 
 # Apply the decorator to all functions in this module
