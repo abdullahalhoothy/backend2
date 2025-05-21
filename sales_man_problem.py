@@ -4,12 +4,17 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 from shapely.geometry import box, Polygon
 import shapely
-from all_types.request_dtypes import ReqIntelligenceData, ReqFetchDataset, ReqClustersForSalesManData
+from all_types.request_dtypes import (
+    ReqIntelligenceData,
+    ReqFetchDataset,
+    ReqClustersForSalesManData,
+)
 from storage import fetch_intelligence_by_viewport
 from data_fetcher import fetch_country_city_data, fetch_dataset
 import contextily as ctx
 from typing import Tuple
 import asyncio
+
 
 def define_boundary(bounding_box: list[tuple[float, float]]) -> Polygon:
     """
@@ -67,7 +72,6 @@ async def get_population_and_income(
     )
 
     # Fetch both datasets concurrently
-    
 
     population_task = fetch_intelligence_by_viewport(population_request)
     income_task = fetch_intelligence_by_viewport(income_request)
@@ -97,28 +101,21 @@ async def get_population_and_income(
 
 
 def filter_data_by_bounding_box(
-    places_data: gpd.GeoDataFrame = None,
+    places_data: dict = None,
     bounding_box: list[tuple[float, float]] = None,
 ) -> gpd.GeoDataFrame:
     """
     Filter places data by a boundary polygon.
-
     args:
     ----
-    `places_data` is the dataframe of destinations (e.g., supermarkets, pharmacies)
-    `bounding box` is the list of lon lat pairs to develop a shapely polygon
-
+    `places_data` is the GeoJSON FeatureCollection object (e.g., supermarkets, pharmacies)
+    `bounding_box` is the list of lon lat pairs to develop a shapely polygon
     return:
     ------
-    DataFrame filtered using bounding box
+    GeoDataFrame filtered using bounding box
     """
-    geodataframes = []
-    for item in places_data.data:
-        gdf = gpd.GeoDataFrame.from_features(item["features"])
-        geodataframes.append(gdf)
-
-    # Concatenate all the GeoDataFrames
-    places = pd.concat(geodataframes, ignore_index=True)
+    # Create GeoDataFrame directly from the GeoJSON FeatureCollection
+    places = gpd.GeoDataFrame.from_features(places_data["features"])
 
     # Create boundary polygon
     city_boundary = define_boundary(bounding_box)
@@ -126,6 +123,7 @@ def filter_data_by_bounding_box(
     # Filter by boundary
     places = places[places.within(city_boundary)]
 
+    # Add longitude and latitude columns
     places["longitude"] = places.geometry.x
     places["latitude"] = places.geometry.y
 
@@ -211,7 +209,7 @@ def get_grids_of_data(
     """
     Creates a grid representation of the area and aggregates population and places data within each grid cell,
     calculating accessibility and market potential.
-    
+
     args:
     ----
     `population_gdf` are the population centers in a form if geodataframe
@@ -225,14 +223,18 @@ def get_grids_of_data(
     cell (population, places counts)
     """
     # Extract only necessary columns from input geodataframes to simplify processing
-    origins = population_gdf[
-        ["geometry", "longitude", "latitude", "population"]
-    ].reset_index(drop=True)
-    
+    origins = population_gdf.copy()
+    origins['longitude'] = origins.geometry.centroid.x
+    origins['latitude'] = origins.geometry.centroid.y
+    origins['population'] = origins['Population_Count']
+
+    # Select the desired columns
+    origins = origins[["geometry", "longitude", "latitude", "population"]].reset_index(drop=True)
+
     destinations = places[["geometry", "longitude", "latitude"]].reset_index(
         drop=True
     )
-    
+
     # Calculate distances between all population centers and all places
     # Returns a matrix of size [num_population_centers x num_places]
     matrix = haversine(
@@ -248,8 +250,10 @@ def get_grids_of_data(
 
     # For each population center, find all accessible places within distance limit
     for i in range(matrix.shape[0]):
-        od = matrix[i].tolist()  # Get distances from population center i to all places
-        
+        od = matrix[
+            i
+        ].tolist()  # Get distances from population center i to all places
+
         # Continue until we've processed all places
         while len(od_cost_matrix[i]) < matrix.shape[1]:
             # If there's a place within the distance limit
@@ -257,7 +261,9 @@ def get_grids_of_data(
                 amn = np.argmin(od)  # Find the closest place
                 if np.isfinite(amn):
                     od_cost_matrix[i].append(amn)  # Add it to accessible places
-                od[amn] = np.inf  # Mark this place as processed by setting distance to infinity
+                od[amn] = (
+                    np.inf
+                )  # Mark this place as processed by setting distance to infinity
             else:
                 # If no places within distance limit and none added yet, add the closest one anyway
                 if len(od_cost_matrix[i]) == 0:
@@ -300,7 +306,7 @@ def get_grids_of_data(
     # Assign population centers and places to grid cells using spatial join
     poulation_grid = gpd.sjoin(origins, grid, how="left", predicate="within")
     places_grid = gpd.sjoin(destinations, grid, how="left", predicate="within")
-    
+
     # Aggregate data at the grid cell level
     data = pd.concat(
         [
@@ -328,8 +334,10 @@ def get_grids_of_data(
     # Remove grid cells that have no data
     mask = ~data.iloc[:, 1:].isna().all(axis=1)
     data = data.loc[mask].fillna(0.0).reset_index(drop=True)
-    
+
     return data
+
+
 def select_nbrs_with_sum(
     i: int, cost: np.ndarray, max_share: float, shares: dict, used: list[int]
 ) -> list[int]:
@@ -362,7 +370,9 @@ def select_nbrs_with_sum(
     return nbrs
 
 
-async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoDataFrame:
+async def get_clusters_for_sales_man(
+    req: ReqClustersForSalesManData,
+) -> gpd.GeoDataFrame:
     """
     Main funtion to produce the clusters for the salesman problem
     args:
@@ -380,7 +390,7 @@ async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoD
     A geodataframe constaining gridcells (polygons) under geometry column
     each grid cell is classfied by cluster index under group column
     """
-    
+
     # get city bounds
     all_cities = await fetch_country_city_data()
 
@@ -389,36 +399,33 @@ async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoD
         if city["name"] == req.city_name:
             found_city = city
             break
-    
-    bounding_box = found_city.get("bounding_box",[])
+
+    bounding_box = found_city.get("bounding_box", [])
     # Load the correct population data file directly inside this function
     population_gdf, income_gdf = await get_population_and_income(
         bounding_box, zoom_level=req.zoom_level
     )
 
-    #temp variables 
-    user_id = "JnaGDCKoSoWtj6NWEVW8MDMBCiA2"
-
     # get city data from backend using fetch_dataset for the entire city (to be improved in fetch_dataset)
     page_token = ""
-    req = ReqFetchDataset(
+    data_load_req = ReqFetchDataset(
         boolean_query=req.boolean_query,
-        action = "full data",
+        action="full data",
         page_token=page_token,
-        city_name = req.city_name,
-        country_name = req.country_name,
-        user_id = req.user_id
+        city_name=req.city_name,
+        country_name=req.country_name,
+        user_id=req.user_id,
+        full_load=req.full_load,
     )
-    places =  await fetch_dataset(req)
+    places = await fetch_dataset(data_load_req)
+    places = places.get("full_load_geojson", {})
 
-    places = filter_data_by_bounding_box(
-        places_data=places, bounding_box=bounding_box
-    )
+    places = filter_data_by_bounding_box(places, bounding_box)
 
     places = places.loc[places.geometry.drop_duplicates().index]
 
     grided_data = get_grids_of_data(
-        population_gdf, places, income_gdf, distance_limit
+        population_gdf, places, income_gdf, req.distance_limit
     )
     mask = grided_data.number_of_potential_customers > 0
     masked_grided_data = grided_data[mask].reset_index(drop=True)
@@ -429,9 +436,9 @@ async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoD
     # Convert to DataFrame
     nbrs = centroids.to_frame()
 
-    nbrs['longitude'] = nbrs.geometry.x
-    nbrs['latitude'] = nbrs.geometry.y
-    
+    nbrs["longitude"] = nbrs.geometry.x
+    nbrs["latitude"] = nbrs.geometry.y
+
     matrix = haversine(
         nbrs.latitude.values,
         nbrs.longitude.values,
@@ -441,11 +448,11 @@ async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoD
 
     equitable_share = (
         masked_grided_data["number_of_potential_customers"].sum().item()
-        / num_sales_man
+        / req.num_sales_man
     )
 
     used = []
-    groups = {i: [] for i in range(num_sales_man)}
+    groups = {i: [] for i in range(req.num_sales_man)}
 
     j = 0
     for i in range(masked_grided_data.shape[0]):
@@ -463,7 +470,7 @@ async def get_clusters_for_sales_man(req:ReqClustersForSalesManData) -> gpd.GeoD
             used.extend(nbrs)
             j += 1
 
-        if j >= num_sales_man:
+        if j >= req.num_sales_man:
             break
 
     def return_group_number(index: int) -> int:
@@ -538,5 +545,3 @@ def plot_results(
         if show_title:
             ax.set_title(f"{column} per Grid Cell (Log scaled)", fontsize=14)
     plt.show()
-
-
