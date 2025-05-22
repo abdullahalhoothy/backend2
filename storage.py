@@ -18,7 +18,7 @@ from backend_common.auth import db
 import asyncpg
 from backend_common.background import get_background_tasks
 import orjson
-from popularity_algo import create_plan, get_plan
+from popularity_algo import get_plan
 import geopandas as gpd
 from shapely.geometry import box, Point
 import geopandas as gpd

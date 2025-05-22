@@ -529,7 +529,7 @@ async def fetch_dataset(req: ReqFetchDataset):
 
     progress_check_counts = 0
     if req.action == "full data" and req.full_load:
-        while progress <= 100 and progress_check_counts < 60:
+        while progress <= 100 and progress_check_counts < 1:
             if progress == 100:
                 plan = await get_plan(plan_name)
                 # foe each item in the plan except the last one do make_dataset_filename
@@ -541,6 +541,7 @@ async def fetch_dataset(req: ReqFetchDataset):
                 geojson_dataset["full_load_geojson"] = await get_full_load_geojson(output_filenames)
                 break
             else:
+                # TODO this is useless, because background task only start after a response has been provided by the endpoint
                 # async sleep for 10 seconds and call full_data_load again
                 await asyncio.sleep(10)
                 progress = await full_load(req,plan_name,layer_id,next_page_token)

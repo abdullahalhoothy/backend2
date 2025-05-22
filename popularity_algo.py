@@ -528,20 +528,24 @@ async def process_req_plan(req: ReqFetchDataset):
     bknd_dataset_id = ""
 
     if req.page_token == "" and action == "full data":
-        if req.radius > 750:
-            string_list_plan = await create_plan(
-                req.lng, req.lat, req.radius, req.boolean_query, req.text_search
-            )
-
         # TODO creating the name of the file should be moved to storage
         tcc_string = make_ggl_layer_filename(req)
         plan_name = f"plan_{tcc_string}"
         if req.text_search != "" and req.text_search is not None:
             plan_name = plan_name + "_text_search="
-        await save_plan(plan_name, string_list_plan)
-        plan = string_list_plan
+        
+        try:
+            plan = await get_plan(plan_name)
+            logger.info(f"Found existing plan: {plan_name}")
+        except Exception as e:
+            logger.error(f"no plan found for plan_name: {plan_name}")
+            if req.radius > 750:
+                plan = await create_plan(
+                    req.lng, req.lat, req.radius, req.boolean_query, req.text_search
+                )
+                await save_plan(plan_name, plan)
 
-        next_search = string_list_plan[0]
+        next_search = plan[0]
         first_search = next_search.split("_")
         req.lng, req.lat, req.radius = (
             float(first_search[0]),
