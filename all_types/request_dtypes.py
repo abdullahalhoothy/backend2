@@ -170,6 +170,4 @@ class ReqIntelligenceData(BaseModel):
 
 class ReqClustersForSalesManData(ReqFetchDataset):
     num_sales_man: int
-    places: dict[str, Any] = {}
-    income_gdf: Optional[Any] = None
     distance_limit: float = 2.5
