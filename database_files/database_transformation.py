@@ -1,7 +1,7 @@
 # database_transformation.py
 import json
 from backend_common.database import Database
-from all_types.response_dtypes import MapData
+from all_types.response_dtypes import GeoJson
 from storage import (
     convert_to_serializable,
 )
@@ -56,7 +56,7 @@ async def insert_geojson_to_table(
         raise ValueError("Invalid JSON structure")
 
 
-def create_feature_collection(rows: list) -> MapData:
+def create_feature_collection(rows: list) -> GeoJson:
     if not rows:
         raise ValueError("No data provided")
 
@@ -84,7 +84,7 @@ def create_feature_collection(rows: list) -> MapData:
     # Get all property keys from the first feature's properties
     properties = list(features[0]["properties"].keys()) if features else []
 
-    data = MapData(
+    data = GeoJson(
         type="FeatureCollection", 
         features=features,
         properties=properties

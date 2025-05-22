@@ -13,6 +13,7 @@ from all_types.response_dtypes import (
     LegInfo,
     TrafficCondition,
     RouteInfo,
+    GeoJson
 )
 from boolean_query_processor import (
     optimize_query_sequence,
@@ -809,20 +810,27 @@ def select_sub_properties(dataset):
         "types", "priceLevel", "primaryType", "userRatingCount", "location",
         "name", "id"
     ]
-    
-    filtered_dataset = []
-    
-    for feature in dataset.get("features",{}):
-        filtered_item = {}
-        for property in fields:
-            if property in feature.get("properties",{}).keys():
-                filtered_item = feature
-                filtered_item[property] = feature.get("properties", {}).get(property)
-
-        filtered_dataset.append(filtered_item)
-    
-    dataset["features"] = filtered_dataset
-
+   
+    filtered_features = []
+   
+    for feature in dataset.get("features", []):
+        # Create new filtered feature with proper GeoJSON structure
+        filtered_feature = {
+            "type": feature.get("type", "Feature"),
+            "geometry": feature.get("geometry"),  # Keep the geometry
+            "properties": {}  # Start with empty properties dict
+        }
+        
+        # Only add the properties we want
+        feature_properties = feature.get("properties", {})
+        for field in fields:
+            if field in feature_properties:
+                filtered_feature["properties"][field] = feature_properties[field]
+        
+        filtered_features.append(filtered_feature)
+   
+    # Update the dataset with filtered features
+    dataset["features"] = filtered_features
     return dataset
 
 

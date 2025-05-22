@@ -40,7 +40,7 @@ class card_metadata(BaseModel):
     can_access: int
 
 
-class MapData(BaseModel):
+class GeoJson(BaseModel):
     type: Literal["FeatureCollection"]
     features: List[Feature]
     properties:list[str]
@@ -84,7 +84,7 @@ class LayerInfo(BaseModel):
     progress: Optional[int]
 
 
-class ResLyrMapData(MapData, LayerInfo):
+class ResLyrMapData(GeoJson, LayerInfo):
     pass
 
 

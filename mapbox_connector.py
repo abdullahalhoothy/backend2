@@ -1,5 +1,5 @@
 from all_types.google_dtypes import GglResponse
-from all_types.response_dtypes import MapData
+from all_types.response_dtypes import GeoJson
 from fastapi import HTTPException
 
 from popularity_algo import RADIUS_ZOOM_MULTIPLIER, calculate_category_multiplier
@@ -51,9 +51,9 @@ class MapBoxConnector:
         }
 
     @classmethod
-    async def new_ggl_to_boxmap(cls, ggl_api_resp, radius, with_ids=True) -> MapData:
+    async def new_ggl_to_boxmap(cls, ggl_api_resp, radius, with_ids=True) -> GeoJson:
         if not ggl_api_resp:  # This will handle None, empty string, or empty list
-            return MapData(
+            return GeoJson(
                 type="FeatureCollection", features=[], properties=[]
             ).model_dump()
 
@@ -74,7 +74,7 @@ class MapBoxConnector:
                 calculate_category_multiplier(idx) * zoom_multiplier
             )
 
-        business_data = MapData(
+        business_data = GeoJson(
             type="FeatureCollection", features=features, properties=feature_properties
         )
         return business_data.model_dump()
