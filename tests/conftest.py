@@ -3,16 +3,56 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi_app import app
+from tests.mock_db import MockFirestoreDB
 
 
 pytest_plugins = 'pytest_asyncio'
 
+# Define constants for collection names
+USER_PROFILES_COLLECTION = "all_user_profiles"
+DATASET_LAYER_MATCHING_COLLECTION = "dataset_layer_matching"
+USER_LAYER_MATCHING_COLLECTION = "user_layer_matching"
+
+def create_initial_db_state(
+    user_profiles: dict | None = None,  # e.g., {user_id1: profile1, user_id2: profile2}
+    dataset_layer_matching: dict | None = None,  # e.g., {dataset_id1: data1}
+    user_layer_matching: dict | None = None  # e.g., {user_id1: data1}
+) -> dict:
+    """
+    Helper function to create a structured initial state for MockFirestoreDB.
+    """
+    state = {
+        USER_PROFILES_COLLECTION: user_profiles if user_profiles else {},
+        DATASET_LAYER_MATCHING_COLLECTION: dataset_layer_matching if dataset_layer_matching else {},
+        USER_LAYER_MATCHING_COLLECTION: user_layer_matching if user_layer_matching else {},
+    }
+    # Add more common collections with default empty states here if they become prevalent
+    return state
+
 @pytest.fixture
-async def async_client():
+def mock_db_instance():
+    """Provides a singleton instance of MockFirestoreDB for testing."""
+    return MockFirestoreDB()
+
+@pytest.fixture
+async def async_client(mock_db_instance: MockFirestoreDB):
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as ac:
-        with patch("backend_common.auth.JWTBearer.__call__", new_callable=AsyncMock) as mock_fetch:
-            mock_fetch.return_value = True
-            yield ac
+        with patch("backend_common.auth.JWTBearer.__call__", new_callable=AsyncMock) as mock_jwt_bearer:
+            mock_jwt_bearer.return_value = True
+
+            async def mock_get_document(collection_path: str, document_id: str):
+                return mock_db_instance.get_document(collection_path, document_id)
+
+            async def mock_update_document(collection_path: str, document_id: str, data_to_update: dict):
+                return mock_db_instance.update_document(collection_path, document_id, data_to_update)
+
+            async def mock_add_document(collection_path: str, document_id: str, data: dict):
+                return mock_db_instance.add_document(collection_path, document_id, data)
+
+            with patch("backend_common.auth.db.get_document", new=mock_get_document), \
+                 patch("backend_common.auth.db.update_document", new=mock_update_document, create=True), \
+                 patch("backend_common.auth.db.add_document", new=mock_add_document, create=True):
+                yield ac
 
 
 # @pytest.fixture
