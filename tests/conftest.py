@@ -3,57 +3,180 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi_app import app
-from tests.mock_db import MockFirestoreDB
-from backend_common.database import Database # For DB pool
+# from tests.mock_db import MockFirestoreDB # Removed MockFirestoreDB
+from backend_common.database import Database 
 from tests.db_utils import seed_table, cleanup_table_by_ids
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta # Added timedelta
 import json
+import os # For environment variables and path operations
+import pathlib # For path operations
 
 
 pytest_plugins = 'pytest_asyncio'
 
+# --- Constants for Firestore Service Account ---
+TEMP_FIRESTORE_SA_KEY_PATH = pathlib.Path("tests/secrets/dev_firestore_sa.json")
+FIRESTORE_SERVICE_ACCOUNT_INFO = {
+  "type": "service_account",
+  "project_id": "dev-s-locator",
+  "private_key_id": "mock_private_key_id", # Mocked, actual value is sensitive
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMOCK_PRIVATE_KEY\n-----END PRIVATE KEY-----\n", # Mocked
+  "client_email": "firebase-adminsdk-gcp00@dev-s-locator.iam.gserviceaccount.com",
+  "client_id": "mock_client_id", # Mocked
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-gcp00%40dev-s-locator.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
+
+@pytest.fixture(scope="session", autouse=True)
+async def setup_dev_environment():
+    """Sets up and tears down the development environment for tests."""
+    original_google_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    original_database_url = os.environ.get("DATABASE_URL")
+
+    # Setup:
+    # Create directory for the temporary service account file
+    TEMP_FIRESTORE_SA_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Write the service account JSON to the temporary file
+    with open(TEMP_FIRESTORE_SA_KEY_PATH, 'w') as f:
+        json.dump(FIRESTORE_SERVICE_ACCOUNT_INFO, f)
+    
+    # Set environment variables
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(TEMP_FIRESTORE_SA_KEY_PATH.resolve())
+    os.environ["DATABASE_URL"] = "postgresql://scraper_user:scraper_password@37.27.195.216:5432/dbo_operational"
+
+    print(f"Set GOOGLE_APPLICATION_CREDENTIALS to: {os.environ['GOOGLE_APPLICATION_CREDENTIALS']}")
+    print(f"Set DATABASE_URL to: {os.environ['DATABASE_URL']}")
+
+    # Initialize database pool with new DATABASE_URL
+    # If Database.pool exists from a previous (e.g. default) initialization, close it first.
+    if Database.pool:
+        await Database.close_pool()
+    await Database.create_pool()
+    
+    # Re-initialize Firebase app if it's already initialized with different creds
+    # (This depends on how firebase_admin is handled in backend_common.auth)
+    # For now, assuming firebase_admin.initialize_app() in backend_common.auth will pick up new env var.
+    # If not, explicit re-initialization might be needed here or in db_lifecycle.
+
+    yield # Tests run here
+
+    # Teardown:
+    # Restore original environment variables
+    if original_google_creds is None:
+        del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+    else:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_google_creds
+    
+    if original_database_url is None:
+        del os.environ["DATABASE_URL"]
+    else:
+        os.environ["DATABASE_URL"] = original_database_url
+
+    # Delete the temporary service account file
+    if TEMP_FIRESTORE_SA_KEY_PATH.exists():
+        TEMP_FIRESTORE_SA_KEY_PATH.unlink()
+    
+    # Close the pool that was created with the dev DATABASE_URL
+    await Database.close_pool()
+    print("Restored environment variables and cleaned up temporary files.")
+
+
 # Database fixture to manage connection pool lifecycle for tests that might need direct access
-# or to ensure pool is ready.
-@pytest.fixture(scope="session", autouse=True) # autouse=True to ensure it runs for the session
-async def db_lifecycle():
+# or to ensure pool is ready. (Now relies on setup_dev_environment to set DATABASE_URL first)
+@pytest.fixture(scope="session", autouse=True) 
+async def db_lifecycle(setup_dev_environment): # Depends on setup_dev_environment
     """Manages the database connection pool lifecycle for the test session."""
-    print("Initializing database pool for test session...")
-    await Database.create_pool() # Initialize pool at start of session
+    # Pool is now created in setup_dev_environment after env vars are set.
+    # This fixture ensures it's available and handles potential re-creation if needed,
+    # though setup_dev_environment should handle the primary setup.
+    if not Database.pool: # Should be created by setup_dev_environment
+        print("db_lifecycle: Pool not found, creating...")
+        await Database.create_pool()
     yield
-    print("Closing database pool after test session...")
-    await Database.close_pool() # Close pool at end of session
+    # Pool closure is handled by setup_dev_environment's teardown.
+    # If additional specific cleanup for db_lifecycle is needed, add here.
+    print("db_lifecycle: session ending.")
+
 
 @pytest.fixture
 async def db_connection_pool():
     """Provides the current database connection pool."""
     return await Database.get_pool()
 
-# Define constants for collection names
+# Define constants for collection names (Kept as they are useful for live interaction)
 USER_PROFILES_COLLECTION = "all_user_profiles"
 DATASET_LAYER_MATCHING_COLLECTION = "dataset_layer_matching"
 USER_LAYER_MATCHING_COLLECTION = "user_layer_matching"
-DATASETS_COLLECTION = "datasets" # Added for fetch_dataset tests
-PLAN_PROGRESS_COLLECTION = "plan_progress" # Added for fetch_dataset tests (though not used in the first test)
+DATASETS_COLLECTION = "datasets" 
+PLAN_PROGRESS_COLLECTION = "plan_progress"
 
-def create_initial_db_state(
-    user_profiles: dict | None = None,  # e.g., {user_id1: profile1, user_id2: profile2}
-    datasets: dict | None = None, # Added for fetch_dataset tests
-    dataset_layer_matching: dict | None = None,  # e.g., {dataset_id1: data1}
-    user_layer_matching: dict | None = None,  # e.g., {user_id1: data1}
-    plan_progress: dict | None = None # Added for fetch_dataset tests
-) -> dict:
+# Imports for new Firestore fixtures
+import tests.firestore_test_utils as firestore_test_utils # Import the module
+import contextlib # For asynccontextmanager
+import copy # For deepcopying fixture data
+
+# create_initial_db_state is removed as it was for MockFirestoreDB.
+
+
+@pytest.fixture(scope="function")
+async def user_profile_dev_db_main_user(user_profile_data): # user_profile_data is an existing fixture
     """
-    Helper function to create a structured initial state for MockFirestoreDB.
+    Manages a main test user's profile in the dev Firestore for a single test.
+    Seeds the profile before the test and cleans it up afterwards.
     """
-    state = {
-        USER_PROFILES_COLLECTION: user_profiles if user_profiles else {},
-        DATASETS_COLLECTION: datasets if datasets else {},
-        PLAN_PROGRESS_COLLECTION: plan_progress if plan_progress else {},
-        DATASET_LAYER_MATCHING_COLLECTION: dataset_layer_matching if dataset_layer_matching else {},
-        USER_LAYER_MATCHING_COLLECTION: user_layer_matching if user_layer_matching else {},
-    }
-    # Add more common collections with default empty states here if they become prevalent
-    return state
+    # Use a deep copy to avoid modifying the original fixture dict across tests if it's mutable
+    profile_to_seed = copy.deepcopy(user_profile_data)
+    user_id_to_seed = "test_user_main_for_fetch_dataset" # Predefined user_id
+    
+    # Ensure the user_id in the profile_data matches the one we are seeding
+    profile_to_seed['user_id'] = user_id_to_seed 
+
+    print(f"Seeding main test user profile: {USER_PROFILES_COLLECTION}/{user_id_to_seed}")
+    await firestore_test_utils.seed_firestore_document(USER_PROFILES_COLLECTION, user_id_to_seed, profile_to_seed)
+    try:
+        yield user_id_to_seed, profile_to_seed
+    finally:
+        print(f"Cleaning up main test user profile: {USER_PROFILES_COLLECTION}/{user_id_to_seed}")
+        await firestore_test_utils.cleanup_firestore_document(USER_PROFILES_COLLECTION, user_id_to_seed)
+
+
+@pytest.fixture(scope="function")
+def seeded_specific_user_profile_factory():
+    """
+    Provides a factory to seed and cleanup a specific user profile document in Firestore
+    on demand within a test, using an async context manager.
+    """
+    @contextlib.asynccontextmanager
+    async def _factory(user_id: str, profile_data: dict):
+        # Ensure USER_PROFILES_COLLECTION is defined/imported from this conftest
+        await firestore_test_utils.seed_firestore_document(USER_PROFILES_COLLECTION, user_id, profile_data)
+        try:
+            yield profile_data 
+        finally:
+            await firestore_test_utils.cleanup_firestore_document(USER_PROFILES_COLLECTION, user_id)
+    return _factory
+
+
+@pytest.fixture(scope="function")
+def seeded_plan_progress_document_factory():
+    """
+    Provides a factory to seed and cleanup a specific plan progress document in Firestore
+    on demand within a test, using an async context manager.
+    """
+    @contextlib.asynccontextmanager
+    async def _factory(plan_id: str, plan_data: dict):
+        # Ensure PLAN_PROGRESS_COLLECTION is defined/imported from this conftest
+        await firestore_test_utils.seed_firestore_document(PLAN_PROGRESS_COLLECTION, plan_id, plan_data)
+        try:
+            yield plan_data
+        finally:
+            await firestore_test_utils.cleanup_firestore_document(PLAN_PROGRESS_COLLECTION, plan_id)
+    return _factory
+
 
 @pytest.fixture
 async def seeded_dataset_filenames():
@@ -83,14 +206,80 @@ async def seeded_dataset_filenames():
     ]
     
     seeded_pks = []
+    # Define specific records to seed, including one that should be deduplicated
+    # Timestamps are important for deduplication logic (latest preferred)
+    # Text search filenames are also handled differently by the SQL query
+    
+    # Timestamps for ordering
+    time_now = datetime.now(timezone.utc)
+    time_older = time_now - timedelta(hours=1) # Use timedelta from datetime
+    time_oldest = time_now - timedelta(hours=2)
+
+    records_to_seed = [
+        { # This one should be chosen for "f1" due to no text_search and being latest for "f1"
+            "filename": "plan_part1_completed.json", 
+            "request_data": {"query": "part1_query"}, 
+            "response_data": {"type": "FeatureCollection", "features": [{"properties": {"id": "f1", "name": "Feature 1 NonTextSearch Latest"}}], "properties": ["id", "name"]}, 
+            "created_at": time_now 
+        },
+        { # This one should be ignored for "f1" because the one above is preferred
+            "filename": "plan_part1_completed.json_text_search=true_", 
+            "request_data": {"query": "part1_query_text_search"}, 
+            "response_data": {"type": "FeatureCollection", "features": [{"properties": {"id": "f1", "name": "Feature 1 TextSearch Older"}}], "properties": ["id", "name"]}, 
+            "created_at": time_older 
+        },
+        { # This is a distinct feature "f2"
+            "filename": "plan_part2_completed.json", 
+            "request_data": {"query": "part2_query"}, 
+            "response_data": {"type": "FeatureCollection", "features": [{"properties": {"id": "f2", "name": "Feature 2"}}], "properties": ["id", "name"]}, 
+            "created_at": time_oldest
+        },
+        { # This one should be ignored for "f1" because it's older than the first one, even if non-text search
+            "filename": "plan_part1_older_completed.json", 
+            "request_data": {"query": "part1_older_query"}, 
+            "response_data": {"type": "FeatureCollection", "features": [{"properties": {"id": "f1", "name": "Feature 1 NonTextSearch Oldest"}}], "properties": ["id", "name"]}, 
+            "created_at": time_oldest
+        }
+    ]
+    
+    data_rows = [
+        (r['filename'], json.dumps(r['request_data']), json.dumps(r['response_data']), r['created_at']) 
+        for r in records_to_seed
+    ]
+    
+    # Pre-calculate the expected combined GeoJSON based on deduplication logic
+    # The SQL query prefers non-text_search and latest for same feature ID.
+    # So, for "f1", "Feature 1 NonTextSearch Latest" should be chosen.
+    # "Feature 2" is unique.
+    expected_combined_features = [
+        {"properties": {"id": "f1", "name": "Feature 1 NonTextSearch Latest"}}, # From the first record
+        {"properties": {"id": "f2", "name": "Feature 2"}}  # From the third record
+    ]
+    # Sort by 'id' to match the `ORDER BY feature_id` in the SQL query
+    expected_combined_features.sort(key=lambda x: x['properties']['id'])
+    
+    expected_combined_geojson_dict = {
+        "type": "FeatureCollection",
+        "features": expected_combined_features,
+        "properties": ["id", "name"] # Assuming properties list is taken from the first chosen record for "f1"
+    }
+
+    seeded_filenames = []
     try:
-        seeded_pks = await seed_table(table_name, columns, data_rows, pk_column)
-        print(f"Seeded dataset filenames: {seeded_pks}") # For visibility during test runs
-        yield seeded_pks 
+        seeded_filenames = await seed_table(table_name, columns, data_rows, pk_column)
+        print(f"Seeded dataset filenames for combined test: {seeded_filenames}")
+        # Yield both the list of filenames (for transform_plan_items mock) 
+        # and the pre-calculated combined GeoJSON (for Database.fetchrow mock)
+        yield (seeded_filenames, expected_combined_geojson_dict)
     finally:
-        if seeded_pks:
-            print(f"Cleaning up dataset filenames: {seeded_pks}") # For visibility
-            await cleanup_table_by_ids(table_name, pk_column, seeded_pks)
+        if seeded_filenames:
+            print(f"Cleaning up dataset filenames for combined test: {seeded_filenames}")
+            await cleanup_table_by_ids(table_name, pk_column, seeded_filenames)
+        else: # Fallback if seed_table returned empty (e.g., if data_rows was empty)
+            filenames_to_delete = [r['filename'] for r in records_to_seed]
+            if filenames_to_delete:
+                print(f"Cleaning up dataset filenames (fallback) for combined test: {filenames_to_delete}")
+                await cleanup_table_by_ids(table_name, pk_column, filenames_to_delete)
 
 @pytest.fixture
 async def seeded_real_estate_records():
@@ -158,30 +347,17 @@ async def seeded_real_estate_records():
                 await cleanup_table_by_ids(table_name, pk_column, urls_to_delete)
 
 
-@pytest.fixture
-def mock_db_instance():
-    """Provides a singleton instance of MockFirestoreDB for testing."""
-    return MockFirestoreDB()
+# mock_db_instance fixture is removed.
+# create_initial_db_state function is removed.
 
 @pytest.fixture
-async def async_client(mock_db_instance: MockFirestoreDB):
+async def async_client(): # mock_db_instance is removed from parameters
     async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as ac:
+        # Patches for backend_common.auth.db methods are removed.
+        # JWTBearer mock remains for now, assuming auth logic is separate from DB choice.
         with patch("backend_common.auth.JWTBearer.__call__", new_callable=AsyncMock) as mock_jwt_bearer:
             mock_jwt_bearer.return_value = True
-
-            async def mock_get_document(collection_path: str, document_id: str):
-                return mock_db_instance.get_document(collection_path, document_id)
-
-            async def mock_update_document(collection_path: str, document_id: str, data_to_update: dict):
-                return mock_db_instance.update_document(collection_path, document_id, data_to_update)
-
-            async def mock_add_document(collection_path: str, document_id: str, data: dict):
-                return mock_db_instance.add_document(collection_path, document_id, data)
-
-            with patch("backend_common.auth.db.get_document", new=mock_get_document), \
-                 patch("backend_common.auth.db.update_document", new=mock_update_document, create=True), \
-                 patch("backend_common.auth.db.add_document", new=mock_add_document, create=True):
-                yield ac
+            yield ac
 
 
 # @pytest.fixture
