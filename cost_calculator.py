@@ -138,5 +138,6 @@ async def calculate_cost(req: ReqFetchDataset, text_search:bool=False):
             total_api_calls = 500 *0.5 # arbtrary discount
             
         cost = (total_api_calls / 1000) * COST_PER_1000_CALLS
+        cost *= 100
             
         return ResCostEstimate(cost=cost, api_calls=total_api_calls)
