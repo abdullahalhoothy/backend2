@@ -1,106 +1,1500 @@
-import logging
-
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
+import uuid # For checking prdcer_lyr_id format
+
+# Import constants and helper from conftest.py
+from tests.conftest import (
+    USER_PROFILES_COLLECTION,
+    DATASETS_COLLECTION,
+    PLAN_PROGRESS_COLLECTION, # Though not used in this specific test, good to have for the module
+    create_initial_db_state,
+    # req_fetch_dataset_google_cafe_sample is also in conftest.py
+    # user_profile_data is also in conftest.py
+)
+
+# Placeholder for actual type imports if needed for more complex scenarios
+# from all_types.request_dtypes import ReqFetchDataset 
+# from all_types.response_dtypes import ResFetchDataset, ResModel
+# from fastapi_app import ReqModel
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_sample_google_categories_success(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_google_cafe_sample # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_google_cafe_sample['request_body']['user_id']
+    
+    # 1. Define the mock dataset details to be returned by fetch_ggl_nearby
+    # The bknd_dataset_id is often constructed based on query params or is a specific plan_name.
+    # For 'sample' action, fetch_ggl_nearby might generate a temporary/fixed plan_id or receive one.
+    # Based on the problem description, fetch_ggl_nearby's second return value is bknd_dataset_id.
+    # Let's make it distinct for clarity.
+    mock_bknd_dataset_id = f"google_{req_fetch_dataset_google_cafe_sample['request_body']['city_name']}_{req_fetch_dataset_google_cafe_sample['request_body']['boolean_query']}_sample"
+    mock_plan_name_from_fetcher = mock_bknd_dataset_id # Often the plan_name is the same as bknd_dataset_id for google fetches
+    
+    mock_geojson_features = [{"type": "Feature", "properties": {"name": "Mock Cafe Dubai"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    
+    # This is what fetch_ggl_nearby is mocked to return as its first element (the geojson_dataset)
+    mock_geojson_data_returned_by_fetch_ggl = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features,
+        # fetch_ggl_nearby might also include metadata, but the tuple return signature is specific
+    }
+    mock_next_page_token_from_fetcher = "token_cafe_dubai_next_sample"
+
+    # 2. Prepare initial DB state
+    # For a 'sample' action that calls an external fetcher, the 'datasets' collection 
+    # might not need to be pre-populated with this specific data.
+    # The user profile needs to exist for authentication/authorization.
+    initial_user_profiles = {user_id: user_profile_data}
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets={} # No pre-existing dataset with mock_bknd_dataset_id needed for this 'sample' flow
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 3. Patch data_fetcher.fetch_ggl_nearby
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl:
+        # fetch_ggl_nearby returns: (geojson_dataset, bknd_dataset_id, next_page_token, plan_name, next_plan_index)
+        mock_fetch_ggl.return_value = (
+            mock_geojson_data_returned_by_fetch_ggl,  # geojson_dataset (dict)
+            mock_bknd_dataset_id,                     # bknd_dataset_id
+            mock_next_page_token_from_fetcher,        # next_page_token
+            mock_plan_name_from_fetcher,              # plan_name
+            0                                         # next_plan_index (0 for sample)
+        )
+
+        # 4. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_google_cafe_sample)
+
+    # 5. Assertions
+    assert response.status_code == 200
+    
+    response_json = response.json()
+    assert "data" in response_json
+    response_data = response_json['data']
+
+    assert response_data['features'] == mock_geojson_features
+    assert response_data['bknd_dataset_id'] == mock_bknd_dataset_id
+    assert response_data['next_page_token'] == mock_next_page_token_from_fetcher
+    assert response_data['progress'] == 0  # As specified for sample action
+    
+    assert 'prdcer_lyr_id' in response_data
+    assert isinstance(response_data['prdcer_lyr_id'], str)
+    try:
+        uuid.UUID(response_data['prdcer_lyr_id']) # Check if it's a valid UUID
+    except ValueError:
+        pytest.fail(f"prdcer_lyr_id '{response_data['prdcer_lyr_id']}' is not a valid UUID")
+        
+    assert response_data['records_count'] == len(mock_geojson_features)
+
+    # Verify that the fetched data was saved to the 'datasets' collection
+    # The endpoint is expected to store the result of fetch_ggl_nearby.
+    # The structure stored in the 'datasets' collection should be the geojson_dataset 
+    # returned by fetch_ggl_nearby, keyed by its bknd_dataset_id.
+    saved_dataset_in_db = mock_db_instance.get_document(DATASETS_COLLECTION, mock_bknd_dataset_id)
+    assert saved_dataset_in_db is not None 
+    assert saved_dataset_in_db == mock_geojson_data_returned_by_fetch_ggl # Verifying the whole dict is stored
+    
+    # Check that fetch_ggl_nearby was called correctly
+    mock_fetch_ggl.assert_called_once()
+    # call_args is a tuple of positional args, call_kwargs is a dict of keyword args
+    pos_args, kw_args = mock_fetch_ggl.call_args
+    
+    # Expected positional arguments based on fetch_ggl_nearby signature (query, city, country, action, page_token, user_id)
+    assert pos_args[0] == req_fetch_dataset_google_cafe_sample['request_body']['boolean_query']
+    assert pos_args[1] == req_fetch_dataset_google_cafe_sample['request_body']['city_name']
+    assert pos_args[2] == req_fetch_dataset_google_cafe_sample['request_body']['country_name']
+    assert pos_args[3] == req_fetch_dataset_google_cafe_sample['request_body']['action']
+    assert pos_args[4] == req_fetch_dataset_google_cafe_sample['request_body']['page_token']
+    assert pos_args[5] == req_fetch_dataset_google_cafe_sample['request_body']['user_id']
+    
+    # Expected keyword arguments
+    assert kw_args.get('text_search') == req_fetch_dataset_google_cafe_sample['request_body']['text_search']
+    assert kw_args.get('radius') == req_fetch_dataset_google_cafe_sample['request_body']['radius']
+    assert kw_args.get('lat') == req_fetch_dataset_google_cafe_sample['request_body']['lat']
+    assert kw_args.get('lng') == req_fetch_dataset_google_cafe_sample['request_body']['lng']
+    assert kw_args.get('zoom_level') == req_fetch_dataset_google_cafe_sample['request_body']['zoom_level']
+    # full_load is part of the request but might not be directly passed to fetch_ggl_nearby if it's handled earlier
+    # For now, assuming it's not a direct kwarg to fetch_ggl_nearby unless known.
+    # assert kw_args.get('full_load') == req_fetch_dataset_google_cafe_sample['request_body']['full_load']
 
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_real_estate(async_client, req_fetch_dataset_real_estate, sample_real_estate_response):
-    with patch("data_fetcher.get_real_estate_dataset_from_storage", new_callable=AsyncMock) as mock_fetch:
-        mock_fetch.return_value = [sample_real_estate_response,
-                                   "saudi_real_estate_dubai_['apartment_for_rent']", '']
-        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_real_estate)
-        # Assert response status and structure
-        assert response.status_code == 200
-        response_data = response.json()['data']
-        assert "features" in response_data
-        assert len(response_data["features"]) > 0
-        assert "next_page_token" in response_data
-        assert "delay_before_next_call" in response_data
-        assert "progress" in response_data
+async def test_fetch_dataset_sample_real_estate_success(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_real_estate_sample # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_real_estate_sample['request_body']['user_id']
+    
+    # 1. Define mock GeoJSON data and bknd_dataset_id
+    mock_bknd_dataset_id_real_estate = "saudi_riyadh_apartment_sample_dataset"
+    mock_real_estate_features = [{"type": "Feature", "properties": {"address": "123 Mock St", "price": 500000}, "geometry": {"type": "Point", "coordinates": [46.6753, 24.7136]}}]
+    mock_real_estate_geojson_returned_by_fetcher = { # This is what fetch_census_realestate returns
+        "type": "FeatureCollection",
+        "features": mock_real_estate_features,
+        # Potentially other metadata if the actual fetcher includes it at this level
+    }
+    mock_next_page_token_from_fetcher = "token_real_estate_next_sample"
+    # Plan name can be same as bknd_dataset_id for sample, or a more generic one
+    mock_plan_name_from_fetcher = mock_bknd_dataset_id_real_estate 
+
+    # 2. Prepare initial DB state
+    initial_user_profiles = {user_id: user_profile_data}
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets={} # DATASETS_COLLECTION is not pre-populated for this sample test
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 3. Patch data_fetcher.fetch_census_realestate
+    with patch("data_fetcher.fetch_census_realestate", new_callable=AsyncMock) as mock_fetch_real_estate:
+        # fetch_census_realestate returns: (dataset, bknd_dataset_id, next_page_token, plan_name)
+        mock_fetch_real_estate.return_value = (
+            mock_real_estate_geojson_returned_by_fetcher,
+            mock_bknd_dataset_id_real_estate,
+            mock_next_page_token_from_fetcher,
+            mock_plan_name_from_fetcher 
+        )
+
+        # 4. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_real_estate_sample)
+
+    # 5. Assertions
+    assert response.status_code == 200
+    
+    response_json = response.json()
+    assert "data" in response_json
+    response_data = response_json['data']
+
+    assert response_data['features'] == mock_real_estate_features
+    assert response_data['bknd_dataset_id'] == mock_bknd_dataset_id_real_estate
+    assert response_data['next_page_token'] == mock_next_page_token_from_fetcher
+    assert response_data['progress'] == 0  # Default for sample action
+    
+    assert 'prdcer_lyr_id' in response_data
+    assert isinstance(response_data['prdcer_lyr_id'], str)
+    try:
+        uuid.UUID(response_data['prdcer_lyr_id']) # Check if it's a valid UUID
+    except ValueError:
+        pytest.fail(f"prdcer_lyr_id '{response_data['prdcer_lyr_id']}' is not a valid UUID")
+        
+    assert response_data['records_count'] == len(mock_real_estate_features)
+
+    # Verify that the fetched data was saved to the 'datasets' collection
+    saved_dataset_in_db = mock_db_instance.get_document(DATASETS_COLLECTION, mock_bknd_dataset_id_real_estate)
+    assert saved_dataset_in_db is not None
+    # The endpoint should store the geojson_dataset part returned by the fetcher
+    assert saved_dataset_in_db == mock_real_estate_geojson_returned_by_fetcher
+    
+    # Check that fetch_census_realestate was called correctly
+    mock_fetch_real_estate.assert_called_once()
+    pos_args, kw_args = mock_fetch_real_estate.call_args
+    
+    # Expected positional arguments for fetch_census_realestate (country, city, query, action, page_token, user_id)
+    # Adjust these if the actual signature of fetch_census_realestate is different.
+    # Based on fetch_ggl_nearby, user_id might be the last positional or a kwarg.
+    # Let's assume a similar pattern for now.
+    assert pos_args[0] == req_fetch_dataset_real_estate_sample['request_body']['country_name']
+    assert pos_args[1] == req_fetch_dataset_real_estate_sample['request_body']['city_name']
+    assert pos_args[2] == req_fetch_dataset_real_estate_sample['request_body']['boolean_query']
+    assert pos_args[3] == req_fetch_dataset_real_estate_sample['request_body']['action']
+    assert pos_args[4] == req_fetch_dataset_real_estate_sample['request_body']['page_token']
+    assert pos_args[5] == req_fetch_dataset_real_estate_sample['request_body']['user_id']
+
+    # Expected keyword arguments (if any beyond the positional ones)
+    # E.g., if lat, lng, radius are passed as kwargs:
+    assert kw_args.get('lat') == req_fetch_dataset_real_estate_sample['request_body']['lat']
+    assert kw_args.get('lng') == req_fetch_dataset_real_estate_sample['request_body']['lng']
+    assert kw_args.get('radius') == req_fetch_dataset_real_estate_sample['request_body']['radius']
+    # zoom_level and text_search might also be passed as kwargs depending on fetch_census_realestate's signature
+    assert kw_args.get('zoom_level') == req_fetch_dataset_real_estate_sample['request_body']['zoom_level']
+    assert kw_args.get('text_search') == req_fetch_dataset_real_estate_sample['request_body']['text_search']
 
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_invalid_country(async_client, req_fetch_dataset_real_estate):
-    req_fetch_dataset_real_estate["request_body"]["country_name"] = "InvalidCountry"
-    response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_real_estate)
-    assert response.status_code == 500
-    assert "detail" in response.json()
+async def test_fetch_dataset_full_data_user_owns_dataset(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_owned, # Fixture from conftest.py
+    # stripe_customer_full_data is available in conftest if needed for other tests
+):
+    user_id = req_fetch_dataset_full_data_owned['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_owned['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_owned['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_owned['request_body']['country_name']
+
+    # 1. Define a mock_plan_id 
+    # This should match the logic in determine_plan_id in data_fetcher or equivalent
+    mock_plan_id = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # 2. Modify user_profile_data for this test to reflect ownership
+    owned_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile:
+        owned_user_profile['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile['prdcer']:
+        owned_user_profile['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile['prdcer']['prdcer_dataset'][mock_plan_id] = mock_plan_id # Mark as owned
+
+    # 3. Define mock GeoJSON data for the dataset already in the DB
+    mock_geojson_features_owned = [{"type": "Feature", "properties": {"name": f"Mock {boolean_query} {city_name} Owned"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_existing_dataset_in_db = { # This is what's in DATASETS_COLLECTION
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_owned,
+    }
+    
+    initial_next_page_token_from_db_or_fetcher = f"token_{boolean_query}_{city_name}_page1"
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: owned_user_profile}
+    initial_datasets = {mock_plan_id: mock_existing_dataset_in_db} 
+    initial_plan_progress = {
+        mock_plan_id: {
+            "user_id": user_id, 
+            "progress": 50, 
+            "last_updated": "2023-01-01T12:00:00Z", 
+            "completed_at": None,
+            "next_page_token": initial_next_page_token_from_db_or_fetcher 
+        }
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+    
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_stripe_fetch_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_stripe_create_transaction:
+
+        mock_fetch_ggl.return_value = (
+            mock_existing_dataset_in_db,            
+            mock_plan_id,                           
+            initial_next_page_token_from_db_or_fetcher, 
+            mock_plan_id,                           
+            0                                       
+        )
+        mock_check_purchase.return_value = True 
+        mock_full_load.return_value = initial_plan_progress[mock_plan_id]["progress"]
+
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_owned)
+
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    assert response_data['features'] == mock_geojson_features_owned
+    assert response_data['bknd_dataset_id'] == mock_plan_id
+    assert response_data['progress'] == initial_plan_progress[mock_plan_id]["progress"] 
+    assert response_data['delay_before_next_call'] == 3 
+    assert response_data['next_page_token'] == initial_next_page_token_from_db_or_fetcher 
+
+    mock_fetch_ggl.assert_called_once() 
+    mock_check_purchase.assert_called_once()
+    
+    check_purchase_args, _ = mock_check_purchase.call_args
+    assert check_purchase_args[0]['user_id'] == user_id 
+    assert check_purchase_args[1] == mock_plan_id    
+    assert check_purchase_args[2] == user_id         
+    assert isinstance(check_purchase_args[3], (int, float)) 
+
+    mock_full_load.assert_called_once()
+    full_load_args, _ = mock_full_load.call_args
+    assert full_load_args[0] == req_fetch_dataset_full_data_owned['request_body']
+    assert full_load_args[1] == mock_plan_id                                   
+    assert isinstance(full_load_args[2], str) 
+    assert full_load_args[3] == initial_next_page_token_from_db_or_fetcher
+    assert full_load_args[4] == mock_existing_dataset_in_db
+
+    mock_stripe_fetch_customer.assert_not_called()
+    mock_stripe_create_transaction.assert_not_called()
+
+    current_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id)
+    assert current_progress_in_db is not None
+    assert current_progress_in_db['progress'] == initial_plan_progress[mock_plan_id]['progress']
+    assert current_progress_in_db['next_page_token'] == initial_next_page_token_from_db_or_fetcher
+
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_pai(async_client, req_fetch_dataset_pai, sample_real_estate_response):
-    with patch("data_fetcher.get_census_dataset_from_storage", new_callable=AsyncMock) as mock_fetch:
-        mock_fetch.return_value = [sample_real_estate_response,
-                                   "saudi_real_estate_dubai_['apartment_for_rent']", '']
-        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_pai)
-        # Assert response status and structure
-        assert response.status_code == 200
-        response_data = response.json()['data']
-        assert "features" in response_data
-        assert len(response_data["features"]) > 0
-        assert "next_page_token" in response_data
-        assert "delay_before_next_call" in response_data
-        assert "progress" in response_data
+async def test_fetch_dataset_full_data_insufficient_balance(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_insufficient, # Fixture from conftest.py
+    # stripe_customer_full_data is available if specific values from it were needed for the mock
+):
+    user_id = req_fetch_dataset_full_data_insufficient['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_insufficient['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_insufficient['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_insufficient['request_body']['country_name']
+
+    # 1. Define mock_plan_id
+    mock_plan_id_for_insufficient = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # 2. Ensure user_profile_data for this test does NOT contain mock_plan_id_for_insufficient
+    initial_user_profile_state = copy.deepcopy(user_profile_data)
+    if 'prdcer' in initial_user_profile_state and 'prdcer_dataset' in initial_user_profile_state['prdcer']:
+        initial_user_profile_state['prdcer']['prdcer_dataset'].pop(mock_plan_id_for_insufficient, None)
+
+    # 3. Define mock GeoJSON data for the first page/sample
+    mock_geojson_features_for_insufficient = [{"type": "Feature", "properties": {"name": f"Mock {boolean_query} {city_name}"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_geojson_data_for_insufficient = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_for_insufficient,
+        # Metadata for plan_name and next_page_token is usually part of the fetch_ggl_nearby tuple,
+        # not necessarily inside the GeoJSON data itself when stored.
+    }
+    mock_next_page_token_for_insufficient_plan = f"token_{boolean_query}_{city_name}_page1_insufficient"
+
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: initial_user_profile_state}
+    # A sample dataset might exist from a previous "sample" action
+    initial_datasets = {mock_plan_id_for_insufficient: mock_geojson_data_for_insufficient}
+    # Plan progress might not exist or be at 0 if a sample was fetched but not purchased for full load
+    initial_plan_progress = {
+        mock_plan_id_for_insufficient: {"user_id": user_id, "progress": 0, "last_updated": None, "completed_at": None, "next_page_token": mock_next_page_token_for_insufficient_plan}
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Mocking Strategy
+    expected_cost_cents = 1000 # Cost is $10.00
+
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_fetch_stripe_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_stripe_transaction, \
+         patch("data_fetcher.calculate_cost", new_callable=AsyncMock) as mock_calculate_cost, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load:
+
+        mock_fetch_ggl.return_value = (
+            mock_geojson_data_for_insufficient,
+            mock_plan_id_for_insufficient,
+            mock_next_page_token_for_insufficient_plan,
+            mock_plan_id_for_insufficient,
+            0 
+        )
+        # Simulate insufficient balance
+        mock_fetch_stripe_customer.return_value = {"balance": 100, "id": "cus_mock_id_low_bal"} # $1.00 balance
+        
+        mock_calculate_cost.return_value = (float(expected_cost_cents / 100), float(expected_cost_cents / 100)) # Cost is $10.00
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_insufficient)
+
+    # 7. Assertions
+    assert response.status_code == 402 # Payment Required / Specific error for insufficient funds
+    response_json = response.json()
+    assert response_json['detail'] == "Insufficient balance in wallet. Please top up." # Check actual error message
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() # Endpoint still fetches initial data before purchase check
+    mock_calculate_cost.assert_called_once()
+    mock_fetch_stripe_customer.assert_called_once_with(user_id=user_id)
+    
+    # Crucially, these should NOT be called due to insufficient balance
+    mock_stripe_transaction.assert_not_called()
+    mock_full_load.assert_not_called()
+
+    # Verify user profile in DB is unchanged (user does not gain ownership)
+    unchanged_user_profile_from_db = mock_db_instance.get_document(USER_PROFILES_COLLECTION, user_id)
+    assert unchanged_user_profile_from_db is not None
+    # Check that the plan_id was not added to the user's owned datasets
+    if 'prdcer' in unchanged_user_profile_from_db and 'prdcer_dataset' in unchanged_user_profile_from_db['prdcer']:
+        assert mock_plan_id_for_insufficient not in unchanged_user_profile_from_db['prdcer']['prdcer_dataset']
+    else: # If prdcer or prdcer_dataset didn't exist initially or was removed for test setup
+        pass # This state is also fine, means it wasn't added
+
+    # Verify PLAN_PROGRESS_COLLECTION for this plan is also unchanged from its initial state
+    plan_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id_for_insufficient)
+    assert plan_progress_in_db is not None # It was set initially
+    assert plan_progress_in_db['progress'] == initial_plan_progress[mock_plan_id_for_insufficient]['progress']
+    assert plan_progress_in_db['last_updated'] == initial_plan_progress[mock_plan_id_for_insufficient]['last_updated']
+    assert plan_progress_in_db['completed_at'] == initial_plan_progress[mock_plan_id_for_insufficient]['completed_at']
+    assert plan_progress_in_db['next_page_token'] == initial_plan_progress[mock_plan_id_for_insufficient]['next_page_token']
+
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_commercial(async_client, req_fetch_dataset_commercial, sample_real_estate_response):
-    with patch("data_fetcher.get_commercial_properties_dataset_from_storage", new_callable=AsyncMock) as mock_fetch:
-        mock_fetch.return_value = [sample_real_estate_response,
-                                   "saudi_real_estate_dubai_['apartment_for_rent']", '']
-        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_commercial)
-        # Assert response status and structure
-        assert response.status_code == 200
-        response_data = response.json()['data']
-        assert "features" in response_data
-        assert len(response_data["features"]) > 0
-        assert "next_page_token" in response_data
-        assert "delay_before_next_call" in response_data
-        assert "progress" in response_data
+async def test_fetch_dataset_full_data_full_load_true_progress_100(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, 
+    req_fetch_dataset_full_load_true_completed # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_full_load_true_completed['request_body']['user_id']
+    boolean_query = req_fetch_dataset_full_load_true_completed['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_load_true_completed['request_body']['country_name']
+    city_name = req_fetch_dataset_full_load_true_completed['request_body']['city_name']
+
+    mock_plan_id_completed = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # 1. Modify user_profile_data: Ensure the user owns this mock_plan_id_completed
+    owned_user_profile_completed = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile_completed: owned_user_profile_completed['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile_completed['prdcer']: owned_user_profile_completed['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile_completed['prdcer']['prdcer_dataset'][mock_plan_id_completed] = mock_plan_id_completed
+
+    # 2. Define the complete GeoJSON data that should be returned by storage.get_full_load_geojson
+    mock_complete_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "properties": {"name": "Feature 1 Complete"}, "geometry": {"type": "Point", "coordinates": [1,1]}},
+            {"type": "Feature", "properties": {"name": "Feature 2 Complete"}, "geometry": {"type": "Point", "coordinates": [2,2]}}
+        ]
+    }
+    
+    # 3. Define sample GeoJSON for the initial fetch (what fetch_ggl_nearby returns)
+    mock_sample_geojson_for_completed_plan = {
+        "type": "FeatureCollection",
+        "features": [{"type": "Feature", "properties": {"name": f"Sample for {boolean_query} Completed"}, "geometry": {"type": "Point", "coordinates": [0,0]}}],
+        # "metadata": {"next_page_token": None, "plan_name": mock_plan_id_completed} # Optional, depends on fetch_ggl_nearby return
+    }
+    mock_initial_next_page_token = None # Since plan is complete, sample fetch might return no next page
+
+    # 4. Prepare initial DB state
+    from datetime import datetime, timezone # Ensure these are imported if not at top level
+    initial_user_profiles = {user_id: owned_user_profile_completed}
+    initial_datasets = {mock_plan_id_completed: mock_sample_geojson_for_completed_plan} 
+    initial_plan_progress = {
+        mock_plan_id_completed: {
+            "user_id": user_id,
+            "progress": 100,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "next_page_token": None 
+        }
+    }
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Mocking Strategy
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("storage.get_plan", new_callable=AsyncMock) as mock_get_plan, \
+         patch("storage.transform_plan_items", new_callable=AsyncMock) as mock_transform_plan_items, \
+         patch("storage.get_full_load_geojson", new_callable=AsyncMock) as mock_get_full_load_geojson:
+
+        mock_fetch_ggl.return_value = (
+            mock_sample_geojson_for_completed_plan, 
+            mock_plan_id_completed,
+            mock_initial_next_page_token, 
+            mock_plan_id_completed,
+            0 
+        )
+        mock_check_purchase.return_value = True # User owns it
+        mock_full_load.return_value = 100 # Progress is 100%
+        
+        mock_plan_structure = {"items": ["item1_completed.geojson"], "some_other_plan_data": "value_completed"}
+        mock_get_plan.return_value = mock_plan_structure
+        
+        mock_output_filenames = ["transformed_completed_file1.geojson"]
+        mock_transform_plan_items.return_value = mock_output_filenames
+        
+        mock_get_full_load_geojson.return_value = mock_complete_geojson
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_load_true_completed)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+    
+    assert response_data['progress'] == 100
+    assert response_data['full_load_geojson'] == mock_complete_geojson
+    # The main 'features' in response should be from full_load_geojson when full_load=True and progress=100
+    assert response_data['features'] == mock_complete_geojson['features']
+    assert response_data['bknd_dataset_id'] == mock_plan_id_completed
+    assert response_data['next_page_token'] is None # Plan is complete
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() 
+    mock_check_purchase.assert_called_once() 
+    mock_full_load.assert_called_once() 
+    
+    mock_get_plan.assert_called_once_with(mock_plan_id_completed)
+    mock_transform_plan_items.assert_called_once_with(req_fetch_dataset_full_load_true_completed['request_body'], mock_plan_structure)
+    mock_get_full_load_geojson.assert_called_once_with(mock_output_filenames)
 
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_google(async_client, req_fetch_dataset_google_category_search, sample_google_category_search_response):
-    with patch("data_fetcher.fetch_from_google_maps_api", new_callable=AsyncMock) as mock_fetch:
-        mock_fetch.return_value = sample_google_category_search_response
-        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_google_category_search)
-        # Assert response status and structure
-        assert response.status_code == 200
-        response_data = response.json()['data']
-        assert "features" in response_data
-        assert response_data['type'] == 'FeatureCollection'
-        assert len(response_data["features"]) > 0
-        assert "next_page_token" in response_data
-        assert "delay_before_next_call" in response_data
-        assert "progress" in response_data
-        assert "bknd_dataset_id" in response_data
+async def test_fetch_dataset_full_data_full_load_true_progress_100(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, 
+    req_fetch_dataset_full_load_true_completed
+):
+    user_id = req_fetch_dataset_full_load_true_completed['request_body']['user_id']
+    # layer_id = req_fetch_dataset_full_load_true_completed['request_body']['prdcer_lyr_id'] # Not directly used for plan_id construction
+    boolean_query = req_fetch_dataset_full_load_true_completed['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_load_true_completed['request_body']['country_name']
+    city_name = req_fetch_dataset_full_load_true_completed['request_body']['city_name']
+
+    mock_plan_id_completed = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # Modify user_profile_data: Ensure the user owns this mock_plan_id_completed
+    owned_user_profile_completed = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile_completed: owned_user_profile_completed['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile_completed['prdcer']: owned_user_profile_completed['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile_completed['prdcer']['prdcer_dataset'][mock_plan_id_completed] = mock_plan_id_completed
+
+    # Define the complete GeoJSON data that should be returned by get_full_load_geojson
+    mock_complete_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "properties": {"name": "Feature 1 Complete"}, "geometry": {"type": "Point", "coordinates": [1,1]}},
+            {"type": "Feature", "properties": {"name": "Feature 2 Complete"}, "geometry": {"type": "Point", "coordinates": [2,2]}}
+        ]
+    }
+    
+    # Define sample GeoJSON for the initial fetch (what fetch_ggl_nearby returns)
+    mock_sample_geojson_for_completed_plan = {
+        "type": "FeatureCollection",
+        "features": [{"type": "Feature", "properties": {"name": "Sample for Completed Plan"}, "geometry": {"type": "Point", "coordinates": [0,0]}}],
+        # "metadata": {"next_page_token": None, "plan_name": mock_plan_id_completed} # Optional, depends on how fetch_ggl_nearby structures its first return element
+    }
+    # Since progress is 100, next_page_token for the initial fetch_ggl_nearby call might be None
+    mock_initial_next_page_token = None 
+
+
+    # Prepare initial DB state
+    from datetime import datetime, timezone # Ensure these are imported
+    initial_user_profiles = {user_id: owned_user_profile_completed}
+    initial_datasets = {mock_plan_id_completed: mock_sample_geojson_for_completed_plan} # Sample might be in DB
+    initial_plan_progress = {
+        mock_plan_id_completed: {
+            "user_id": user_id,
+            "progress": 100,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "next_page_token": None # Plan is complete
+        }
+    }
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # Mocking Strategy
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("storage.get_plan", new_callable=AsyncMock) as mock_get_plan, \
+         patch("storage.transform_plan_items", new_callable=AsyncMock) as mock_transform_plan_items, \
+         patch("storage.get_full_load_geojson", new_callable=AsyncMock) as mock_get_full_load_geojson:
+
+        mock_fetch_ggl.return_value = (
+            mock_sample_geojson_for_completed_plan, 
+            mock_plan_id_completed,
+            mock_initial_next_page_token, 
+            mock_plan_id_completed,
+            0 # next_plan_index for initial call
+        )
+        # For owned and completed plan, check_purchase might still be called.
+        # It should return True without needing Stripe.
+        mock_check_purchase.return_value = True 
+        
+        # full_load is called. Since progress is 100, it should return 100.
+        mock_full_load.return_value = 100 
+        
+        mock_plan_structure = {"items": ["item1_completed.geojson"], "some_other_plan_data": "value"}
+        mock_get_plan.return_value = mock_plan_structure
+        
+        mock_output_filenames = ["transformed_completed_file1.geojson"]
+        mock_transform_plan_items.return_value = mock_output_filenames
+        
+        mock_get_full_load_geojson.return_value = mock_complete_geojson
+
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_load_true_completed)
+
+    # Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+    
+    assert response_data['progress'] == 100
+    assert response_data['full_load_geojson'] == mock_complete_geojson
+    # The main 'features' in response could be the sample ones, or from full_load_geojson, depending on endpoint logic.
+    # Based on problem desc, if full_load_geojson is present, 'features' should be from there.
+    assert response_data['features'] == mock_complete_geojson['features']
+    assert response_data['bknd_dataset_id'] == mock_plan_id_completed
+    assert response_data['next_page_token'] is None # Plan is complete
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() # Called for initial data
+    mock_check_purchase.assert_called_once() # Called to confirm ownership/status
+    mock_full_load.assert_called_once() # Called, returns 100
+    
+    mock_get_plan.assert_called_once_with(mock_plan_id_completed)
+    # The first arg to transform_plan_items is the request_body
+    mock_transform_plan_items.assert_called_once_with(req_fetch_dataset_full_load_true_completed['request_body'], mock_plan_structure)
+    mock_get_full_load_geojson.assert_called_once_with(mock_output_filenames)
 
 
 @pytest.mark.asyncio
-async def test_fetch_dataset_google_full(async_client, req_fetch_dataset_google_category_search,
-                                         sample_google_category_search_response, stripe_customer,
-                                         user_profile_data):
-    req_fetch_dataset_google_category_search['request_body']['action'] = 'full data'
-    mock_background_tasks = MagicMock()
-    mock_background_tasks.add_task = MagicMock()
-    with (
-        patch("data_fetcher.fetch_from_google_maps_api", new_callable=AsyncMock) as mock_fetch,
-        patch("data_fetcher.stripe.Customer.create_balance_transaction", new_callable=AsyncMock) as mock_strip,
-        patch("data_fetcher.fetch_customer", new_callable=AsyncMock) as mock_stripe_cust,
-        patch("data_fetcher.get_background_tasks", return_value=mock_background_tasks) as mock_strip,
-        patch("data_fetcher.update_user_profile", new_callable=AsyncMock) as mock_strip,
-        patch("backend_common.auth.db", new_callable=AsyncMock) as _mock_user_data,
-    ):
-        _mock_user_data.get_document.return_value = user_profile_data
-        mock_fetch.return_value = sample_google_category_search_response
-        mock_stripe_cust.return_value = stripe_customer
-        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_google_category_search)
-        # Assert response status and structure
-        assert response.status_code == 500  # TODO
-        # response_data = response.json()['data']
-        # assert "features" in response_data
-        # assert response_data['type'] == 'FeatureCollection'
-        # assert len(response_data["features"]) > 0
-        # assert "next_page_token" in response_data
-        # assert "delay_before_next_call" in response_data
-        # assert "progress" in response_data
-        # assert "bknd_dataset_id" in response_data
+async def test_fetch_dataset_data_not_found_in_storage(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, 
+    req_fetch_dataset_non_existent_data # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_non_existent_data['request_body']['user_id']
+    boolean_query = req_fetch_dataset_non_existent_data['request_body']['boolean_query']
+    country_name = req_fetch_dataset_non_existent_data['request_body']['country_name']
+    city_name = req_fetch_dataset_non_existent_data['request_body']['city_name']
+
+    # 1. Define mock_plan_id
+    # This plan ID will be associated with the "not found" data
+    mock_plan_id_not_found = f"plan_{boolean_query}_{country_name}_{city_name}_notfound"
+
+    # 2. Prepare initial DB state
+    # Basic user profile is needed for auth. Other collections can be empty or not contain the mock_plan_id.
+    initial_user_profiles = {user_id: user_profile_data}
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets={}, # Ensure no pre-existing dataset for this plan_id
+        plan_progress={} # Ensure no pre-existing progress for this plan_id
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 3. Mocking Strategy
+    # The primary data fetching function (fetch_ggl_nearby for this query type)
+    # will return values indicating no data was found.
+    empty_geojson_data = {"type": "FeatureCollection", "features": []}
+
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load:
+
+        mock_fetch_ggl.return_value = (
+            empty_geojson_data,          # geojson_dataset: empty
+            mock_plan_id_not_found,      # bknd_dataset_id
+            None,                        # next_page_token: None, as no data
+            mock_plan_id_not_found,      # plan_name
+            0                            # next_plan_index
+        )
+        
+        # For a "sample" action, check_purchase might be called.
+        # If it's for a dataset that returns no features, it should not proceed to purchase.
+        # Its return value might be None or it might not be called if logic short-circuits.
+        # Based on `process_fetched_data`, if `geojson_dataset` is None or features are empty,
+        # it might return early. Let's assume check_purchase might not even be reached if no features.
+        # However, the endpoint logic might call it regardless. For safety, we mock it.
+        mock_check_purchase.return_value = None # Or True, outcome should be no purchase for sample
+        
+        # full_load should not be called if there's no data to load or if action is 'sample' and no data found.
+        mock_full_load.return_value = 0 
+
+
+        # 4. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_non_existent_data)
+
+    # 5. Assertions
+    assert response.status_code == 200 # Endpoint handles "not found" gracefully by returning empty
+    
+    response_data = response.json()['data']
+    
+    assert response_data['features'] == []
+    assert response_data['records_count'] == 0
+    assert response_data['bknd_dataset_id'] == mock_plan_id_not_found
+    assert response_data['next_page_token'] is None
+    assert response_data['progress'] == 0 # Default progress for sample or no data
+    assert 'prdcer_lyr_id' in response_data # Should still generate a layer ID
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once()
+    
+    # Depending on the exact flow in `fetch_dataset` and `process_fetched_data` for empty results:
+    # If data is empty, check_purchase might not be called if the logic short-circuits.
+    # If it is called for 'sample' action regardless of features, then assert_called_once.
+    # For now, let's assume it's called as part of the standard flow before returning.
+    mock_check_purchase.assert_called_once()
+
+    # full_load should DEFINITELY not be called if action is 'sample' and no data.
+    # If action were 'full data' and data was empty, it also likely wouldn't run.
+    mock_full_load.assert_not_called() # For "sample" action, full_load is not triggered from endpoint.
+
+    # Verify that the empty dataset (if fetch_ggl_nearby returns one) is saved to the DB
+    # This behavior (saving an empty dataset) depends on implementation details in data_fetcher.py
+    saved_dataset = mock_db_instance.get_document(DATASETS_COLLECTION, mock_plan_id_not_found)
+    assert saved_dataset is not None
+    assert saved_dataset["features"] == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_full_data_sufficient_balance_first_purchase(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_purchase, # Fixture from conftest.py
+    # stripe_customer_full_data is available in conftest if needed
+):
+    user_id = req_fetch_dataset_full_data_purchase['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_purchase['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_purchase['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_purchase['request_body']['country_name']
+
+    # 1. Define mock_plan_id
+    mock_plan_id_for_purchase = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # 2. Ensure user_profile_data for this test does NOT contain mock_plan_id_for_purchase
+    current_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' in current_user_profile and 'prdcer_dataset' in current_user_profile['prdcer']:
+        current_user_profile['prdcer']['prdcer_dataset'].pop(mock_plan_id_for_purchase, None)
+
+    # 3. Define mock GeoJSON data for the first page/sample of this new dataset
+    mock_geojson_features_for_purchase = [{"type": "Feature", "properties": {"name": f"Mock {boolean_query} {city_name}"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_geojson_data_for_purchase = { # This is what fetch_ggl_nearby would return as the first element
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_for_purchase,
+        # "metadata": {"next_page_token": "token_bank_dubai_next_full", "plan_name": mock_plan_id_for_purchase} # Optional
+    }
+    mock_next_page_token_for_new_plan_from_fetcher = f"token_{boolean_query}_{city_name}_page1_new"
+
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: current_user_profile}
+    # For a first purchase, the dataset might already have a sample entry from a previous "sample" action
+    initial_datasets = {mock_plan_id_for_purchase: mock_geojson_data_for_purchase} 
+    # No progress or 0 progress for a plan not yet fully loaded by the user
+    initial_plan_progress = {
+        mock_plan_id_for_purchase: {"user_id": user_id, "progress": 0, "last_updated": None, "completed_at": None, "next_page_token": mock_next_page_token_for_new_plan_from_fetcher}
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress # Initialize with 0 progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Mocking Strategy
+    expected_cost_cents = 1000 # $10.00 in cents
+
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_fetch_stripe_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_stripe_transaction, \
+         patch("data_fetcher.calculate_cost", new_callable=AsyncMock) as mock_calculate_cost, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load:
+         # Not mocking check_purchase itself, but its dependencies (stripe, cost calculation)
+
+        mock_fetch_ggl.return_value = (
+            mock_geojson_data_for_purchase,         # geojson_dataset
+            mock_plan_id_for_purchase,              # bknd_dataset_id
+            mock_next_page_token_for_new_plan_from_fetcher, # next_page_token
+            mock_plan_id_for_purchase,              # plan_name
+            0                                       # next_plan_index (0 for new/sample)
+        )
+        
+        mock_stripe_customer_obj = {"balance": 50000, "id": "cus_mock_id_sufficient"} # Sufficient balance
+        mock_fetch_stripe_customer.return_value = mock_stripe_customer_obj
+        
+        mock_calculate_cost.return_value = (float(expected_cost_cents / 100), float(expected_cost_cents / 100))
+        
+        mock_full_load.return_value = 0 # Initial progress for a new full load after purchase
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_purchase)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    assert response_data['bknd_dataset_id'] == mock_plan_id_for_purchase
+    assert response_data['progress'] == 0 # Initial progress after purchase
+    assert response_data['features'] == mock_geojson_features_for_purchase # Returns first page data
+
+    # Verify mock calls for payment flow
+    mock_fetch_stripe_customer.assert_called_once_with(user_id=user_id)
+    mock_calculate_cost.assert_called_once() 
+    # The description for stripe transaction might be more specific, adjust if known
+    mock_stripe_transaction.assert_called_once_with(
+        "cus_mock_id_sufficient", 
+        amount=-expected_cost_cents, 
+        currency="usd", 
+        description=f"Purchase of dataset: {mock_plan_id_for_purchase}" # Or similar
+    )
+    
+    # Verify other mocks
+    mock_fetch_ggl.assert_called_once() 
+    mock_full_load.assert_called_once()
+
+    # Verify user profile update in DB (user now owns the dataset)
+    updated_user_profile_from_db = mock_db_instance.get_document(USER_PROFILES_COLLECTION, user_id)
+    assert updated_user_profile_from_db is not None
+    assert mock_plan_id_for_purchase in updated_user_profile_from_db['prdcer']['prdcer_dataset']
+    assert updated_user_profile_from_db['prdcer']['prdcer_dataset'][mock_plan_id_for_purchase] == mock_plan_id_for_purchase
+
+    # Verify plan_progress update in DB (should be updated by the successful purchase and full_load initiation)
+    plan_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id_for_purchase)
+    assert plan_progress_in_db is not None
+    assert plan_progress_in_db['progress'] == 0 # As returned by mock_full_load
+    assert plan_progress_in_db['user_id'] == user_id
+    assert plan_progress_in_db['next_page_token'] == mock_next_page_token_for_new_plan_from_fetcher # Stored from fetch_ggl_nearby
+    assert plan_progress_in_db['completed_at'] is None # Not yet completed
+    assert plan_progress_in_db['last_updated'] is not None # Should be updated by the process
+
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_full_data_user_owns_dataset(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_owned, # Fixture from conftest.py
+    # stripe_customer_full_data is available in conftest if needed for other tests
+):
+    user_id = req_fetch_dataset_full_data_owned['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_owned['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_owned['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_owned['request_body']['country_name']
+
+    # 1. Define a mock_plan_id based on the request
+    # This should match the logic in determine_plan_id in data_fetcher or equivalent
+    # For this test, let's assume it's 'plan_{boolean_query}_{country_name}_{city_name}'
+    mock_plan_id = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+    # 2. Modify user_profile_data for this test to reflect ownership
+    owned_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile:
+        owned_user_profile['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile['prdcer']:
+        owned_user_profile['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile['prdcer']['prdcer_dataset'][mock_plan_id] = mock_plan_id # Mark as owned
+
+    # 3. Define mock GeoJSON data for the dataset already in the DB
+    mock_geojson_features_owned = [{"type": "Feature", "properties": {"name": f"Mock {boolean_query} {city_name} Owned"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_existing_dataset_in_db = { # This is what's in DATASETS_COLLECTION
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_owned,
+        # "metadata": {"plan_name": mock_plan_id} # Optional: metadata might be stored with dataset
+    }
+    
+    # Token that fetch_ggl_nearby (or equivalent) would return for the first page of this existing dataset
+    # This is also what would be in plan_progress if it's not the very first fetch of the owned data.
+    initial_next_page_token_from_db_or_fetcher = f"token_{boolean_query}_{city_name}_page1"
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: owned_user_profile}
+    initial_datasets = {mock_plan_id: mock_existing_dataset_in_db} 
+    initial_plan_progress = {
+        mock_plan_id: {
+            "user_id": user_id, # Important for plan_progress queries
+            "progress": 50, 
+            "last_updated": "2023-01-01T12:00:00Z", # Old enough to not skip full_load due to recent update
+            "completed_at": None,
+            "next_page_token": initial_next_page_token_from_db_or_fetcher 
+        }
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Patch external calls
+    # Ensure 'import copy' is at the top of tests/test_fetch_dataset.py
+    
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_stripe_fetch_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_stripe_create_transaction: # For non-async stripe lib calls
+
+        # Configure mock return values:
+        # fetch_ggl_nearby: Called to get initial data (first page) and plan details.
+        # It should return data consistent with what's in initial_datasets for the owned plan.
+        mock_fetch_ggl.return_value = (
+            mock_existing_dataset_in_db,            # geojson_dataset (dict)
+            mock_plan_id,                           # bknd_dataset_id
+            initial_next_page_token_from_db_or_fetcher, # next_page_token for this first page
+            mock_plan_id,                           # plan_name
+            0                                       # next_plan_index (0 for first page)
+        )
+        
+        # check_purchase: Since user owns the plan (from owned_user_profile), this should return True.
+        # The endpoint logic uses this to determine if a purchase flow is needed.
+        mock_check_purchase.return_value = True # True indicates user has access
+
+        # full_load: This is called because action is "full data" and check_purchase indicated ownership/access.
+        # It should return the current progress from the DB (which we've set in initial_plan_progress).
+        mock_full_load.return_value = initial_plan_progress[mock_plan_id]["progress"]
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_owned)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    assert response_data['features'] == mock_geojson_features_owned
+    assert response_data['bknd_dataset_id'] == mock_plan_id
+    assert response_data['progress'] == initial_plan_progress[mock_plan_id]["progress"] # Progress from mock_full_load
+    assert response_data['delay_before_next_call'] == 3 # Specified for "full data" in progress
+    assert response_data['next_page_token'] == initial_next_page_token_from_db_or_fetcher # From initial data/progress
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() 
+    mock_check_purchase.assert_called_once()
+    
+    check_purchase_args, _ = mock_check_purchase.call_args
+    assert check_purchase_args[0]['user_id'] == user_id 
+    assert check_purchase_args[1] == mock_plan_id    
+    assert check_purchase_args[2] == user_id         
+    assert isinstance(check_purchase_args[3], (int, float)) # cost
+
+    mock_full_load.assert_called_once()
+    full_load_args, _ = mock_full_load.call_args
+    assert full_load_args[0] == req_fetch_dataset_full_data_owned['request_body']
+    assert full_load_args[1] == mock_plan_id                                   
+    assert isinstance(full_load_args[2], str) # prdcer_lyr_id (generated in endpoint)
+    assert full_load_args[3] == initial_next_page_token_from_db_or_fetcher
+    assert full_load_args[4] == mock_existing_dataset_in_db
+
+    # Verify Stripe methods were NOT called
+    mock_stripe_fetch_customer.assert_not_called()
+    mock_stripe_create_transaction.assert_not_called()
+
+    # DB state check for plan_progress (should be unchanged as full_load is mocked externally)
+    current_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id)
+    assert current_progress_in_db is not None
+    assert current_progress_in_db['progress'] == initial_plan_progress[mock_plan_id]['progress']
+    assert current_progress_in_db['next_page_token'] == initial_next_page_token_from_db_or_fetcher
+
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_full_data_user_owns_dataset(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_owned, # Fixture from conftest.py
+    # stripe_customer_full_data fixture might be needed if we were to mock fetch_customer's return
+):
+    user_id = req_fetch_dataset_full_data_owned['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_owned['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_owned['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_owned['request_body']['country_name'] # Added for plan_id consistency
+
+    # 1. Define a mock_plan_id 
+    # Based on the problem description, the plan_id for "owned" datasets is crucial.
+    # It's usually derived from query, city, country.
+    mock_plan_id = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+
+    # 2. Modify user_profile_data for this test to reflect ownership
+    owned_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile:
+        owned_user_profile['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile['prdcer']:
+        owned_user_profile['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile['prdcer']['prdcer_dataset'][mock_plan_id] = mock_plan_id # Mark as owned
+
+    # 3. Define mock GeoJSON data for the dataset already in the DB
+    mock_geojson_features_owned = [{"type": "Feature", "properties": {"name": "Mock Restaurant Dubai Owned"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    # The data stored in DATASETS_COLLECTION for the owned plan
+    mock_existing_dataset_in_db = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_owned,
+        # "metadata": {"plan_name": mock_plan_id} # Metadata might be here or derived
+    }
+    
+    # The token that fetch_ggl_nearby would return for the first page of this existing dataset
+    initial_next_page_token_from_fetcher = "token_restaurant_dubai_page1_from_db"
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: owned_user_profile}
+    initial_datasets = {mock_plan_id: mock_existing_dataset_in_db} 
+    initial_plan_progress = {
+        mock_plan_id: {
+            "user_id": user_id,
+            "progress": 50, 
+            "last_updated": "2023-01-01T12:00:00Z", # Ensure this is old enough not to skip full_load
+            "completed_at": None,
+            "next_page_token": initial_next_page_token_from_fetcher # This token is what full_load might use
+        }
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Patch external calls
+    # Ensure 'import copy' is at the top of tests/test_fetch_dataset.py
+    
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_stripe_fetch_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_stripe_create_transaction:
+
+        # Configure mock return values:
+        # fetch_ggl_nearby is called to get initial data (first page) and plan details.
+        mock_fetch_ggl.return_value = (
+            mock_existing_dataset_in_db,         # geojson_dataset (dict) - first page of existing data
+            mock_plan_id,                        # bknd_dataset_id
+            initial_next_page_token_from_fetcher,# next_page_token for this first page
+            mock_plan_id,                        # plan_name
+            0                                    # next_plan_index (0 for first page)
+        )
+        
+        # check_purchase: Since user owns the plan (from owned_user_profile), this should return True.
+        mock_check_purchase.return_value = True 
+
+        # full_load: This is called because action is "full data" and check_purchase passed.
+        # It should return the current progress from the DB (initial_plan_progress).
+        mock_full_load.return_value = initial_plan_progress[mock_plan_id]["progress"]
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_owned)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    assert response_data['features'] == mock_geojson_features_owned # From first page of existing dataset
+    assert response_data['bknd_dataset_id'] == mock_plan_id
+    # Progress should be what full_load (mocked) returns, reflecting initial DB state
+    assert response_data['progress'] == initial_plan_progress[mock_plan_id]["progress"] 
+    assert response_data['delay_before_next_call'] == 3 # Specified for "full data" in progress
+    # next_page_token in response should be from fetch_ggl_nearby's return, used by full_load
+    assert response_data['next_page_token'] == initial_next_page_token_from_fetcher 
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() 
+    mock_check_purchase.assert_called_once()
+    
+    # Verify check_purchase arguments: (req_body, plan_id, current_user_id, cost, stripe_customer_id=None)
+    # Cost is determined by the endpoint; for owned data, it might be 0 or not checked against balance.
+    check_purchase_args, check_purchase_kwargs = mock_check_purchase.call_args
+    assert check_purchase_args[0]['user_id'] == user_id # request_body dict
+    assert check_purchase_args[1] == mock_plan_id    # plan_id
+    assert check_purchase_args[2] == user_id         # current_user_id
+    # Cost (arg 3) is determined by the endpoint. We can check it's a number.
+    assert isinstance(check_purchase_args[3], (int, float)) 
+    # stripe_customer_id (arg 4) should be None or a valid ID if fetched. Since not purchased, likely None.
+    # For owned, stripe_customer_id might not be fetched by check_purchase before this point.
+
+    mock_full_load.assert_called_once()
+    full_load_args, _ = mock_full_load.call_args
+    assert full_load_args[0] == req_fetch_dataset_full_data_owned['request_body'] # req_body_dict
+    assert full_load_args[1] == mock_plan_id                                   # plan_id
+    assert isinstance(full_load_args[2], str)                                  # prdcer_lyr_id (generated in endpoint)
+    assert full_load_args[3] == initial_next_page_token_from_fetcher           # next_page_token from fetch_ggl_nearby
+    assert full_load_args[4] == mock_existing_dataset_in_db                    # initial_geojson_data from fetch_ggl_nearby
+
+    # Verify Stripe methods were NOT called
+    mock_stripe_fetch_customer.assert_not_called()
+    mock_stripe_create_transaction.assert_not_called()
+
+    # DB state check for plan_progress (should be unchanged as full_load is mocked, and its side effects are not part of this test)
+    current_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id)
+    assert current_progress_in_db is not None
+    assert current_progress_in_db['progress'] == initial_plan_progress[mock_plan_id]['progress']
+    assert current_progress_in_db['next_page_token'] == initial_next_page_token_from_fetcher
+
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_full_data_user_owns_dataset(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_owned, # Fixture from conftest.py
+    stripe_customer_full_data # Fixture from conftest.py for mocking stripe customer object
+):
+    user_id = req_fetch_dataset_full_data_owned['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_owned['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_owned['request_body']['boolean_query']
+    country_name = req_fetch_dataset_full_data_owned['request_body']['country_name']
+
+
+    # 1. Define a mock_plan_id based on the request
+    # This logic should mirror how plan IDs are identified in the application for "owned" datasets
+    # For 'google_categories' type, it's usually like 'plan_{boolean_query}_{city_name}_{country_name}'
+    # Let's ensure it's consistent with how check_purchase might derive it or how it's stored.
+    # A common pattern for owned plans might be `plan_{boolean_query}_{country_name}_{city_name}`
+    mock_plan_id = f"plan_{boolean_query}_{country_name}_{city_name}"
+
+
+    # 2. Modify user_profile_data for this test to reflect ownership
+    owned_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile:
+        owned_user_profile['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile['prdcer']:
+        owned_user_profile['prdcer']['prdcer_dataset'] = {}
+    # Simulate that the user "owns" or has purchased this plan
+    owned_user_profile['prdcer']['prdcer_dataset'][mock_plan_id] = mock_plan_id 
+
+    # 3. Define mock GeoJSON data - this is what's already in the DB
+    mock_geojson_features_owned = [{"type": "Feature", "properties": {"name": "Mock Restaurant Dubai Owned"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_existing_dataset_in_db = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_owned,
+        # Metadata might be here or part of the plan_progress document
+    }
+    
+    initial_next_page_token_in_db = "token_restaurant_dubai_page1_from_db"
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: owned_user_profile}
+    initial_datasets = {mock_plan_id: mock_existing_dataset_in_db} 
+    initial_plan_progress = {
+        mock_plan_id: {
+            "user_id": user_id,
+            "progress": 50, 
+            "last_updated": "2023-01-01T12:00:00Z", # Timestamp in the past to allow full_load to run
+            "completed_at": None,
+            "next_page_token": initial_next_page_token_in_db 
+        }
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Patch external calls
+    # We need to import copy for deepcopy if not already at the top of the file.
+    # import copy # Ensure this is at the top of test_fetch_dataset.py
+    
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_fetch_stripe_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_create_stripe_transaction:
+
+        # Configure mock return values:
+        # fetch_ggl_nearby: For "full data" on an owned plan, this might be called to get the *first page* of data
+        # or to verify plan existence. It should return data consistent with what's in initial_datasets.
+        mock_fetch_ggl.return_value = (
+            mock_existing_dataset_in_db, # geojson_dataset (dict)
+            mock_plan_id,                # bknd_dataset_id
+            initial_next_page_token_in_db, # next_page_token (from the existing dataset's first page)
+            mock_plan_id,                # plan_name
+            0                            # next_plan_index (0 for first page)
+        )
+        
+        # check_purchase: This function is crucial. It will use the owned_user_profile from mock_db_instance.
+        # Since the profile indicates ownership of mock_plan_id, check_purchase should return True.
+        mock_check_purchase.return_value = True 
+
+        # full_load: This is called because action is "full data" and check_purchase passed.
+        # It should return the current progress from the DB (which we've set in initial_plan_progress).
+        mock_full_load.return_value = initial_plan_progress[mock_plan_id]["progress"]
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_owned)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    assert response_data['features'] == mock_geojson_features_owned # First page from existing dataset
+    assert response_data['bknd_dataset_id'] == mock_plan_id
+    assert response_data['progress'] == initial_plan_progress[mock_plan_id]["progress"] # Progress from DB via full_load mock
+    assert response_data['delay_before_next_call'] == 3 # Specified for "full data" that's in progress
+    assert response_data['next_page_token'] == initial_next_page_token_in_db # From initial dataset/progress
+
+    # Verify mock calls
+    mock_fetch_ggl.assert_called_once() 
+    mock_check_purchase.assert_called_once()
+    # Verify check_purchase arguments: request_body, plan_id, user_id, cost, stripe_customer_id=None
+    # We need to get the cost from how the endpoint calculates it. For now, let's assume it's passed.
+    # If cost is determined inside check_purchase, we can't assert it here directly.
+    # The important part is that it was called for the correct plan and user.
+    check_purchase_args = mock_check_purchase.call_args[0]
+    assert check_purchase_args[0]['user_id'] == user_id # request_body dict
+    assert check_purchase_args[1] == mock_plan_id    # plan_id
+    assert check_purchase_args[2] == user_id         # current_user_id
+    # cost (arg 3) and stripe_customer_id (arg 4) might be more complex to assert if dynamically determined.
+
+    mock_full_load.assert_called_once()
+    full_load_args = mock_full_load.call_args[0]
+    assert full_load_args[0] == req_fetch_dataset_full_data_owned['request_body'] # req_body_dict
+    assert full_load_args[1] == mock_plan_id                                   # plan_id
+    assert isinstance(full_load_args[2], str)                                  # prdcer_lyr_id (generated)
+    assert full_load_args[3] == initial_next_page_token_in_db                  # next_page_token from fetch_ggl_nearby
+    assert full_load_args[4] == mock_existing_dataset_in_db                    # initial_geojson_data from fetch_ggl_nearby
+
+    # Verify Stripe methods were NOT called
+    mock_fetch_stripe_customer.assert_not_called()
+    mock_create_stripe_transaction.assert_not_called()
+
+    # DB state check for plan_progress (should be unchanged as full_load is mocked)
+    current_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id)
+    assert current_progress_in_db is not None
+    assert current_progress_in_db['progress'] == initial_plan_progress[mock_plan_id]['progress']
+    assert current_progress_in_db['next_page_token'] == initial_next_page_token_in_db
+
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_full_data_user_owns_dataset(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_full_data_owned # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_full_data_owned['request_body']['user_id']
+    city_name = req_fetch_dataset_full_data_owned['request_body']['city_name']
+    boolean_query = req_fetch_dataset_full_data_owned['request_body']['boolean_query']
+
+    # 1. Define a mock_plan_id based on the request
+    # This logic should mirror how plan IDs are generated or identified in the application
+    mock_plan_id = f"plan_{boolean_query}_{city_name}" # Simplified; actual logic might be more complex
+                                                       # e.g. plan_restaurant_Dubai_full_data
+
+    # 2. Modify user_profile_data for this test to reflect ownership
+    owned_user_profile = copy.deepcopy(user_profile_data)
+    if 'prdcer' not in owned_user_profile:
+        owned_user_profile['prdcer'] = {}
+    if 'prdcer_dataset' not in owned_user_profile['prdcer']:
+        owned_user_profile['prdcer']['prdcer_dataset'] = {}
+    owned_user_profile['prdcer']['prdcer_dataset'][mock_plan_id] = mock_plan_id # Mark as owned
+
+    # 3. Define mock GeoJSON data
+    mock_geojson_features_owned = [{"type": "Feature", "properties": {"name": "Mock Restaurant Dubai Owned"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    mock_geojson_data_for_owned_plan = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features_owned,
+        # "metadata": {"next_page_token": "token_restaurant_dubai_next_full", "plan_name": mock_plan_id} # This structure is if dataset itself contains metadata
+    }
+    # The fetch_ggl_nearby (or equivalent) returns the dataset and tokens separately.
+    initial_next_page_token = "token_restaurant_dubai_page1"
+
+
+    # 4. Prepare initial DB state
+    initial_user_profiles = {user_id: owned_user_profile}
+    initial_datasets = {mock_plan_id: mock_geojson_data_for_owned_plan} # Dataset already exists
+    initial_plan_progress = {
+        mock_plan_id: {
+            "user_id": user_id, # Ensure user_id is part of progress doc if needed
+            "progress": 50, 
+            "last_updated": "2023-01-01T12:00:00Z", # A timestamp sufficiently in the past
+            "completed_at": None,
+            "next_page_token": initial_next_page_token # Store the *actual* next page token for this plan
+        }
+    }
+    
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets=initial_datasets,
+        plan_progress=initial_plan_progress
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 5. Patch external calls
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl, \
+         patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load, \
+         patch("backend_common.stripe_backend.customers.fetch_customer", new_callable=AsyncMock) as mock_fetch_stripe_customer, \
+         patch("stripe.Customer.create_balance_transaction", new_callable=MagicMock) as mock_create_stripe_transaction: # MagicMock for non-async stripe lib
+
+        # Configure mock return values
+        # fetch_ggl_nearby is called to get initial details / first page if dataset is empty or for consistency.
+        # For an owned dataset, this might return the first page from the existing dataset, or be called to confirm plan details.
+        # Let's assume it's called and returns the first page from the existing dataset.
+        mock_fetch_ggl.return_value = (
+            mock_geojson_data_for_owned_plan, # Returns the existing first page data
+            mock_plan_id,
+            initial_next_page_token, # The token for the *next* page of the existing dataset
+            mock_plan_id, # plan_name
+            0 # next_plan_index (irrelevant if data already exists and progress is tracked)
+        )
+        
+        # check_purchase: Since user owns the plan, this should pass without needing Stripe.
+        # The function itself might modify request_body or return values indicating ownership.
+        # For this test, we assume it's called and doesn't raise an error.
+        # The actual check_purchase logic determines if user owns plan_id.
+        # It will read user_profile from DB (which we've set up).
+        mock_check_purchase.return_value = True # Indicating user has access / owns the plan
+
+        # full_load: This is called since it's "full data" action and user owns it.
+        # It should return the current progress.
+        mock_full_load.return_value = initial_plan_progress[mock_plan_id]["progress"] # Return the current progress from DB
+
+        # 6. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_full_data_owned)
+
+    # 7. Assertions
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    # The returned features should be the first page of the existing dataset
+    assert response_data['features'] == mock_geojson_features_owned
+    assert response_data['bknd_dataset_id'] == mock_plan_id
+    assert response_data['progress'] == initial_plan_progress[mock_plan_id]["progress"] # Progress from DB via full_load mock
+    assert response_data['delay_before_next_call'] == 3 # As specified
+    # The next_page_token in response should be the one from the plan_progress collection (or fetch_ggl_nearby if first time)
+    assert response_data['next_page_token'] == initial_next_page_token 
+
+
+    # Verify mock calls
+    # fetch_ggl_nearby might be called to get initial info or first page.
+    mock_fetch_ggl.assert_called_once() 
+
+    # check_purchase should be called to verify ownership or payment status
+    mock_check_purchase.assert_called_once()
+    # Assert specific arguments for check_purchase if necessary
+    # Example: mock_check_purchase.assert_called_with(ANY, mock_plan_id, user_id, ANY)
+    
+    # full_load should be called because user owns the dataset
+    mock_full_load.assert_called_once()
+    # Assert specific arguments for full_load
+    # Expected: (req_body_dict, plan_id, prdcer_lyr_id_from_response, next_page_token_from_fetch_ggl, initial_geojson_data)
+    # The prdcer_lyr_id is generated within the endpoint, so we can't know it beforehand easily.
+    # We can capture it or use ANY from unittest.mock if needed.
+    # For now, checking it was called is a good start.
+    full_load_args = mock_full_load.call_args[0]
+    assert full_load_args[0] == req_fetch_dataset_full_data_owned['request_body']
+    assert full_load_args[1] == mock_plan_id
+    assert isinstance(full_load_args[2], str) # prdcer_lyr_id
+    assert full_load_args[3] == initial_next_page_token # next_page_token from fetch_ggl_nearby
+    assert full_load_args[4] == mock_geojson_data_for_owned_plan # initial_geojson_data from fetch_ggl_nearby
+
+
+    # Verify Stripe methods were NOT called
+    mock_fetch_stripe_customer.assert_not_called()
+    mock_create_stripe_transaction.assert_not_called()
+
+    # Verify DB state for plan_progress (e.g., if last_updated changed, though full_load mock controls what's returned for progress)
+    # The actual update to plan_progress happens inside the full_load background task.
+    # Since we are mocking full_load itself, we won't see its DB side-effects in this specific unit test of the endpoint.
+    # We are testing that the endpoint correctly *initiates* the full_load process.
+    # To test the internals of full_load, separate tests for that function would be needed.
+    current_progress_in_db = mock_db_instance.get_document(PLAN_PROGRESS_COLLECTION, mock_plan_id)
+    assert current_progress_in_db['progress'] == initial_plan_progress[mock_plan_id]['progress'] # Should remain unchanged as full_load is mocked
+
+```python
+# Placeholder for actual type imports if needed for more complex scenarios
+# from all_types.request_dtypes import ReqFetchDataset 
+# from all_types.response_dtypes import ResFetchDataset, ResModel
+# from fastapi_app import ReqModel
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_sample_google_categories_success(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, # Fixture from conftest.py
+    req_fetch_dataset_google_cafe_sample # Fixture from conftest.py
+):
+    user_id = req_fetch_dataset_google_cafe_sample['request_body']['user_id']
+    
+    # 1. Define the mock dataset details to be returned by fetch_ggl_nearby
+    # The bknd_dataset_id is often constructed based on query params or is a specific plan_name.
+    # For 'sample' action, fetch_ggl_nearby might generate a temporary/fixed plan_id or receive one.
+    # Based on the problem description, fetch_ggl_nearby's second return value is bknd_dataset_id.
+    # Let's make it distinct for clarity.
+    mock_bknd_dataset_id = f"google_{req_fetch_dataset_google_cafe_sample['request_body']['city_name']}_{req_fetch_dataset_google_cafe_sample['request_body']['boolean_query']}_sample"
+    mock_plan_name_from_fetcher = mock_bknd_dataset_id # Often the plan_name is the same as bknd_dataset_id for google fetches
+    
+    mock_geojson_features = [{"type": "Feature", "properties": {"name": "Mock Cafe Dubai"}, "geometry": {"type": "Point", "coordinates": [55.2708, 25.2048]}}]
+    
+    # This is what fetch_ggl_nearby is mocked to return as its first element (the geojson_dataset)
+    mock_geojson_data_returned_by_fetch_ggl = {
+        "type": "FeatureCollection",
+        "features": mock_geojson_features,
+        # fetch_ggl_nearby might also include metadata, but the tuple return signature is specific
+    }
+    mock_next_page_token_from_fetcher = "token_cafe_dubai_next_sample"
+
+    # 2. Prepare initial DB state
+    # For a 'sample' action that calls an external fetcher, the 'datasets' collection 
+    # might not need to be pre-populated with this specific data.
+    # The user profile needs to exist for authentication/authorization.
+    initial_user_profiles = {user_id: user_profile_data}
+    db_state = create_initial_db_state(
+        user_profiles=initial_user_profiles,
+        datasets={} # No pre-existing dataset with mock_bknd_dataset_id needed for this 'sample' flow
+    )
+    mock_db_instance.set_initial_data(db_state)
+
+    # 3. Patch data_fetcher.fetch_ggl_nearby
+    with patch("data_fetcher.fetch_ggl_nearby", new_callable=AsyncMock) as mock_fetch_ggl:
+        # fetch_ggl_nearby returns: (geojson_dataset, bknd_dataset_id, next_page_token, plan_name, next_plan_index)
+        mock_fetch_ggl.return_value = (
+            mock_geojson_data_returned_by_fetch_ggl,  # geojson_dataset (dict)
+            mock_bknd_dataset_id,                     # bknd_dataset_id
+            mock_next_page_token_from_fetcher,        # next_page_token
+            mock_plan_name_from_fetcher,              # plan_name
+            0                                         # next_plan_index (0 for sample)
+        )
+
+        # 4. Make the API call
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_google_cafe_sample)
+
+    # 5. Assertions
+    assert response.status_code == 200
+    
+    response_json = response.json()
+    assert "data" in response_json
+    response_data = response_json['data']
+
+    assert response_data['features'] == mock_geojson_features
+    assert response_data['bknd_dataset_id'] == mock_bknd_dataset_id
+    assert response_data['next_page_token'] == mock_next_page_token_from_fetcher
+    assert response_data['progress'] == 0  # As specified for sample action
+    
+    assert 'prdcer_lyr_id' in response_data
+    assert isinstance(response_data['prdcer_lyr_id'], str)
+    try:
+        uuid.UUID(response_data['prdcer_lyr_id']) # Check if it's a valid UUID
+    except ValueError:
+        pytest.fail(f"prdcer_lyr_id '{response_data['prdcer_lyr_id']}' is not a valid UUID")
+        
+    assert response_data['records_count'] == len(mock_geojson_features)
+
+    # Verify that the fetched data was saved to the 'datasets' collection
+    # The endpoint is expected to store the result of fetch_ggl_nearby.
+    # The structure stored in the 'datasets' collection should be the geojson_dataset 
+    # returned by fetch_ggl_nearby, keyed by its bknd_dataset_id.
+    saved_dataset_in_db = mock_db_instance.get_document(DATASETS_COLLECTION, mock_bknd_dataset_id)
+    assert saved_dataset_in_db is not None 
+    assert saved_dataset_in_db == mock_geojson_data_returned_by_fetch_ggl # Verifying the whole dict is stored
+    
+    # Check that fetch_ggl_nearby was called correctly
+    mock_fetch_ggl.assert_called_once()
+    # call_args is a tuple of positional args, call_kwargs is a dict of keyword args
+    pos_args, kw_args = mock_fetch_ggl.call_args
+    
+    # Expected positional arguments based on fetch_ggl_nearby signature (query, city, country, action, page_token, user_id)
+    assert pos_args[0] == req_fetch_dataset_google_cafe_sample['request_body']['boolean_query']
+    assert pos_args[1] == req_fetch_dataset_google_cafe_sample['request_body']['city_name']
+    assert pos_args[2] == req_fetch_dataset_google_cafe_sample['request_body']['country_name']
+    assert pos_args[3] == req_fetch_dataset_google_cafe_sample['request_body']['action']
+    assert pos_args[4] == req_fetch_dataset_google_cafe_sample['request_body']['page_token']
+    assert pos_args[5] == req_fetch_dataset_google_cafe_sample['request_body']['user_id']
+    
+    # Expected keyword arguments
+    assert kw_args.get('text_search') == req_fetch_dataset_google_cafe_sample['request_body']['text_search']
+    assert kw_args.get('radius') == req_fetch_dataset_google_cafe_sample['request_body']['radius']
+    assert kw_args.get('lat') == req_fetch_dataset_google_cafe_sample['request_body']['lat']
+    assert kw_args.get('lng') == req_fetch_dataset_google_cafe_sample['request_body']['lng']
+    assert kw_args.get('zoom_level') == req_fetch_dataset_google_cafe_sample['request_body']['zoom_level']
+    # full_load is part of the request but might not be directly passed to fetch_ggl_nearby if it's handled earlier
+    # For now, assuming it's not a direct kwarg to fetch_ggl_nearby unless known.
+    # assert kw_args.get('full_load') == req_fetch_dataset_google_cafe_sample['request_body']['full_load']
+
+```

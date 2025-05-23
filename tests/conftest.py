@@ -12,17 +12,23 @@ pytest_plugins = 'pytest_asyncio'
 USER_PROFILES_COLLECTION = "all_user_profiles"
 DATASET_LAYER_MATCHING_COLLECTION = "dataset_layer_matching"
 USER_LAYER_MATCHING_COLLECTION = "user_layer_matching"
+DATASETS_COLLECTION = "datasets" # Added for fetch_dataset tests
+PLAN_PROGRESS_COLLECTION = "plan_progress" # Added for fetch_dataset tests (though not used in the first test)
 
 def create_initial_db_state(
     user_profiles: dict | None = None,  # e.g., {user_id1: profile1, user_id2: profile2}
+    datasets: dict | None = None, # Added for fetch_dataset tests
     dataset_layer_matching: dict | None = None,  # e.g., {dataset_id1: data1}
-    user_layer_matching: dict | None = None  # e.g., {user_id1: data1}
+    user_layer_matching: dict | None = None,  # e.g., {user_id1: data1}
+    plan_progress: dict | None = None # Added for fetch_dataset tests
 ) -> dict:
     """
     Helper function to create a structured initial state for MockFirestoreDB.
     """
     state = {
         USER_PROFILES_COLLECTION: user_profiles if user_profiles else {},
+        DATASETS_COLLECTION: datasets if datasets else {},
+        PLAN_PROGRESS_COLLECTION: plan_progress if plan_progress else {},
         DATASET_LAYER_MATCHING_COLLECTION: dataset_layer_matching if dataset_layer_matching else {},
         USER_LAYER_MATCHING_COLLECTION: user_layer_matching if user_layer_matching else {},
     }
@@ -81,6 +87,121 @@ def req_fetch_dataset_real_estate():
             "page_token": "",
             "user_id": "qnVMpp2NbpZArKuJuPL0r9luGP13",
             "zoom_level": 4
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_non_existent_data(user_profile_data):
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "",
+            "page_token": "",
+            "action": "sample", # Keep it simple for "not found"
+            "boolean_query": "query_for_data_that_leads_to_nothing",
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search",
+            "text_search": "",
+            "full_load": False,
+            "radius": 5000,
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_full_load_true_completed(user_profile_data):
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "layer_id_for_completed_plan", # A specific layer ID for this test
+            "page_token": "", 
+            "action": "full data",
+            "boolean_query": "completed_query", 
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search",
+            "text_search": "",
+            "full_load": True, 
+            "radius": 5000,
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_full_data_insufficient(user_profile_data):
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "",
+            "page_token": "",
+            "action": "full data",
+            "boolean_query": "pharmacy", # Yet another new query
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search",
+            "text_search": "",
+            "full_load": False,
+            "radius": 5000,
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_full_data_purchase(user_profile_data): # user_profile_data should NOT show ownership of this dataset
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "",
+            "page_token": "",
+            "action": "full data",
+            "boolean_query": "bank", # A new query for a dataset the user doesn't own
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search",
+            "text_search": "",
+            "full_load": False,
+            "radius": 5000,
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_full_data_owned(user_profile_data):
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "", 
+            "page_token": "",
+            "action": "full data",
+            "boolean_query": "restaurant", 
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search",
+            "text_search": "",
+            "full_load": False, 
+            "radius": 5000,
         }
     }
 
@@ -663,6 +784,53 @@ def res_route_info():
     route_info_mock.route = [leg_info_mock]
 
     return route_info_mock
+
+
+@pytest.fixture
+def req_fetch_dataset_google_cafe_sample(user_profile_data): # Assumes user_profile_data has 'user_id'
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'], # Use user_id from existing fixture
+            "prdcer_lyr_id": "", # Empty for new layer
+            "page_token": "",
+            "action": "sample",
+            "boolean_query": "cafe",
+            "country_name": "United Arab Emirates",
+            "city_name": "Dubai",
+            "lat": 25.2048,
+            "lng": 55.2708,
+            "zoom_level": 12,
+            "search_type": "category_search", # This should map to "google_categories" in backend
+            "text_search": "",
+            "full_load": False,
+            "radius": 5000, 
+        }
+    }
+
+@pytest.fixture
+def req_fetch_dataset_real_estate_sample(user_profile_data): # Assumes user_profile_data has 'user_id'
+    return {
+        "message": "Request from frontend",
+        "request_info": {},
+        "request_body": {
+            "user_id": user_profile_data['user_id'],
+            "prdcer_lyr_id": "",
+            "page_token": "",
+            "action": "sample",
+            "boolean_query": "apartment_for_rent", # Triggers "real_estate" type
+            "country_name": "Saudi Arabia",
+            "city_name": "Riyadh",
+            "lat": 24.7136,
+            "lng": 46.6753,
+            "zoom_level": 12,
+            "search_type": "category_search", # Assuming this is appropriate for real estate too
+            "text_search": "",
+            "full_load": False,
+            "radius": 10000,
+        }
+    }
 
 @pytest.fixture
 def res_route_info_duplicate():
