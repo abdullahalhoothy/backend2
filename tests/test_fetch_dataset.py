@@ -215,6 +215,105 @@ async def test_fetch_dataset_sample_real_estate_success(
     assert kw_args.get('zoom_level') == req_fetch_dataset_real_estate_sample['request_body']['zoom_level']
     assert kw_args.get('text_search') == req_fetch_dataset_real_estate_sample['request_body']['text_search']
 
+# Need to import SqlObject from the root directory
+# from sql_object import SqlObject # No longer needed as Database.fetch is not mocked here for this test
+import copy 
+from backend_common.constants import DEFAULT_LIMIT # To check next_page_token logic
+
+@pytest.mark.asyncio
+async def test_fetch_dataset_sample_real_estate_success(
+    async_client, 
+    mock_db_instance, 
+    user_profile_data, 
+    req_fetch_dataset_real_estate_sample, # This fixture is defined in conftest.py
+    seeded_real_estate_records # This fixture from conftest.py seeds PG and yields the seeded records
+):
+    user_id = req_fetch_dataset_real_estate_sample['request_body']['user_id']
+    req_body = req_fetch_dataset_real_estate_sample['request_body']
+    city_name = req_body['city_name']
+    boolean_query = req_body['boolean_query'] # This is the category, e.g., "apartment_for_rent"
+
+    # Filter seeded_real_estate_records to match what the query in 
+    # req_fetch_dataset_real_estate_sample would find.
+    # The fixture seeds specific records. The request asks for "apartment_for_rent" in "Riyadh".
+    matching_seeded_records = [
+        r for r in seeded_real_estate_records 
+        if r['category'] == boolean_query and r['city'] == city_name
+    ]
+
+    expected_geojson_features = []
+    for record in matching_seeded_records:
+        expected_geojson_features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [record["longitude"], record["latitude"]]},
+            "properties": {
+                "url": record["url"],
+                "price": record["price"],
+                "city": record["city"],
+                "category": record["category"]
+                # Latitude and longitude should NOT be in properties here as per get_real_estate_dataset_from_storage's transformation
+            }
+        })
+    
+    # Determine the expected bknd_dataset_id based on application logic
+    # data_fetcher.fetch_census_realestate -> storage.get_real_estate_dataset_from_storage
+    # filename = f"saudi_real_estate_{request_location.city_name.lower()}_{data_type}"
+    # data_type here is an array in get_real_estate_dataset_from_storage, converted to string
+    data_type_array = [boolean_query] 
+    data_type_array_as_string = "_".join(sorted(data_type_array)).replace(" ", "_")
+    expected_bknd_dataset_id = f"saudi_real_estate_{city_name.lower()}_{data_type_array_as_string}"
+    
+    # Determine expected next_page_token based on the number of matching seeded records
+    # If the number of records matching the query from the seeded data is less than DEFAULT_LIMIT,
+    # then next_page_token should be None (or "" which becomes None in response).
+    expected_next_page_token_in_response = None if len(expected_geojson_features) < DEFAULT_LIMIT else "1" # Simplified for test
+
+    # Firestore related setup (user profile)
+    initial_user_profiles = {user_id: user_profile_data}
+    # Initialize DATASETS_COLLECTION as empty for Firestore mock; data comes from PG for the main assertion
+    db_state_firestore = create_initial_db_state(user_profiles=initial_user_profiles, datasets={})
+    mock_db_instance.set_initial_data(db_state_firestore)
+
+    # Mocks for services not being tested directly (check_purchase, full_load for 'sample' action)
+    # Database.fetch is NOT mocked here.
+    with patch("data_fetcher.check_purchase", new_callable=AsyncMock) as mock_check_purchase, \
+         patch("data_fetcher.full_load", new_callable=AsyncMock) as mock_full_load:
+
+        # For a 'sample' action, check_purchase should pass (no cost usually)
+        mock_check_purchase.return_value = True 
+        mock_full_load.return_value = 0 # Should not be called for sample action typically
+
+        response = await async_client.post("/fastapi/fetch_dataset", json=req_fetch_dataset_real_estate_sample)
+
+    assert response.status_code == 200
+    response_data = response.json()['data']
+
+    # Primary assertions: data from (real) PostgreSQL via seeded_real_estate_records
+    assert response_data['features'] == expected_geojson_features
+    assert response_data['records_count'] == len(expected_geojson_features)
+    assert response_data['bknd_dataset_id'] == expected_bknd_dataset_id
+    assert response_data['next_page_token'] == expected_next_page_token_in_response 
+    assert response_data['prdcer_lyr_id'] is not None 
+    assert response_data['progress'] == 0 # For sample action
+
+    # Assertions for Firestore cache/metadata update
+    # The fetch_dataset logic (specifically via fetch_census_realestate -> get_real_estate_dataset_from_storage)
+    # should save the retrieved (from PG) sample to Firestore datasets collection.
+    expected_firestore_metadata_next_token = "" if len(expected_geojson_features) < DEFAULT_LIMIT else "1" # Stored as "" or actual token
+    
+    saved_dataset_in_firestore = mock_db_instance.get_document(DATASETS_COLLECTION, expected_bknd_dataset_id)
+    assert saved_dataset_in_firestore is not None
+    assert saved_dataset_in_firestore['features'] == expected_geojson_features
+    assert "metadata" in saved_dataset_in_firestore
+    assert saved_dataset_in_firestore["metadata"]["plan_name"] == expected_bknd_dataset_id
+    assert saved_dataset_in_firestore["metadata"]["next_page_token"] == expected_firestore_metadata_next_token
+
+    # Assert that the higher-level mocks were called as expected
+    mock_check_purchase.assert_called_once()
+    # For a "sample" action, full_load is generally not triggered unless specific conditions are met (e.g. existing plan progress)
+    # Based on the problem description, full_load is for "full data" action.
+    mock_full_load.assert_not_called()
+
 
 @pytest.mark.asyncio
 async def test_fetch_dataset_full_data_user_owns_dataset(

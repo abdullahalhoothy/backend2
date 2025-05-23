@@ -4,9 +4,29 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 from fastapi_app import app
 from tests.mock_db import MockFirestoreDB
+from backend_common.database import Database # For DB pool
+from tests.db_utils import seed_table, cleanup_table_by_ids
+from datetime import datetime, timezone
+import json
 
 
 pytest_plugins = 'pytest_asyncio'
+
+# Database fixture to manage connection pool lifecycle for tests that might need direct access
+# or to ensure pool is ready.
+@pytest.fixture(scope="session", autouse=True) # autouse=True to ensure it runs for the session
+async def db_lifecycle():
+    """Manages the database connection pool lifecycle for the test session."""
+    print("Initializing database pool for test session...")
+    await Database.create_pool() # Initialize pool at start of session
+    yield
+    print("Closing database pool after test session...")
+    await Database.close_pool() # Close pool at end of session
+
+@pytest.fixture
+async def db_connection_pool():
+    """Provides the current database connection pool."""
+    return await Database.get_pool()
 
 # Define constants for collection names
 USER_PROFILES_COLLECTION = "all_user_profiles"
@@ -34,6 +54,109 @@ def create_initial_db_state(
     }
     # Add more common collections with default empty states here if they become prevalent
     return state
+
+@pytest.fixture
+async def seeded_dataset_filenames():
+    """Seeds 'schema_marketplace.datasets' with sample data and cleans up afterwards."""
+    table_name = "schema_marketplace.datasets"
+    columns = ["filename", "request_data", "response_data", "created_at"]
+    pk_column = "filename"
+    
+    sample_datasets_data = [
+        {
+            "filename": "test_ds_1.geojson", 
+            "request_data": {"query": "sample_query_1"}, 
+            "response_data": {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "Test Feature 1"}}]}, 
+            "created_at": datetime.now(timezone.utc)
+        },
+        {
+            "filename": "test_ds_2.json", 
+            "request_data": {"query": "another_query"}, 
+            "response_data": {"info": "some other data"}, 
+            "created_at": datetime.now(timezone.utc)
+        }
+    ]
+    
+    data_rows = [
+        (r['filename'], json.dumps(r['request_data']), json.dumps(r['response_data']), r['created_at']) 
+        for r in sample_datasets_data
+    ]
+    
+    seeded_pks = []
+    try:
+        seeded_pks = await seed_table(table_name, columns, data_rows, pk_column)
+        print(f"Seeded dataset filenames: {seeded_pks}") # For visibility during test runs
+        yield seeded_pks 
+    finally:
+        if seeded_pks:
+            print(f"Cleaning up dataset filenames: {seeded_pks}") # For visibility
+            await cleanup_table_by_ids(table_name, pk_column, seeded_pks)
+
+@pytest.fixture
+async def seeded_real_estate_records():
+    """Seeds 'schema_marketplace.saudi_real_estate' with sample data and cleans up afterwards."""
+    table_name = "schema_marketplace.saudi_real_estate"
+    # Columns based on SqlObject.saudi_real_estate_w_bounding_box_and_category
+    # url, price, city, latitude, longitude, category
+    columns = ["url", "price", "city", "latitude", "longitude", "category"]
+    pk_column = "url" # Using 'url' as the primary key for returning and cleanup
+    
+    sample_real_estate_data = [
+        {
+            "url": "http://example.com/property/1", 
+            "price": 750000, 
+            "city": "Riyadh", 
+            "latitude": 24.7000, 
+            "longitude": 46.7000, 
+            "category": "villa_for_sale"
+        },
+        {
+            "url": "http://example.com/property/2", 
+            "price": 300000, 
+            "city": "Jeddah", 
+            "latitude": 21.5000, 
+            "longitude": 39.1500, 
+            "category": "apartment_for_rent"
+        }
+    ]
+    
+    data_rows = [
+        (r['url'], r['price'], r['city'], r['latitude'], r['longitude'], r['category'])
+        for r in sample_real_estate_data
+    ]
+    
+    seeded_pks = []
+    # Define specific records to seed for consistent testing
+    records_to_seed = [
+        {"url": "http://example.com/pgproperty1", "price": 510000, "city": "Riyadh", "latitude": 24.7136, "longitude": 46.6753, "category": "apartment_for_rent"},
+        {"url": "http://example.com/pgproperty2", "price": 610000, "city": "Riyadh", "latitude": 24.7140, "longitude": 46.6750, "category": "apartment_for_rent"},
+        {"url": "http://example.com/pgproperty3", "price": 460000, "city": "Jeddah", "latitude": 21.5433, "longitude": 39.1728, "category": "villa_for_sale"},
+    ]
+    # Ensure data_rows matches the order in 'columns'
+    data_rows = [
+        (r["url"], r["price"], r["city"], r["latitude"], r["longitude"], r["category"]) for r in records_to_seed
+    ]
+    
+    seeded_pks_from_db = [] 
+    try:
+        seeded_pks_from_db = await seed_table(table_name, columns, data_rows, pk_column)
+        # It's crucial that seed_table returns the exact PKs that were inserted and can be used for cleanup.
+        # If seed_table doesn't return PKs, cleanup might fail or be incorrect.
+        print(f"Seeded real estate record URLs from DB: {seeded_pks_from_db}")
+        yield records_to_seed # Yield the original list of dictionaries
+    finally:
+        # Use the PKs that were actually inserted and returned by seed_table for cleanup.
+        if seeded_pks_from_db:
+            print(f"Cleaning up real estate record URLs: {seeded_pks_from_db}")
+            await cleanup_table_by_ids(table_name, pk_column, seeded_pks_from_db)
+        else:
+            # Fallback to using URLs from records_to_seed if seed_table didn't return PKs.
+            # This is less robust as it assumes all intended records were inserted with those exact URLs.
+            urls_to_delete = [r["url"] for r in records_to_seed]
+            if urls_to_delete:
+                print(f"Cleaning up real estate record URLs (using original data as fallback): {urls_to_delete}")
+                await cleanup_table_by_ids(table_name, pk_column, urls_to_delete)
+
 
 @pytest.fixture
 def mock_db_instance():
