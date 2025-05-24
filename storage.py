@@ -538,16 +538,6 @@ def generate_layer_id() -> str:
     return "l" + str(uuid.uuid4())
 
 
-# async def create_real_estate_plan(req: ReqRealEstate) -> list[str]:
-#     country = req.country_name.lower().replace(" ", "_")
-#     folder_path = (
-#         f"{BACKEND_DIR}/{country}/{req.city_name.lower()}/{req.includedTypes[0]}"
-#     )
-#     files = os.listdir(folder_path)
-#     files = [file.split(".json")[0] for file in files]
-#     return files
-
-
 def remove_exclusions_from_id(dataset_id: str) -> str:
     """Removes 'excluding_*' from the dataset ID to find a broader match."""
     parts = dataset_id.split("_")

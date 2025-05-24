@@ -536,6 +536,8 @@ async def process_req_plan(req: ReqFetchDataset):
         
         try:
             plan = await get_plan(plan_name)
+            if not plan:
+                raise Exception(f"no plan found for plan_name: {plan_name}")
             logger.info(f"Found existing plan: {plan_name}")
         except Exception as e:
             logger.error(f"no plan found for plan_name: {plan_name}")

@@ -783,7 +783,7 @@ async def fetch_ggl_nearby(req: ReqFetchDataset):
     # filter out objects with id of n/a which are added in case of error
     filtered_features = []
     for feature in dataset.get("features", []):
-        if feature["properties"]["id"] != "n/a":
+        if feature["properties"].get("id") != "n/a":
             filtered_features.append(feature)
     dataset["features"] = filtered_features
 
