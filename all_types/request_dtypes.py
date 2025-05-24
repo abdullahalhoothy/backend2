@@ -3,7 +3,7 @@ from fastapi import UploadFile
 
 from pydantic import BaseModel, Field
 
-from all_types.internal_types import PrdcerCtlg, UserId
+from all_types.internal_types import PrdcerCtlg, UserId, BooleanQuery
 
 U = TypeVar("U")
 
@@ -168,6 +168,6 @@ class ReqIntelligenceData(BaseModel):
     population:Optional[bool]
     income:Optional[bool]
 
-class ReqClustersForSalesManData(ReqFetchDataset):
+class ReqClustersForSalesManData(BooleanQuery, UserId,ReqCityCountry):
     num_sales_man: int
     distance_limit: float = 2.5

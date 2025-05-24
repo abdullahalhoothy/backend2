@@ -1197,7 +1197,7 @@ async def ep_fetch_population_by_viewport(
 
 @app.post(
     CONF.temp_sales_man_problem,
-    response_model=ResModel[dict],
+    response_model=Any,
     dependencies=[Depends(JWTBearer())],
 )
 async def ep_fetch_clusters_for_sales_man(
@@ -1206,7 +1206,7 @@ async def ep_fetch_clusters_for_sales_man(
     response = await request_handling(
         req.request_body,
         ReqClustersForSalesManData,
-        ResModel[dict],
+        Any,
         get_clusters_for_sales_man,
         wrap_output=True,
     )

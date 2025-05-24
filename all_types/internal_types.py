@@ -19,3 +19,6 @@ class PrdcerCtlg(BaseModel):
 
 class UserId(BaseModel):
     user_id: str
+
+class BooleanQuery(BaseModel):
+    boolean_query: Optional[str] = ""

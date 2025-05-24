@@ -1045,7 +1045,7 @@ async def get_clusters_for_sales_man(
         city_name=req.city_name,
         country_name=req.country_name,
         user_id=req.user_id,
-        full_load=req.full_load,
+        full_load=True,
     )
     places = await fetch_dataset(data_load_req)
     places = places.get("full_load_geojson", {})
@@ -1239,16 +1239,30 @@ async def get_clusters_for_sales_man(
 
     logger.info("Sales territory clustering completed successfully")
 
+
     # import matplotlib.pyplot as plt
-    # # 4 plots in a row, each subplot 3.5x3.5 inches = total ~18x5 inches
-    # plot_results(masked_grided_data.iloc[:,:-1], 4, 1, ["Greens", "Reds", "Blues", "Purples"],
-    #             alpha=0.75, subplot_size=(3.5, 3.5))
-    # # Single plot, 6x6 inches
-    # plot_results(masked_grided_data[["geometry", "group"]], 1, 1, ["tab20c"],
-    #             alpha=1, show_legends=False, edge_color=None, show_title=False,
+    # colors = ["Greens", "Reds", "Blues", "Purples", "Oranges", "YlOrBr", "plasma"]
+    # data_columns = [col for col in masked_grided_data.columns if col != 'geometry']
+    # for i, column in enumerate(data_columns):
+    #     # Create a dataframe with geometry FIRST, then the data column
+    #     single_column_data = masked_grided_data[['geometry', column]].copy()
+        
+    #     plot_results(
+    #         single_column_data, 
+    #         n_cols=1, 
+    #         n_rows=1, 
+    #         colors=[colors[i]], 
+    #         alpha=0.75, 
+    #         subplot_size=(8, 8)
+    #     )
+
+    # # For the group plot
+    # group_data = masked_grided_data[["geometry", "group"]].copy()
+    # plot_results(group_data, 1, 1, ["tab20c"], 
+    #             alpha=1, show_legends=False, edge_color=None, show_title=False, 
     #             subplot_size=(6, 6))
 
-    return masked_grided_data
+    return masked_grided_data.to_json()
 
 
 def plot_results(
