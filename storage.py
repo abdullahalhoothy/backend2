@@ -983,7 +983,7 @@ async def fetch_intelligence_by_viewport(req: ReqIntelligenceData) -> Dict:
     }
     # if income is also true load income
     if req.income:
-        income_file_path = f"Backend/zad_income_geojson/v{req.zoom_level}/all_features.geojson"
+        income_file_path = f"Backend/area_income_geojson/v{req.zoom_level}/all_features.geojson"
         income_data = await use_json(income_file_path, "r")
         intelligence_geojson = combine_income_and_population_data(intelligence_geojson, income_data)
 

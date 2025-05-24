@@ -31,7 +31,7 @@ from storage import (
     store_place_details,
     load_place_details
 )
-from tests.integration.utils import _get_test_data_for_get_call,_get_test_data_for_post_call,_get_test_data_for_street_view
+from tests.utils import _get_test_data_for_get_call,_get_test_data_for_post_call,_get_test_data_for_street_view
 
 logging.basicConfig(
     level=logging.DEBUG,
