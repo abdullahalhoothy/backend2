@@ -5,7 +5,10 @@ from dataclasses import dataclass, field, is_dataclass
 
 @dataclass
 class CommonApiConfig:
+    test_mode: bool = False
+    test_mode_port: int = 8080
     api_key: str = ""
+    secrets_dir:str=""
     backend_base_uri: str = "/fastapi/"
     firebase_api_key: str = ""
     firebase_sp_path: str = ""
@@ -83,17 +86,27 @@ class CommonApiConfig:
     @classmethod
     def get_common_conf(cls):
         conf = cls()
+
+        # Check if we're in test mode
+        if os.getenv("TEST_MODE", "false").lower() == "true":
+            conf.test_mode = True
+
+        if conf.test_mode:
+            conf.secrets_dir = "secrets_test"
+        else:
+            conf.secrets_dir = "secrets"
+
         try:
-            if os.path.exists("secrets/secrets_firebase.json"):
+            if os.path.exists(f"{conf.secrets_dir}/secrets_firebase.json"):
                 with open(
-                    "secrets/secrets_firebase.json", "r", encoding="utf-8"
+                    f"{conf.secrets_dir}/secrets_firebase.json", "r", encoding="utf-8"
                 ) as config_file:
                     data = json.load(config_file)
                     conf.firebase_api_key = data.get("firebase_api_key", "")
                     conf.firebase_sp_path = data.get("firebase_sp_path", "")
 
-            if os.path.exists("secrets/secret_stripe.json"):
-                with open("secrets/secret_stripe.json", "r", encoding="utf-8") as config_file:
+            if os.path.exists(f"{conf.secrets_dir}/secret_stripe.json"):
+                with open(f"{conf.secrets_dir}/secret_stripe.json", "r", encoding="utf-8") as config_file:
                     data = json.load(config_file)
                     conf.stripe_api_key = data.get("stripe_api_key", "")
 

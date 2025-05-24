@@ -73,7 +73,7 @@ class ApiConfig(CommonApiConfig):
     gcloud_images_bucket_path: str = (
         "postgreSQL/dbo_operational/raw_schema_marketplace/catalog_thumbnails"
     )
-    gcloud_bucket_credentials_json_path: str = "secrets/ggl_bucket_sa.json"
+    gcloud_bucket_credentials_json_path: str = "/ggl_bucket_sa.json"
     process_llm_query: str = backend_base_uri + "process_llm_query"
     openai_api_key: str = ""
     gemini_api_key: str = ""
@@ -95,17 +95,20 @@ class ApiConfig(CommonApiConfig):
             }
         )
 
+        if conf.test_mode:
+            conf.gcloud_slocator_bucket_name = ""
+
         try:
-            if os.path.exists("secrets/secrets_gmap.json"):
+            if os.path.exists(f"{conf.secrets_dir}/secrets_gmap.json"):
                 with open(
-                    "secrets/secrets_gmap.json", "r", encoding="utf-8"
+                    f"{conf.secrets_dir}/secrets_gmap.json", "r", encoding="utf-8"
                 ) as config_file:
                     data = json.load(config_file)
                     conf.api_key = data.get("gmaps_api", "")
 
-            if os.path.exists("secrets/secrets_llm.json"):
+            if os.path.exists(f"{conf.secrets_dir}/secrets_llm.json"):
                 with open(
-                    "secrets/secrets_llm.json", "r", encoding="utf-8"
+                    f"{conf.secrets_dir}/secrets_llm.json", "r", encoding="utf-8"
                 ) as config_file:
                     data = json.load(config_file)
                     conf.openai_api_key = data.get("openai_api_key", "")
@@ -117,3 +120,6 @@ class ApiConfig(CommonApiConfig):
 
 
 CONF = ApiConfig.get_conf()
+
+if CONF.test_mode:
+    print(CONF)

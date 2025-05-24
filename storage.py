@@ -14,7 +14,7 @@ from sql_object import SqlObject
 from all_types.request_dtypes import ReqFetchDataset, ReqIntelligenceData
 from all_types.response_dtypes import PopulationViewportData
 from backend_common.logging_wrapper import apply_decorator_to_module
-from backend_common.auth import db
+from backend_common.auth import firebase_db
 import asyncpg
 from backend_common.background import get_background_tasks
 import orjson
@@ -262,7 +262,7 @@ def fetch_layer_owner(prdcer_lyr_id: str) -> str:
 async def load_dataset_layer_matching() -> Dict:
     """Load dataset layer matching from Firestore"""
     try:
-        return await db.get_document("layer_matchings", "dataset_matching")
+        return await firebase_db.get_document("layer_matchings", "dataset_matching")
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             return {}
@@ -276,7 +276,7 @@ async def update_dataset_layer_matching(
     document_id = "dataset_matching"
 
     try:
-        dataset_layer_matching = await db.get_document(
+        dataset_layer_matching = await firebase_db.get_document(
             collection_name, document_id
         )
     except HTTPException as e:
@@ -302,11 +302,11 @@ async def update_dataset_layer_matching(
     dataset_layer_matching[bknd_dataset_id]["records_count"] = records_count
 
     # Update cache immediately
-    db._cache[collection_name][document_id] = dataset_layer_matching
+    firebase_db._cache[collection_name][document_id] = dataset_layer_matching
 
     async def _background_update():
         doc_ref = (
-            db.get_async_client()
+            firebase_db.get_async_client()
             .collection(collection_name)
             .document(document_id)
         )
@@ -323,7 +323,7 @@ async def delete_dataset_layer_matching(
     document_id = "dataset_matching"
 
     try:
-        dataset_layer_matching = await db.get_document(
+        dataset_layer_matching = await firebase_db.get_document(
             collection_name, document_id
         )
     except HTTPException as e:
@@ -352,12 +352,12 @@ async def delete_dataset_layer_matching(
     dataset_layer_matching[bknd_dataset_id]["prdcer_lyrs"].remove(prdcer_lyr_id)
 
     # Update cache immediately
-    db._cache[collection_name][document_id] = dataset_layer_matching
+    firebase_db._cache[collection_name][document_id] = dataset_layer_matching
 
     async def _background_update():
         # Update the dataset layer matching document in the database
         doc_ref = (
-            db.get_async_client()
+            firebase_db.get_async_client()
             .collection(collection_name)
             .document(document_id)
         )
@@ -374,7 +374,7 @@ async def delete_dataset_layer_matching(
 async def load_user_layer_matching() -> Dict:
     """Load user layer matching from Firestore"""
     try:
-        return await db.get_document("layer_matchings", "user_matching")
+        return await firebase_db.get_document("layer_matchings", "user_matching")
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             return {}
@@ -386,7 +386,7 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
     document_id = "user_matching"
 
     try:
-        user_layer_matching = await db.get_document(
+        user_layer_matching = await firebase_db.get_document(
             collection_name, document_id
         )
     except HTTPException as e:
@@ -398,11 +398,11 @@ async def update_user_layer_matching(layer_id: str, layer_owner_id: str):
     user_layer_matching[layer_id] = layer_owner_id
 
     # Update cache immediately
-    db._cache[collection_name][document_id] = user_layer_matching
+    firebase_db._cache[collection_name][document_id] = user_layer_matching
 
     async def _background_update():
         doc_ref = (
-            db.get_async_client()
+            firebase_db.get_async_client()
             .collection(collection_name)
             .document(document_id)
         )
@@ -418,7 +418,7 @@ async def delete_user_layer_matching(layer_id: str):
 
     try:
         # Fetch the current layer matching data
-        user_layer_matching = await db.get_document(
+        user_layer_matching = await firebase_db.get_document(
             collection_name, document_id
         )
     except HTTPException as e:
@@ -442,12 +442,12 @@ async def delete_user_layer_matching(layer_id: str):
     del user_layer_matching[layer_id]
 
     # Update cache immediately
-    db._cache[collection_name][document_id] = user_layer_matching
+    firebase_db._cache[collection_name][document_id] = user_layer_matching
 
     # Background update to persist the change in the database
     async def _background_update():
         doc_ref = (
-            db.get_async_client()
+            firebase_db.get_async_client()
             .collection(collection_name)
             .document(document_id)
         )

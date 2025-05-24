@@ -16,7 +16,7 @@ from backend_common.auth import (
     load_user_profile,
     update_user_profile,
     update_user_profile_settings,
-    db,
+    firebase_db,
 )
 from backend_common.background import get_background_tasks
 from dataset_helper import excecute_dataset_plan
@@ -408,7 +408,7 @@ async def full_load(
 
         skip_flag = False
         plan_progress_ref = (
-            db.get_async_client()
+            firebase_db.get_async_client()
             .collection("plan_progress")
             .document(plan_name)
         )
@@ -741,7 +741,7 @@ async def save_prdcer_ctlg(req: ReqSavePrdcerCtlg) -> str:
                     req.image,
                     CONF.gcloud_slocator_bucket_name,
                     CONF.gcloud_images_bucket_path,
-                    CONF.gcloud_bucket_credentials_json_path,
+                    CONF.secrets_dir + CONF.gcloud_bucket_credentials_json_path,
                 )
                 # serialize url to be saved in firestore safely using base64
                 thumbnail_url = base64.b64encode(
@@ -802,7 +802,7 @@ async def delete_prdcer_ctlg(req: ReqDeletePrdcerCtlg) -> str:
             delete_file_from_google_cloud_bucket(
                 blob_name,
                 CONF.gcloud_slocator_bucket_name,
-                CONF.gcloud_bucket_credentials_json_path,
+                CONF.secrets_dir + CONF.gcloud_bucket_credentials_json_path,
             )
 
         # Update the user profile after deleting the catalog

@@ -157,13 +157,13 @@ class FirestoreDB:
         if self._sync_client:
             self._sync_client.close()
 
-db = None
+firebase_db = None
 # Initialize Firebase admin with firebase credentials
 if os.path.exists(CONF.firebase_sp_path):
     firebase_creds = credentials.Certificate(CONF.firebase_sp_path)
     default_app = firebase_admin.initialize_app(firebase_creds)
     # Create Firestore client with google-auth credentials
-    db = FirestoreDB(CONF.firestore_collections)
+    firebase_db = FirestoreDB(CONF.firestore_collections)
 
 
 class JWTBearer(HTTPBearer):
@@ -402,13 +402,13 @@ async def get_user_email_and_username(user_id: str):
 async def save_customer_mapping(firebase_uid: str, stripe_customer_id: str):
     # Update cache immediately
     collection_name = "firebase_stripe_mappings"
-    db._cache[collection_name][firebase_uid] = {
+    firebase_db._cache[collection_name][firebase_uid] = {
         "stripe_customer_id": stripe_customer_id
     }
 
     async def _background_save():
         doc_ref = (
-            db.get_async_client().collection(collection_name).document(firebase_uid)
+            firebase_db.get_async_client().collection(collection_name).document(firebase_uid)
         )
         await doc_ref.set({"stripe_customer_id": stripe_customer_id})
 
@@ -418,7 +418,7 @@ async def save_customer_mapping(firebase_uid: str, stripe_customer_id: str):
 
 async def get_stripe_customer_id(firebase_uid: str) -> str:
     try:
-        data = await db.get_document("firebase_stripe_mappings", firebase_uid)
+        data = await firebase_db.get_document("firebase_stripe_mappings", firebase_uid)
         return data["stripe_customer_id"]
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
@@ -462,11 +462,11 @@ async def create_user_profile(req: ReqCreateUserProfile):
     }
 
     # Update cache immediately
-    db._cache[collection_name][req.user_id] = user_data
+    firebase_db._cache[collection_name][req.user_id] = user_data
 
     async def _background_create():
         doc_ref = (
-            db.get_async_client().collection(collection_name).document(req.user_id)
+            firebase_db.get_async_client().collection(collection_name).document(req.user_id)
         )
         await doc_ref.set(user_data)
 
@@ -483,7 +483,7 @@ async def update_user_profile(user_id: str, user_data: dict):
             detail="Invalid user_id: user_id cannot be empty"
         )
     
-    existing_data = db._cache[collection_name].get(user_id, {})
+    existing_data = firebase_db._cache[collection_name].get(user_id, {})
     prdcer_data = user_data.get("prdcer", {})
     existing_prdcer = existing_data.get("prdcer", {})
     
@@ -504,11 +504,11 @@ async def update_user_profile(user_id: str, user_data: dict):
         }
     }
     merged_data = {**existing_data, **update_data}
-    db._cache[collection_name][user_id] = merged_data
+    firebase_db._cache[collection_name][user_id] = merged_data
 
 
     async def _background_update():
-        doc_ref = db.get_async_client().collection(collection_name).document(user_id)
+        doc_ref = firebase_db.get_async_client().collection(collection_name).document(user_id)
         # Use Firestore's update instead of set to only update specified fields
         await doc_ref.update(merged_data)
 
@@ -520,7 +520,7 @@ async def update_user_profile_settings(settings_data: UserProfileSettings):
     collection_name = "all_user_profiles"
     user_id = settings_data.user_id
 
-    existing_data = db._cache[collection_name].get(user_id, {})
+    existing_data = firebase_db._cache[collection_name].get(user_id, {})
     
     # Merge existing settings with new settings
     existing_settings = existing_data.get("settings", {})
@@ -539,10 +539,10 @@ async def update_user_profile_settings(settings_data: UserProfileSettings):
 
     # Preserve existing data while applying updates
     merged_data = {**existing_data, **update_data}
-    db._cache[collection_name][user_id] = merged_data
+    firebase_db._cache[collection_name][user_id] = merged_data
 
     async def _background_update():
-        doc_ref = db.get_async_client().collection(collection_name).document(user_id)
+        doc_ref = firebase_db.get_async_client().collection(collection_name).document(user_id)
         # Use Firestore's update instead of set to only update specified fields
         await doc_ref.update(merged_data)
 
@@ -556,7 +556,7 @@ async def load_user_profile(user_id: str) -> dict:
     If the user doesn't exist, creates an empty profile.
     """
     try:
-        return await db.get_document("all_user_profiles", user_id)
+        return await firebase_db.get_document("all_user_profiles", user_id)
     except HTTPException as e:
         if e.status_code == status.HTTP_404_NOT_FOUND:
             req = ReqCreateUserProfile(

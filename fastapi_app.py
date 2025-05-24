@@ -69,7 +69,7 @@ from backend_common.auth import (
     change_password,
     refresh_id_token,
     change_email,
-    db,
+    firebase_db,
     JWTBearer,
     create_user_profile,
 )
@@ -251,14 +251,14 @@ async def background_tasks_middleware(request, call_next):
 @app.on_event("startup")
 async def startup_event():
     await Database.create_pool()
-    await db.initialize_all()
+    await firebase_db.initialize_all()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await Database.close_pool()
     # Run cleanup in a thread to not block
-    await asyncio.get_event_loop().run_in_executor(None, db.cleanup)
+    await asyncio.get_event_loop().run_in_executor(None, firebase_db.cleanup)
     # Wait a moment to ensure threads are cleaned up
     await asyncio.sleep(1)
 

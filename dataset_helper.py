@@ -3,7 +3,7 @@ import json
 import random
 import re
 from collections import defaultdict
-from backend_common.auth import db
+from backend_common.auth import firebase_db
 from google_api_connector import fetch_ggl_nearby
 from all_types.request_dtypes import ReqFetchDataset
 import logging
@@ -101,7 +101,7 @@ async def excecute_dataset_plan(
 
             count_calls += 1
             progress = int((next_plan_index / plan_length) * 100)
-            await db.get_async_client().collection("plan_progress").document(
+            await firebase_db.get_async_client().collection("plan_progress").document(
                 plan_name
             ).set({
                 "progress": progress, 
@@ -113,9 +113,9 @@ async def excecute_dataset_plan(
             break
         
     # Ensure final progress update
-    await db.get_async_client().collection("plan_progress").document(
+    await firebase_db.get_async_client().collection("plan_progress").document(
         plan_name
     ).set({"progress": 100, "completed_at": datetime.now()}, merge=True)
-    await db.get_async_client().collection("all_user_profiles").document(
+    await firebase_db.get_async_client().collection("all_user_profiles").document(
         req.user_id
     ).set({"prdcer_lyrs": {layer_id: {"progress": progress}}}, merge=True)
