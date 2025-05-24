@@ -10,6 +10,10 @@ from datetime import datetime, timezone, timedelta # Added timedelta
 import json
 import os # For environment variables and path operations
 import pathlib # For path operations
+# Imports for new Firestore fixtures
+import tests.firestore_test_utils as firestore_test_utils # Import the module
+import contextlib # For asynccontextmanager
+import copy # For deepcopying fixture data
 
 
 pytest_plugins = 'pytest_asyncio'
@@ -114,10 +118,6 @@ USER_LAYER_MATCHING_COLLECTION = "user_layer_matching"
 DATASETS_COLLECTION = "datasets" 
 PLAN_PROGRESS_COLLECTION = "plan_progress"
 
-# Imports for new Firestore fixtures
-import tests.firestore_test_utils as firestore_test_utils # Import the module
-import contextlib # For asynccontextmanager
-import copy # For deepcopying fixture data
 
 # create_initial_db_state is removed as it was for MockFirestoreDB.
 

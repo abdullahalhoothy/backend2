@@ -76,4 +76,4 @@ async def cleanup_table_by_ids(table_name: str, pk_column_name: str, ids: List[A
     # print(f"Executing cleanup query: {query} with IDs: {ids}") # For debugging
     await Database.execute(query, ids)
 
-```
+

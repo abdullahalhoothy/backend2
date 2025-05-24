@@ -98,4 +98,4 @@ async def cleanup_firestore_documents(collection_path: str, document_ids: List[s
 
     logger.info(f"Requested deletion for {deleted_count} documents from {collection_path}. Encountered {errors_count} errors.")
 
-```
+
