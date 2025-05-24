@@ -1239,14 +1239,14 @@ async def get_clusters_for_sales_man(
 
     logger.info("Sales territory clustering completed successfully")
 
-    import matplotlib.pyplot as plt
-    # 4 plots in a row, each subplot 3.5x3.5 inches = total ~18x5 inches
-    plot_results(masked_grided_data.iloc[:,:-1], 4, 1, ["Greens", "Reds", "Blues", "Purples"],
-                alpha=0.75, subplot_size=(3.5, 3.5))
-    # Single plot, 6x6 inches
-    plot_results(masked_grided_data[["geometry", "group"]], 1, 1, ["tab20c"],
-                alpha=1, show_legends=False, edge_color=None, show_title=False,
-                subplot_size=(6, 6))
+    # import matplotlib.pyplot as plt
+    # # 4 plots in a row, each subplot 3.5x3.5 inches = total ~18x5 inches
+    # plot_results(masked_grided_data.iloc[:,:-1], 4, 1, ["Greens", "Reds", "Blues", "Purples"],
+    #             alpha=0.75, subplot_size=(3.5, 3.5))
+    # # Single plot, 6x6 inches
+    # plot_results(masked_grided_data[["geometry", "group"]], 1, 1, ["tab20c"],
+    #             alpha=1, show_legends=False, edge_color=None, show_title=False,
+    #             subplot_size=(6, 6))
 
     return masked_grided_data
 
