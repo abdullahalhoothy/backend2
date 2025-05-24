@@ -31,6 +31,7 @@ from storage import (
     store_place_details,
     load_place_details
 )
+from tests.integration.utils import _get_test_data_for_get_call,_get_test_data_for_post_call,_get_test_data_for_street_view
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -472,6 +473,10 @@ async def build_compatible_legacy_payload(ggl_api_url, headers, data):
 
 
 async def make_get_api_call(ggl_api_url, headers):
+    # Check if we're in test mode first
+    if CONF.test_mode:
+        logger.info("TEST_MODE: Redirecting GET API call to test database")
+        return await _get_test_data_for_get_call(ggl_api_url, headers)
     max_retries = 3
     retry_count = 0
     while retry_count < max_retries:
@@ -511,6 +516,10 @@ async def make_get_api_call(ggl_api_url, headers):
 
 
 async def make_post_api_call(ggl_api_url, headers, data):
+    # Check if we're in test mode first
+    if CONF.test_mode:
+        logger.info("TEST_MODE: Redirecting POST API call to test database")
+        return await _get_test_data_for_post_call(ggl_api_url, headers, data)
     max_retries = 3
     retry_count = 0
     use_legacy = False
@@ -612,6 +621,10 @@ async def single_ggl_cat_call(
 async def check_street_view_availability(
     req: ReqStreeViewCheck,
 ) -> Dict[str, bool]:
+    # Check if we're in test mode first
+    if CONF.test_mode:
+        logger.info("TEST_MODE: Redirecting Street View API call to test database")
+        return await _get_test_data_for_street_view(req)
     url = f"https://maps.googleapis.com/maps/api/streetview?return_error_code=true&size=600x300&location={req.lat},{req.lng}&heading=151.78&pitch=-0.76&key={CONF.api_key}"
 
     async with aiohttp.ClientSession() as session:
